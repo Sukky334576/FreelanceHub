@@ -1,0 +1,24 @@
+{
+  "name": "Natthawit Studio",
+  "short_name": "Natthawit",
+  "description": "ระบบการเงิน & ตารางงานสตูดิโอ คุณณัฐวิทย์",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#080c16",
+  "theme_color": "#080c16",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=192&auto=format&fit=crop&q=80",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=512&auto=format&fit=crop&q=80",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
