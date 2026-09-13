@@ -775,92 +775,137 @@
     /* =========================================================
        TRANSACTIONS HUB (บันทึกเงิน)
        ========================================================= */
-    .tx-summary-card {
+    /* Transaction Summary Metric Card (Warm-Teal Modern Surface) */
+    .tx-summary-card, .summary-grid {
       background: var(--color-surface);
       border: 1px solid var(--color-border-subtle);
       border-radius: var(--radius-xl);
-      padding: 18px 22px;
+      padding: 16px 20px;
       box-shadow: var(--card-shadow);
       margin-bottom: 16px;
     }
 
-    .tx-summary-row {
+    .tx-summary-row, .summary-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
+      align-items: center;
     }
 
-    .tx-summary-col {
+    .tx-summary-col, .summary-col {
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
 
-    .tx-summary-label {
-      font-size: 0.78rem;
+    .tx-summary-label, .summary-label {
+      font-size: 0.8rem;
       font-weight: 700;
       color: var(--color-text-secondary);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      margin-bottom: 2px;
     }
 
-    .tx-summary-val {
-      font-size: 1.45rem;
+    .tx-summary-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .tx-summary-dot.income {
+      background: var(--color-success);
+      box-shadow: 0 0 6px rgba(11, 157, 131, 0.4);
+    }
+    .tx-summary-dot.expense {
+      background: var(--color-danger);
+      box-shadow: 0 0 6px rgba(235, 36, 55, 0.4);
+    }
+
+    .tx-summary-val, .summary-val {
+      font-size: 1.4rem;
       font-weight: 800;
       line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
     }
 
-    .tx-search-bar {
+    .tx-summary-val.income, .summary-val.income {
+      color: var(--color-success);
+    }
+
+    .tx-summary-val.expense, .summary-val.expense {
+      color: var(--color-danger);
+    }
+
+    /* Transaction Search & Filter Bar */
+    .tx-search-bar, .search-row {
       display: flex;
       gap: 10px;
       margin-bottom: 16px;
+      align-items: center;
     }
 
-    .search-input-wrap {
+    .search-input-wrap, .search-box {
       flex: 1;
       position: relative;
+      display: flex;
+      align-items: center;
     }
 
-    .search-input-wrap i {
+    .search-input-wrap i, .search-box i {
       position: absolute;
-      left: 14px;
+      left: 16px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--color-text-muted);
       font-size: 0.9rem;
+      pointer-events: none;
     }
 
-    .search-input-wrap input {
+    .search-input-wrap input, .search-box input, .search-input {
       width: 100%;
       height: 48px;
       background: var(--color-surface);
-      border: 1px solid var(--color-border);
+      border: 1.5px solid var(--color-border);
       border-radius: var(--radius-md);
-      padding-left: 40px;
+      padding-left: 44px;
       padding-right: 14px;
       color: var(--color-text-primary);
       font-size: 0.88rem;
+      font-family: inherit;
       outline: none;
       transition: var(--transition);
+      box-shadow: 0 1px 4px rgba(18, 42, 46, 0.04);
     }
 
-    .search-input-wrap input:focus {
+    .search-input-wrap input:focus, .search-box input:focus, .search-input:focus {
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px rgba(22, 142, 161, 0.15);
     }
 
-    .filter-select {
+    .filter-select, select.form-select {
       height: 48px;
       background: var(--color-surface);
-      border: 1px solid var(--color-border);
+      border: 1.5px solid var(--color-border);
       border-radius: var(--radius-md);
       padding: 0 14px;
       color: var(--color-text-primary);
       font-size: 0.86rem;
       font-weight: 600;
+      font-family: inherit;
       outline: none;
       cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 1px 4px rgba(18, 42, 46, 0.04);
+      min-width: 130px;
+    }
+
+    .filter-select:focus, select.form-select:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(22, 142, 161, 0.15);
     }
 
     /* Transaction Rows & Date Groups */
@@ -1750,29 +1795,33 @@
             <button class="month-nav-btn" onclick="changeTxMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
 
-          <!-- Summary Metric Card (Matching Screen 01) -->
-          <div class="summary-grid">
-            <div class="summary-col">
-              <div class="summary-label">
-                <i class="fa-solid fa-circle" style="color: var(--accent-income); font-size: 0.55rem;"></i> รับเข้า
+          <!-- Summary Metric Card (Warm-Teal Modern Card) -->
+          <div class="tx-summary-card">
+            <div class="tx-summary-row">
+              <div class="tx-summary-col">
+                <div class="tx-summary-label">
+                  <span class="tx-summary-dot income"></span>
+                  <span>รับเข้า</span>
+                </div>
+                <div class="tx-summary-val income tabular-nums" id="txSummaryIncome">฿0.00</div>
               </div>
-              <div class="summary-val income" id="txSummaryIncome">฿0</div>
-            </div>
-            <div class="summary-col">
-              <div class="summary-label">
-                <i class="fa-solid fa-circle" style="color: var(--accent-expense); font-size: 0.55rem;"></i> จ่ายออก
+              <div class="tx-summary-col" style="border-left: 1px solid var(--color-border-subtle); padding-left: 18px;">
+                <div class="tx-summary-label">
+                  <span class="tx-summary-dot expense"></span>
+                  <span>จ่ายออก</span>
+                </div>
+                <div class="tx-summary-val expense tabular-nums" id="txSummaryExpense">฿0.00</div>
               </div>
-              <div class="summary-val expense" id="txSummaryExpense">฿0</div>
             </div>
           </div>
 
           <!-- Search & Filter Bar -->
-          <div class="search-row">
-            <div class="search-box">
+          <div class="tx-search-bar">
+            <div class="search-input-wrap">
               <i class="fa-solid fa-magnifying-glass"></i>
               <input type="text" id="txSearchInput" class="search-input" placeholder="ค้นหารายการ / หมวดหมู่..." oninput="onTxSearchChange()">
             </div>
-            <select id="txCatFilter" class="form-select" style="width: auto; max-width: 140px;" onchange="onTxCatFilterChange()">
+            <select id="txCatFilter" class="filter-select" onchange="onTxCatFilterChange()">
               <option value="">ทุกหมวดหมู่</option>
             </select>
           </div>
