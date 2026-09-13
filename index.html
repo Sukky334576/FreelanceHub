@@ -1326,6 +1326,30 @@
       border-radius: var(--radius-full);
     }
 
+    .btn-job-trash {
+      background: none;
+      border: none;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+      opacity: 0.65;
+    }
+    .btn-job-trash:hover {
+      background: rgba(235, 36, 55, 0.12);
+      color: var(--color-danger);
+      opacity: 1;
+    }
+
+    .btn-delete-job:hover {
+      background: rgba(235, 36, 55, 0.16) !important;
+    }
+
     /* Alert Banners */
     .alert-banner {
       display: flex;
@@ -1689,10 +1713,9 @@
       }
     }
 
-  </style>
+</style>
 </head>
 <body>
-
 
   <!-- App Layout -->
   <div class="app-layout">
@@ -2563,6 +2586,12 @@
           <button type="submit" id="btnJobSubmit" class="btn-submit-main">
             บันทึกคิวงาน
           </button>
+
+          <div id="jobDeleteBtnWrap" style="display: none; margin-top: 10px;">
+            <button type="button" class="btn-delete-job" onclick="onDeleteCurrentJob()" style="width: 100%; height: 46px; border-radius: var(--radius-md); background: rgba(235, 36, 55, 0.08); border: 1.5px solid rgba(235, 36, 55, 0.25); color: var(--color-danger); font-size: 0.9rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: var(--transition);">
+              <i class="fa-solid fa-trash-can"></i> ลบคิวงานนี้
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -2870,7 +2899,6 @@
 
   <!-- Toast Message -->
   <div id="toast">บันทึกสำเร็จ 🎉</div>
-
 
   <script>
 
@@ -3523,7 +3551,7 @@
         var dStr = dY + '-' + String(dM + 1).padStart(2, '0') + '-' + String(dD).padStart(2, '0');
 
         var isActive = (dStr === selDateStr);
-        var hasJob = appData.jobs.some(function(j) { return j.date === dStr; });
+        var hasJob = appData.jobs.some(function(j) { return isJobOnDate(j, dStr); });
 
         html += '<div class="day-pill ' + (isActive ? 'active' : '') + '" data-cal-date="' + dStr + '" onclick="selectCalDay(this.dataset.calDate)">' +
           '<span class="day-pill-name">' + thaiDaysShort[dayDate.getDay()] + '</span>' +
@@ -3550,12 +3578,34 @@
       return { start: startTime, end: endTime };
     }
 
+    function isJobOnDate(job, dateStr) {
+      if (!job || !job.date) return false;
+      var start = job.date;
+      var end = (job.end_date && job.end_date >= start) ? job.end_date : start;
+      return dateStr >= start && dateStr <= end;
+    }
+
+    function formatJobDateRange(j) {
+      if (!j.end_date || j.end_date <= j.date) return '';
+      var sParts = j.date.split('-');
+      var eParts = j.end_date.split('-');
+      if (sParts.length < 3 || eParts.length < 3) return '';
+      var sD = parseInt(sParts[2], 10);
+      var eD = parseInt(eParts[2], 10);
+      var sM = parseInt(sParts[1], 10) - 1;
+      var eM = parseInt(eParts[1], 10) - 1;
+      if (sM === eM) {
+        return sD + ' - ' + eD + ' ' + thaiMonthsShort[sM];
+      }
+      return sD + ' ' + thaiMonthsShort[sM] + ' - ' + eD + ' ' + thaiMonthsShort[eM];
+    }
+
     function renderTimeline(selDateStr) {
       var box = document.getElementById('timelineList');
       if (!box) return;
 
       var dayJobs = appData.jobs.filter(function(j) {
-        return j.date === selDateStr;
+        return isJobOnDate(j, selDateStr);
       });
 
       var countEl = document.getElementById('calSelectedJobCount');
@@ -3608,6 +3658,7 @@
       dayJobs.forEach(function(j, idx) {
         var times = parseJobTimes(j);
         var cfg = JOB_CONFIG[j.job_type] || JOB_CONFIG['วันถ่ายงาน'];
+        var dateRangeText = formatJobDateRange(j);
 
         html += '<div class="timeline-row">' +
           '<div class="timeline-time-col">' +
@@ -3621,17 +3672,21 @@
           '<div class="timeline-card-col">' +
             '<div class="job-timeline-card" onclick="openEditJob(' + j.id + ')">' +
               '<div class="job-card-main">' +
-                '<h4>' + escapeHtml(j.title) + '</h4>' +
+                '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">' +
+                  '<h4>' + escapeHtml(j.title) + '</h4>' +
+                  (dateRangeText ? '<span style="font-size:0.72rem; font-weight:700; color:var(--color-primary); background:var(--color-primary-light); padding:2px 8px; border-radius:var(--radius-full); display:inline-flex; align-items:center; gap:4px;"><i class="fa-regular fa-calendar"></i> ' + dateRangeText + '</span>' : '') +
+                '</div>' +
                 '<div class="job-card-location">' +
-                  '<i class="fa-solid fa-location-dot" style="color:var(--accent-primary);"></i> ' +
+                  '<i class="fa-solid fa-location-dot" style="color:var(--color-primary);"></i> ' +
                   (j.location ? escapeHtml(j.location) : 'ไม่ได้ระบุสถานที่') +
                   (j.budget ? ' • ฿' + (parseFloat(j.budget)||0).toLocaleString() : '') +
                 '</div>' +
               '</div>' +
-              '<div style="display:flex; align-items:center; gap:8px;">' +
+              '<div style="display:flex; align-items:center; gap:6px;">' +
                 '<span class="job-type-pill" style="background:' + cfg.bg + '; color:' + cfg.color + '; border-color:' + cfg.border + ';">' +
                   cfg.icon + ' ' + (cfg.label || j.job_type) +
                 '</span>' +
+                '<button type="button" class="btn-job-trash" onclick="event.stopPropagation(); deleteJob(' + j.id + ');" title="ลบคิวงาน"><i class="fa-solid fa-trash-can"></i></button>' +
                 '<i class="fa-solid fa-chevron-right tx-chevron"></i>' +
               '</div>' +
             '</div>' +
@@ -3648,7 +3703,7 @@
       if (!banner) return;
 
       var tomStr = getTomorrowDateStr();
-      var tomJobs = appData.jobs.filter(function(j) { return j.date === tomStr; });
+      var tomJobs = appData.jobs.filter(function(j) { return isJobOnDate(j, tomStr); });
       if (tomJobs.length > 0) {
         banner.style.display = 'flex';
         bannerText.textContent = 'พรุ่งนี้มีคิวงาน ' + tomJobs.length + ' งาน: ' + tomJobs[0].title;
@@ -3678,7 +3733,7 @@
         var dStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
         var isSel = (dStr === selDateStr);
         var isToday = (dStr === todayStr);
-        var dayJobs = appData.jobs.filter(function(j) { return j.date === dStr; });
+        var dayJobs = appData.jobs.filter(function(j) { return isJobOnDate(j, dStr); });
 
         // Mobile dots (colored by job type)
         var dotsHtml = '<div class="cal-dots-row">';
@@ -3733,7 +3788,7 @@
         titleEl.textContent = 'คิวงานวัน' + thaiDaysFull[calSelectedDate.getDay()] + 'ที่ ' + d + ' ' + thaiMonthsShort[m] + ' ' + (y + 543);
       }
 
-      var dayJobs = appData.jobs.filter(function(j) { return j.date === selDateStr; });
+      var dayJobs = appData.jobs.filter(function(j) { return isJobOnDate(j, selDateStr); });
       if (countEl) {
         countEl.textContent = dayJobs.length + ' งาน';
       }
@@ -3750,16 +3805,22 @@
       dayJobs.forEach(function(j) {
         var cfg = JOB_CONFIG[j.job_type] || JOB_CONFIG['วันถ่ายงาน'];
         var times = parseJobTimes(j);
+        var dateRangeText = formatJobDateRange(j);
+
         html += '<div class="job-timeline-card" onclick="openEditJob(' + j.id + ')" style="margin-bottom:8px;">' +
           '<div class="job-card-main">' +
-            '<div style="font-size:0.75rem; font-weight:700; color:var(--accent-primary); margin-bottom:3px; font-variant-numeric:tabular-nums;"><i class="fa-regular fa-clock"></i> ' + times.start + ' - ' + times.end + '</div>' +
-            '<h4>' + escapeHtml(j.title) + '</h4>' +
-            (j.location ? '<div class="job-card-location"><i class="fa-solid fa-location-dot" style="color:var(--accent-cyan);"></i> ' + escapeHtml(j.location) + '</div>' : '') +
-            (j.budget ? '<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">งบประมาณ: ฿' + (parseFloat(j.budget)||0).toLocaleString() + '</div>' : '') +
+            '<div style="font-size:0.75rem; font-weight:700; color:var(--color-primary); margin-bottom:3px; font-variant-numeric:tabular-nums;"><i class="fa-regular fa-clock"></i> ' + times.start + ' - ' + times.end + '</div>' +
+            '<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">' +
+              '<h4>' + escapeHtml(j.title) + '</h4>' +
+              (dateRangeText ? '<span style="font-size:0.72rem; font-weight:700; color:var(--color-primary); background:var(--color-primary-light); padding:2px 8px; border-radius:var(--radius-full); display:inline-flex; align-items:center; gap:4px;"><i class="fa-regular fa-calendar"></i> ' + dateRangeText + '</span>' : '') +
+            '</div>' +
+            (j.location ? '<div class="job-card-location"><i class="fa-solid fa-location-dot" style="color:var(--color-primary);"></i> ' + escapeHtml(j.location) + '</div>' : '') +
+            (j.budget ? '<div style="font-size:0.75rem; color:var(--color-text-muted); margin-top:4px;">งบประมาณ: ฿' + (parseFloat(j.budget)||0).toLocaleString() + '</div>' : '') +
           '</div>' +
-          '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">' +
+          '<div style="display:flex; align-items:center; gap:6px;">' +
             '<span class="job-type-pill" style="background:' + cfg.bg + '; color:' + cfg.color + ';">' + cfg.icon + ' ' + escapeHtml(j.job_type) + '</span>' +
-            '<i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:0.75rem;"></i>' +
+            '<button type="button" class="btn-job-trash" onclick="event.stopPropagation(); deleteJob(' + j.id + ');" title="ลบคิวงาน"><i class="fa-solid fa-trash-can"></i></button>' +
+            '<i class="fa-solid fa-chevron-right" style="color:var(--color-text-muted); font-size:0.75rem;"></i>' +
           '</div>' +
         '</div>';
       });
@@ -3793,6 +3854,8 @@
       document.getElementById('jobDescription').value = '';
       document.getElementById('jobRemark').value = '';
       document.getElementById('jobModalConflictWarning').style.display = 'none';
+      var delWrap = document.getElementById('jobDeleteBtnWrap');
+      if (delWrap) delWrap.style.display = 'none';
       document.getElementById('jobDrawer').classList.add('active');
     }
 
@@ -3818,6 +3881,8 @@
       document.getElementById('jobRemark').value = job.remark || '';
 
       checkJobConflicts();
+      var delWrap = document.getElementById('jobDeleteBtnWrap');
+      if (delWrap) delWrap.style.display = 'block';
       document.getElementById('jobDrawer').classList.add('active');
     }
 
@@ -3835,9 +3900,14 @@
         return;
       }
 
+      var jEndDateInput = document.getElementById('jobEndDate');
+      var jEndDate = (jEndDateInput && jEndDateInput.value && jEndDateInput.value >= jDate) ? jEndDateInput.value : jDate;
       var conflictJob = appData.jobs.find(function(j) {
         if (editId && j.id === editId) return false;
-        if (j.date !== jDate) return false;
+        var otherStart = j.date;
+        var otherEnd = (j.end_date && j.end_date >= j.date) ? j.end_date : j.date;
+        var datesOverlap = (jDate <= otherEnd && otherStart <= jEndDate);
+        if (!datesOverlap) return false;
         var otherTimes = parseJobTimes(j);
         return (sTime < otherTimes.end && otherTimes.start < eTime);
       });
@@ -3898,6 +3968,34 @@
           btnSubmit.disabled = false;
           btnSubmit.textContent = 'บันทึกคิวงาน';
         }
+      }
+    }
+
+    async function deleteJob(id) {
+      var job = appData.jobs.find(function(j) { return j.id === id; });
+      var title = job ? job.title : 'คิวงานนี้';
+      if (!confirm('ต้องการลบคิวงาน ' + title + ' ใช่หรือไม่? ข้อมูลจะถูกลบออกจากระบบ')) {
+        return;
+      }
+
+      try {
+        setSyncStatus('saving');
+        var res = await db.from('jobs').delete().eq('id', id);
+        if (res.error) throw res.error;
+        showToast('ลบคิวงานเรียบร้อยแล้ว 🗑️');
+        closeAllDrawers();
+        await loadAllData();
+      } catch(e) {
+        console.error('Delete job error:', e);
+        alert('ลบคิวงานไม่สำเร็จ: ' + (e.message || e));
+        setSyncStatus('synced');
+      }
+    }
+
+    function onDeleteCurrentJob() {
+      var editId = parseInt(document.getElementById('jobEditId').value, 10);
+      if (editId) {
+        deleteJob(editId);
       }
     }
 
@@ -4096,8 +4194,12 @@
       // 5. Critical Agenda: Shoots in next 7 days
       var jobsListEl = document.getElementById('dashJobsList');
       if (jobsListEl) {
+        var next7Date = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        var next7Str = next7Date.getFullYear() + '-' + String(next7Date.getMonth() + 1).padStart(2, '0') + '-' + String(next7Date.getDate()).padStart(2, '0');
         var upcomingJobs = appData.jobs.filter(function(j) {
-          return (j.date >= todayStr);
+          var start = j.date;
+          var end = (j.end_date && j.end_date >= start) ? j.end_date : start;
+          return (start <= next7Str && end >= todayStr);
         }).slice(0, 3);
 
         if (upcomingJobs.length === 0) {
