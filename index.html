@@ -86,7 +86,9 @@
       --card-shadow: 0 3px 12px rgba(18, 42, 46, 0.08);
       --card-shadow-hover: 0 6px 20px rgba(18, 42, 46, 0.12);
       --sidebar-width: 260px;
-      --bottom-nav-height: 66px;
+      --bottom-nav-height: 64px;
+      --bottom-nav-label-size: 0.75rem;
+      --bottom-action-height: 52px;
       --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -565,7 +567,7 @@
 
     .kpi-card {
       background: var(--color-surface);
-      border: 1px solid var(--color-border-subtle);
+      border: 1.5px solid var(--color-border-subtle);
       border-radius: var(--radius-lg);
       padding: 16px 18px;
       box-shadow: var(--card-shadow);
@@ -573,11 +575,34 @@
       flex-direction: column;
       justify-content: space-between;
       transition: var(--transition);
+      cursor: pointer;
+      user-select: none;
+      position: relative;
     }
 
     .kpi-card:hover {
       transform: translateY(-2px);
       box-shadow: var(--card-shadow-hover);
+      border-color: rgba(22, 142, 161, 0.4);
+    }
+
+    .kpi-card:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .kpi-drilldown-hint {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      transition: gap 0.15s ease;
+    }
+    .kpi-card:hover .kpi-drilldown-hint {
+      gap: 7px;
     }
 
     .kpi-card-header {
@@ -997,43 +1022,56 @@
     .tx-amount.income { color: var(--color-success); }
     .tx-amount.expense { color: var(--color-danger); }
 
-    /* Floating Action Button (FAB) */
+    /* Floating Action Button (FAB - Ergonomic & Non-overlapping) */
     .fab-container {
       position: fixed;
-      bottom: calc(var(--bottom-nav-height) + 16px);
-      left: 50%;
-      transform: translateX(-50%);
+      inset-inline: 16px;
+      bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
+      min-height: var(--bottom-action-height);
+      max-width: 460px;
+      margin: 0 auto;
       z-index: 90;
-      width: calc(100% - 32px);
-      max-width: 440px;
       display: flex;
       justify-content: center;
+      pointer-events: none;
+    }
+
+    .fab-container > * {
+      pointer-events: auto;
     }
 
     .btn-fab-main {
       width: 100%;
-      height: 50px;
+      height: var(--bottom-action-height);
       border-radius: var(--radius-full);
       background: var(--color-primary);
-      color: #fff;
+      color: #FFFFFF;
       font-size: 0.96rem;
-      font-weight: 800;
+      font-weight: 700;
       border: none;
       box-shadow: 0 6px 20px rgba(22, 142, 161, 0.38);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       transition: var(--transition);
     }
 
     .btn-fab-main:hover {
       background: var(--color-primary-hover);
-      transform: translateY(-2px);
+      transform: translateY(-1px);
     }
 
     .btn-fab-main:active { transform: scale(0.98); }
+
+    .page-container, .tab-content {
+      padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--bottom-action-height) + 36px) !important;
+    }
+
+    body.keyboard-open .fab-container {
+      display: none !important;
+    }
 
     /* =========================================================
        SCHEDULE & CALENDAR
@@ -1373,50 +1411,74 @@
     }
 
     /* =========================================================
-       BOTTOM NAVIGATION (5 Tabs for Mobile)
+       BOTTOM NAVIGATION (5 Equal Tabs for Mobile - Ergonomic)
        ========================================================= */
     .mobile-bottom-nav {
       position: fixed;
+      inset-inline: 0;
       bottom: 0;
-      left: 0;
-      right: 0;
-      height: var(--bottom-nav-height);
       background: #FFFFFF;
-      border-top: 1px solid var(--color-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      z-index: 200;
       padding-bottom: env(safe-area-inset-bottom, 0px);
+      border-top: 1px solid #E2E5E3;
+      z-index: 200;
       box-shadow: 0 -2px 14px rgba(18, 42, 46, 0.05);
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      min-height: var(--bottom-nav-height);
     }
 
     .nav-tab-btn {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
+      gap: 4px;
+      padding: 8px 2px;
+      min-width: 0;
+      min-height: 48px;
+      color: #62666D;
       background: none;
       border: none;
-      color: var(--color-text-muted);
       cursor: pointer;
-      height: 100%;
-      transition: var(--transition);
-      position: relative;
-      padding: 6px 0;
+      transition: color 0.15s ease;
+      text-decoration: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .nav-tab-btn i { font-size: 1.15rem; }
-    .nav-tab-btn span { font-size: 0.68rem; font-weight: 700; letter-spacing: -0.01em; }
+    .nav-tab-btn i {
+      font-size: 20px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
 
-    .nav-tab-btn.active {
-      color: var(--color-primary);
+    .nav-tab-btn span {
+      font-size: var(--bottom-nav-label-size);
+      line-height: 18px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      max-width: 100%;
+    }
+
+    .nav-tab-btn.active,
+    .nav-tab-btn[aria-current="page"] {
+      color: #117585;
+    }
+
+    .nav-tab-btn.active span,
+    .nav-tab-btn[aria-current="page"] span {
+      font-weight: 600;
     }
 
     .nav-tab-btn.active i {
-      transform: scale(1.08);
+      transform: scale(1.06);
     }
 
     /* =========================================================
@@ -1682,6 +1744,481 @@
       color: var(--color-text-muted);
     }
 
+    /* =========================================================
+       MY WALLETS / ACCOUNTS SECTION
+       ========================================================= */
+    .section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 24px 0 12px 0;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-section-action {
+      background: var(--color-surface);
+      border: 1.5px solid var(--color-border);
+      color: var(--color-primary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+      box-shadow: 0 1px 4px rgba(18, 42, 46, 0.04);
+    }
+
+    .btn-section-action:hover {
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+
+    .wallet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .wallet-card {
+      background: var(--color-surface);
+      border: 1.5px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      transition: var(--transition);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .wallet-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--card-shadow-hover);
+      border-color: rgba(22, 142, 161, 0.35);
+    }
+
+    .wallet-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .wallet-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .wallet-name-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .wallet-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .wallet-type-tag {
+      font-size: 0.7rem;
+      color: var(--color-text-muted);
+    }
+
+    .wallet-bal {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      margin-top: 2px;
+    }
+
+    .wallet-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid var(--color-surface-muted);
+      font-size: 0.74rem;
+      color: var(--color-text-secondary);
+    }
+
+    .wallet-quick-btn {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      font-weight: 700;
+      font-size: 0.72rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: var(--radius-xs);
+    }
+
+    .wallet-quick-btn:hover {
+      background: var(--color-primary-light);
+    }
+
+    /* =========================================================
+       DEBTS & INSTALLMENTS SECTION
+       ========================================================= */
+    .debt-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .debt-summary-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .debt-summary-col:not(:last-child) {
+      border-right: 1px solid var(--color-border-subtle);
+      padding-right: 10px;
+    }
+
+    .debt-summary-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    .debt-summary-val {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--color-text-primary);
+    }
+
+    .debt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .debt-card {
+      background: var(--color-surface);
+      border: 1.5px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: var(--transition);
+    }
+
+    .debt-card:hover {
+      box-shadow: var(--card-shadow-hover);
+      border-color: rgba(22, 142, 161, 0.3);
+    }
+
+    .debt-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .debt-card-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: var(--color-text-primary);
+    }
+
+    .debt-lender-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-primary-light);
+      color: var(--color-primary-dark);
+      white-space: nowrap;
+    }
+
+    .debt-progress-container {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .debt-progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    .debt-progress-track {
+      height: 7px;
+      background: var(--color-surface-muted);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .debt-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #168EA1, #0B9D83);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    .debt-metrics-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 0.78rem;
+    }
+
+    .debt-metric-box {
+      background: var(--color-background);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    .debt-metric-lbl {
+      font-size: 0.68rem;
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+
+    .debt-metric-num {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      margin-top: 2px;
+    }
+
+    .debt-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+      border-top: 1px solid var(--color-surface-muted);
+    }
+
+    .btn-pay-debt {
+      background: var(--color-primary);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+    }
+
+    .btn-pay-debt:hover {
+      background: var(--color-primary-hover);
+    }
+
+    /* =========================================================
+       CREDIT & CASH CARDS TRACKER
+       ========================================================= */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .card-tracker-card {
+      background: linear-gradient(135deg, #164F57 0%, #0F373D 100%);
+      color: #FFFFFF;
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: 0 4px 16px rgba(22, 79, 87, 0.25);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+      position: relative;
+    }
+
+    .card-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .card-issuer-name {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      opacity: 0.8;
+      font-weight: 600;
+    }
+
+    .card-nickname {
+      font-size: 0.95rem;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .card-digits {
+      font-size: 0.82rem;
+      font-family: monospace;
+      letter-spacing: 0.12em;
+      opacity: 0.9;
+      margin: 8px 0;
+    }
+
+    .card-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 0.72rem;
+    }
+
+    /* =========================================================
+       BREAKDOWN MODALS & HORIZONTAL BARS
+       ========================================================= */
+    .breakdown-summary-banner {
+      background: var(--color-primary-soft);
+      border: 1px solid rgba(22, 142, 161, 0.15);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .breakdown-row {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .breakdown-row:hover {
+      border-color: var(--color-primary);
+      background: var(--color-surface-elevated);
+    }
+
+    .breakdown-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .breakdown-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .rank-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .rank-badge.rank-1 { background: #FEF3C7; color: #D97706; }
+    .rank-badge.rank-2 { background: #E5E7EB; color: #4B5563; }
+    .rank-badge.rank-3 { background: #FFEDD5; color: #C2410C; }
+    .rank-badge.rank-other { background: var(--color-surface-muted); color: var(--color-text-muted); }
+
+    .breakdown-item-name {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .breakdown-right {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .breakdown-item-val {
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .breakdown-item-pct {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--color-text-muted);
+    }
+
+    .breakdown-bar-track {
+      height: 6px;
+      background: var(--color-surface-muted);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .breakdown-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
     /* Desktop Viewport Breakpoints */
     @media (min-width: 1024px) {
       .desktop-sidebar {
@@ -1716,6 +2253,7 @@
 </style>
 </head>
 <body>
+
 
   <!-- App Layout -->
   <div class="app-layout">
@@ -2012,10 +2550,29 @@
             </div>
           </div>
 
-          <!-- 6 KPI Cards Grid -->
+          <!-- My Wallets Section -->
+          <div class="section-header-row">
+            <div class="section-title">
+              <i class="fa-solid fa-wallet" style="color: var(--color-primary);"></i>
+              <span>กระเป๋าเงินของฉัน</span>
+            </div>
+            <div class="section-actions">
+              <button type="button" class="btn-section-action" onclick="openTransferModal()">
+                <i class="fa-solid fa-money-bill-transfer"></i> โอนเงินภายใน
+              </button>
+              <button type="button" class="btn-section-action" onclick="openAddWalletModal()">
+                <i class="fa-solid fa-plus"></i> เพิ่มกระเป๋า
+              </button>
+            </div>
+          </div>
+          <div id="dashWalletsList" class="wallet-grid">
+            <!-- Rendered dynamically by renderWallets() -->
+          </div>
+
+          <!-- 6 KPI Cards Grid (Clickable Drill-Down) -->
           <div class="kpi-grid">
             <!-- 1. รายรับ -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="openIncomeBreakdownModal()" role="button" tabindex="0" title="คลิกดูสรุปรายรับแยกตามงาน">
               <div class="kpi-card-header">
                 <span class="kpi-title">รายรับช่วงนี้</span>
                 <div class="kpi-icon-box" style="background: var(--color-success-soft); color: var(--color-success);">
@@ -2024,10 +2581,11 @@
               </div>
               <div id="dashKpiIncome" class="kpi-num tabular-nums" style="color: var(--color-success);">+฿0.00</div>
               <div class="kpi-sub" id="dashKpiIncomeSub">จากรายการเงินที่บันทึก</div>
+              <div class="kpi-drilldown-hint">ดูตามงาน/โปรเจกต์ <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 2. รายจ่าย -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="openExpenseBreakdownModal()" role="button" tabindex="0" title="คลิกดูสัดส่วนและอันดับรายจ่าย">
               <div class="kpi-card-header">
                 <span class="kpi-title">รายจ่ายช่วงนี้</span>
                 <div class="kpi-icon-box" style="background: var(--color-danger-soft); color: var(--color-danger);">
@@ -2036,10 +2594,11 @@
               </div>
               <div id="dashKpiExpense" class="kpi-num tabular-nums" style="color: var(--color-danger);">−฿0.00</div>
               <div class="kpi-sub" id="dashKpiExpenseSub">รวมต้นทุนและค่าใช้จ่าย</div>
+              <div class="kpi-drilldown-hint">ดูสัดส่วนรายจ่าย <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 3. ส่วนต่างรับ-จ่าย -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="openCashflowNetModal()" role="button" tabindex="0" title="คลิกดูสรุปส่วนต่างกระแสเงินสด">
               <div class="kpi-card-header">
                 <span class="kpi-title">ส่วนต่างรับ-จ่าย</span>
                 <div class="kpi-icon-box" style="background: var(--color-primary-light); color: var(--color-primary);">
@@ -2048,10 +2607,11 @@
               </div>
               <div id="dashKpiNet" class="kpi-num tabular-nums" style="color: var(--color-primary);">฿0.00</div>
               <div class="kpi-sub" id="dashKpiNetSub">กำไรส่วนต่างกระแสเงินสด</div>
+              <div class="kpi-drilldown-hint">ดูรายละเอียด <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 4. เงินค้างรับจากลูกค้า -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="openReceivablesModal()" role="button" tabindex="0" title="คลิกดูรายการเงินค้างรับจากลูกค้า">
               <div class="kpi-card-header">
                 <span class="kpi-title">เงินค้างรับจากลูกค้า</span>
                 <div class="kpi-icon-box" style="background: var(--color-warning-soft); color: #B45309;">
@@ -2060,10 +2620,11 @@
               </div>
               <div id="dashKpiUnpaid" class="kpi-num tabular-nums" style="color: #B45309;">฿0.00</div>
               <div class="kpi-sub" id="dashKpiUnpaidSub">0 โปรเจกต์รองวดเงิน</div>
+              <div class="kpi-drilldown-hint" style="color:#B45309;">ดูรายชื่องานค้าง <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 5. บิลรอชำระ -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="goToPendingBills()" role="button" tabindex="0" title="คลิกไปหน้าบิลรายเดือน">
               <div class="kpi-card-header">
                 <span class="kpi-title">บิลรอชำระเดือนนี้</span>
                 <div class="kpi-icon-box" style="background: var(--color-danger-soft); color: var(--color-danger);">
@@ -2072,10 +2633,11 @@
               </div>
               <div id="dashKpiBills" class="kpi-num tabular-nums" style="color: var(--color-danger);">0 บิล</div>
               <div class="kpi-sub" id="dashKpiBillsSub">ยอดรวม ฿0.00</div>
+              <div class="kpi-drilldown-hint" style="color:var(--color-danger);">ไปหน้าบิลรอชำระ <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 6. ค่างวดหนี้ / ภาระผูกพัน -->
-            <div class="kpi-card">
+            <div class="kpi-card" onclick="scrollToDebtsSection()" role="button" tabindex="0" title="คลิกดูรายการหนี้สินและการผ่อนชำระ">
               <div class="kpi-card-header">
                 <span class="kpi-title">ค่างวดผ่อน / ภาระเดือนนี้</span>
                 <div class="kpi-icon-box" style="background: #F3E8FF; color: #7E22CE;">
@@ -2084,6 +2646,7 @@
               </div>
               <div id="dashKpiDebts" class="kpi-num tabular-nums" style="color: #7E22CE;">฿0.00</div>
               <div class="kpi-sub" id="dashKpiDebtsSub">ค่างวดผ่อนประจำเดือน</div>
+              <div class="kpi-drilldown-hint" style="color:#7E22CE;">ดูรายการผ่อนชำระ <i class="fa-solid fa-chevron-right"></i></div>
             </div>
           </div>
 
@@ -2108,6 +2671,53 @@
               <button class="action-pill" onclick="openPdfDrawer()">
                 <i class="fa-solid fa-file-lines" style="color: #7E22CE;"></i> ออกใบเสนอราคา/แจ้งหนี้
               </button>
+            </div>
+          </div>
+
+          <!-- Debts & Cards Section -->
+          <div id="debtsSection" style="scroll-margin-top: 80px;">
+            <div class="section-header-row">
+              <div class="section-title">
+                <i class="fa-solid fa-credit-card" style="color: #7E22CE;"></i>
+                <span>หนี้สิน & การผ่อนชำระ</span>
+              </div>
+              <div class="section-actions">
+                <button type="button" class="btn-section-action" onclick="openAddDebtModal()">
+                  <i class="fa-solid fa-plus"></i> เพิ่มรายการหนี้/ผ่อน
+                </button>
+                <button type="button" class="btn-section-action" onclick="openAddCardModal()">
+                  <i class="fa-solid fa-credit-card"></i> บัตรเครดิต/กดเงินสด
+                </button>
+              </div>
+            </div>
+
+            <!-- Debt Summary 3 Metrics -->
+            <div class="debt-summary-grid">
+              <div class="debt-summary-col">
+                <span class="debt-summary-label">เงินต้นคงเหลือรวม</span>
+                <span id="dashDebtTotalPrincipal" class="debt-summary-val tabular-nums" style="color:#7E22CE;">฿0.00</span>
+              </div>
+              <div class="debt-summary-col">
+                <span class="debt-summary-label">งวดต้องจ่ายเดือนนี้</span>
+                <span id="dashDebtMonthlyDue" class="debt-summary-val tabular-nums" style="color:var(--color-danger);">฿0.00</span>
+              </div>
+              <div class="debt-summary-col">
+                <span class="debt-summary-label">สัญญาที่ยังผ่อน</span>
+                <span id="dashDebtActiveCount" class="debt-summary-val tabular-nums">0 สัญญา</span>
+              </div>
+            </div>
+
+            <!-- Debts List Grid -->
+            <div id="dashDebtsList" class="debt-grid">
+              <!-- Rendered dynamically by renderDebts() -->
+            </div>
+
+            <!-- Cards List Grid -->
+            <div class="section-title" style="font-size: 0.95rem; margin: 18px 0 10px 0; color: var(--color-text-secondary);">
+              <i class="fa-solid fa-id-card"></i> บัตรเครดิตและบัตรกดเงินสดที่ติดตาม (ภาระหนี้สิน)
+            </div>
+            <div id="dashCardsList" class="cards-grid">
+              <!-- Rendered dynamically by renderCards() -->
             </div>
           </div>
 
@@ -2897,9 +3507,561 @@
     </div>
   </div>
 
-  <!-- Toast Message -->
+    <!-- =========================================================
+       MODAL: สรุปรายรับตามงาน/โปรเจกต์ (INCOME BREAKDOWN)
+       ========================================================= -->
+  <div id="incomeBreakdownModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 680px;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-arrow-trend-up" style="color: var(--color-success);"></i>
+          <span>สรุปรายรับตามงาน / โปรเจกต์</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <!-- Summary Banner -->
+        <div class="breakdown-summary-banner">
+          <div>
+            <div style="font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600;">รายรับจริงรวมช่วงนี้</div>
+            <div id="incomeBreakdownTotal" class="tabular-nums" style="font-size: 1.35rem; font-weight: 800; color: var(--color-success);">+฿0.00</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600;">จำนวนงานที่มีเงินเข้า</div>
+            <div id="incomeBreakdownCount" style="font-size: 1.15rem; font-weight: 800; color: var(--color-text-primary);">0 งาน</div>
+          </div>
+        </div>
+
+        <!-- Filter By Job Type -->
+        <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px;" id="incomeJobTypeFilters">
+          <button type="button" class="segmented-btn active" onclick="filterIncomeBreakdown('all')">ทั้งหมด</button>
+          <button type="button" class="segmented-btn" onclick="filterIncomeBreakdown('วันถ่ายงาน')">🎬 วันถ่ายงาน</button>
+          <button type="button" class="segmented-btn" onclick="filterIncomeBreakdown('วันตัดต่อ')">💻 วันตัดต่อ</button>
+          <button type="button" class="segmented-btn" onclick="filterIncomeBreakdown('สอน')">🎓 สอน</button>
+          <button type="button" class="segmented-btn" onclick="filterIncomeBreakdown('อื่นๆ')">📦 อื่นๆ</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div style="position: relative; margin-bottom: 12px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); font-size: 0.85rem;"></i>
+          <input type="text" id="incomeSearchInput" class="form-input" style="padding-left: 36px; height: 42px; font-size: 0.84rem;" placeholder="ค้นหางาน หรือลูกค้า..." oninput="renderIncomeBreakdownList()">
+        </div>
+
+        <!-- Ranked List -->
+        <div id="incomeBreakdownList" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: สัดส่วนและอันดับรายจ่าย (EXPENSE BREAKDOWN)
+       ========================================================= -->
+  <div id="expenseBreakdownModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 680px;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-arrow-trend-down" style="color: var(--color-danger);"></i>
+          <span>สัดส่วนและอันดับรายจ่าย</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <!-- Summary Banner -->
+        <div class="breakdown-summary-banner">
+          <div>
+            <div style="font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600;">รายจ่ายรวมช่วงนี้</div>
+            <div id="expenseBreakdownTotal" class="tabular-nums" style="font-size: 1.35rem; font-weight: 800; color: var(--color-danger);">−฿0.00</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600;">จ่ายมากที่สุดในหมวด</div>
+            <div id="expenseBreakdownTopCat" style="font-size: 1rem; font-weight: 800; color: var(--color-primary);">-</div>
+          </div>
+        </div>
+
+        <!-- Grouping Toggle: หมวดหมู่ / โปรเจกต์ / กระเป๋าเงิน -->
+        <div class="segmented-control" style="margin-bottom: 12px;">
+          <button type="button" class="segmented-btn active" id="btnExpGroupCat" onclick="setExpenseGrouping('category')">ตามหมวดหมู่</button>
+          <button type="button" class="segmented-btn" id="btnExpGroupJob" onclick="setExpenseGrouping('job')">ตามโปรเจกต์</button>
+          <button type="button" class="segmented-btn" id="btnExpGroupWallet" onclick="setExpenseGrouping('wallet')">ตามกระเป๋าเงิน</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div style="position: relative; margin-bottom: 12px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); font-size: 0.85rem;"></i>
+          <input type="text" id="expenseSearchInput" class="form-input" style="padding-left: 36px; height: 42px; font-size: 0.84rem;" placeholder="ค้นหารายการ หรือหมวดหมู่..." oninput="renderExpenseBreakdownList()">
+        </div>
+
+        <!-- Ranked List -->
+        <div id="expenseBreakdownList" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: สรุปส่วนต่างรับ-จ่าย (CASHFLOW NET SUMMARY)
+       ========================================================= -->
+  <div id="cashflowNetModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 520px;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-scale-balanced" style="color: var(--color-primary);"></i>
+          <span>ส่วนต่างรับ–จ่าย (Net Cashflow)</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <div style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: 600; margin-bottom: 8px;" id="netModalPeriodLabel">
+          ข้อมูลรอบ: เดือนนี้ (กันยายน 2569)
+        </div>
+
+        <div style="background: var(--color-surface); border: 1.5px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.86rem; font-weight: 700; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-success);"></span> รายรับรวม
+            </span>
+            <span id="netModalIncome" class="tabular-nums" style="font-size: 1.15rem; font-weight: 800; color: var(--color-success);">+฿0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.86rem; font-weight: 700; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger);"></span> รายจ่ายรวม
+            </span>
+            <span id="netModalExpense" class="tabular-nums" style="font-size: 1.15rem; font-weight: 800; color: var(--color-danger);">−฿0.00</span>
+          </div>
+          <div style="height: 1px; background: var(--color-border-subtle); margin: 2px 0;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.92rem; font-weight: 800; color: var(--color-text-primary);">
+              ส่วนต่างสุทธิ (รับ − จ่าย)
+            </span>
+            <span id="netModalDiff" class="tabular-nums" style="font-size: 1.45rem; font-weight: 800; color: var(--color-primary);">฿0.00</span>
+          </div>
+        </div>
+
+        <!-- Accounting Disclaimer -->
+        <div style="background: var(--color-primary-soft); border: 1px solid rgba(22, 142, 161, 0.2); border-radius: var(--radius-md); padding: 12px 14px; font-size: 0.74rem; color: var(--color-primary-dark); line-height: 1.5; margin-top: 6px;">
+          <i class="fa-solid fa-circle-info"></i> <strong>คำชี้แจงทางการเงิน:</strong> ส่วนต่างของรายรับและรายจ่ายตามนิยามนี้ คำนวณจากกระแสเงินสดรับและจ่ายจริงที่บันทึกไว้ในช่วงเวลานี้ ไม่ใช่ยอดเงินคงเหลือในกระเป๋าหรือกำไรทางบัญชีโดยอัตโนมัติ (ไม่รวมเงินโอนระหว่างกระเป๋าและการตัดเงินต้นหนี้)
+        </div>
+
+        <button type="button" class="btn-submit-main" onclick="closeAllDrawers(); switchTab('transactions');" style="margin-top: 10px;">
+          <i class="fa-solid fa-list-ul"></i> ดูรายการธุรกรรมทั้งหมด
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: เงินค้างรับจากลูกค้า (RECEIVABLES LIST)
+       ========================================================= -->
+  <div id="receivablesModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 650px;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-hand-holding-dollar" style="color: #B45309;"></i>
+          <span>เงินค้างรับจากลูกค้า (ลูกหนี้ค้างชำระ)</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <div class="breakdown-summary-banner" style="background: #FEF3C7; border-color: rgba(217, 119, 6, 0.2);">
+          <div>
+            <div style="font-size: 0.72rem; color: #92400E; font-weight: 600;">ยอดเงินค้างรับรวมทั้งหมด</div>
+            <div id="receivablesTotalAmount" class="tabular-nums" style="font-size: 1.35rem; font-weight: 800; color: #B45309;">฿0.00</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.72rem; color: #92400E; font-weight: 600;">จำนวนงานที่รอยอด</div>
+            <div id="receivablesTotalCount" style="font-size: 1.15rem; font-weight: 800; color: #B45309;">0 งาน</div>
+          </div>
+        </div>
+
+        <div id="receivablesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto;">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: จัดการกระเป๋าเงิน (WALLET MODAL)
+       ========================================================= -->
+  <div id="walletModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-wallet" style="color: var(--color-primary);"></i>
+          <span id="walletModalTitle">เพิ่มกระเป๋าเงินใหม่</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="walletForm" onsubmit="handleSaveWallet(event)">
+          <input type="hidden" id="walletEditId" value="">
+          
+          <div class="form-group">
+            <label class="form-label">ชื่อกระเป๋าเงิน / บัญชี *:</label>
+            <input id="walletNameInput" type="text" class="form-input" placeholder="เช่น บัญชีสตูดิโอ (ไทยพาณิชย์), เงินสดกองถ่าย" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ประเภทกระเป๋าเงิน:</label>
+            <select id="walletTypeInput" class="form-select">
+              <option value="bank">บัญชีธนาคาร (Bank)</option>
+              <option value="cash">เงินสด (Cash)</option>
+              <option value="e-wallet">e-Wallet (TrueMoney, Rabbit ฯลฯ)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ยอดเงินตั้งต้น (บาท):</label>
+            <input id="walletOpeningInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
+            <div style="font-size: 0.72rem; color: var(--color-text-muted);">* ยอดตั้งต้นนี้จะไม่ถูกนับเป็นรายรับของเดือน</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">โทนสีระบุตัวตน:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input id="walletColorInput" type="color" value="#168EA1" style="width: 44px; height: 38px; border: none; border-radius: var(--radius-xs); cursor: pointer;">
+              <span style="font-size: 0.8rem; color: var(--color-text-secondary);">เลือกสีสำหรับการแสดงผล</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">หมายเหตุเพิ่มเติม:</label>
+            <input id="walletNotesInput" type="text" class="form-input" placeholder="เช่น เลขที่บัญชี หรือวัตถุประสงค์การใช้งาน">
+          </div>
+
+          <button type="submit" class="btn-submit-main" id="btnSubmitWallet">
+            <i class="fa-solid fa-check"></i> บันทึกกระเป๋าเงิน
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: โอนเงินระหว่างกระเป๋า (INTERNAL TRANSFER)
+       ========================================================= -->
+  <div id="transferModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-primary);"></i>
+          <span>โอนเงินระหว่างกระเป๋า</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="transferForm" onsubmit="handleInternalTransfer(event)">
+          <div class="form-group">
+            <label class="form-label">กระเป๋าต้นทาง (เงินออก) *:</label>
+            <select id="transferFromWallet" class="form-select" required onchange="validateTransferWallets()">
+              <!-- Dynamic options -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">กระเป๋าปลายทาง (เงินเข้า) *:</label>
+            <select id="transferToWallet" class="form-select" required onchange="validateTransferWallets()">
+              <!-- Dynamic options -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">จำนวนเงินที่โอน (บาท) *:</label>
+            <input id="transferAmountInput" type="number" step="0.01" min="0.01" class="form-input" placeholder="0.00" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ค่าธรรมเนียมการโอนถ้ามี (บาท):</label>
+            <input id="transferFeeInput" type="number" step="0.01" min="0" class="form-input" placeholder="0.00" value="0.00">
+            <div style="font-size: 0.72rem; color: var(--color-text-muted);">* ค่าธรรมเนียมจะถูกบันทึกเป็นรายจ่ายในระบบเพียงอย่างเดียว</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">วันที่โอน:</label>
+            <input id="transferDateInput" type="date" class="form-input" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">บันทึกช่วยจำ:</label>
+            <input id="transferNoteInput" type="text" class="form-input" placeholder="เช่น ย้ายเงินเข้าบัญชีกองถ่าย, เติมเงินสด">
+          </div>
+
+          <div style="background: var(--color-primary-soft); border: 1px solid rgba(22, 142, 161, 0.2); border-radius: var(--radius-md); padding: 10px 12px; font-size: 0.74rem; color: var(--color-primary-dark); line-height: 1.4;">
+            <i class="fa-solid fa-shield-check"></i> <strong>หลักความปลอดภัยทางบัญชี:</strong> ยอดเงินที่โอนจะไม่ถูกนับเป็นรายรับหรือรายจ่ายของสตูดิโอ เงินจะถูกปรับปรุงระหว่างสองกระเป๋าอย่างสมดุล (Atomic Transfer)
+          </div>
+
+          <button type="submit" class="btn-submit-main" id="btnSubmitTransfer">
+            <i class="fa-solid fa-paper-plane"></i> ยืนยันการโอนเงิน
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: เพิ่ม/แก้ไขสัญญาหนี้และรายการผ่อน (DEBT MODAL)
+       ========================================================= -->
+  <div id="debtModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-credit-card" style="color: #7E22CE;"></i>
+          <span id="debtModalTitle">เพิ่มรายการหนี้ / การผ่อนชำระ</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="debtForm" onsubmit="handleSaveDebt(event)">
+          <input type="hidden" id="debtEditId" value="">
+
+          <div class="form-group">
+            <label class="form-label">ชื่อรายการหนี้ / สินค้าที่ผ่อน *:</label>
+            <input id="debtNameInput" type="text" class="form-input" placeholder="เช่น Shopee SPayLater - เลนส์ 24-70mm, ผ่อนรถยนต์" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">เจ้าหนี้ / สถาบันการเงิน:</label>
+            <input id="debtLenderInput" type="text" class="form-input" placeholder="เช่น Shopee, Toyota Leasing, ธนาคารไทยพาณิชย์">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">เงินต้นเดิม (บาท) *:</label>
+              <input id="debtOriginalInput" type="number" step="0.01" class="form-input" placeholder="0.00" required oninput="autoFillRemaining()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">เงินต้นคงเหลือ (บาท) *:</label>
+              <input id="debtRemainingInput" type="number" step="0.01" class="form-input" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">วิธีคิดดอกเบี้ย:</label>
+              <select id="debtInterestMethodInput" class="form-select" onchange="updateDebtMethodNotice()">
+                <option value="zero">0% ไม่มีดอกเบี้ย</option>
+                <option value="reducing">ลดต้นลดดอก (Effective Rate)</option>
+                <option value="flat">อัตราคงที่จากเงินต้น (Flat Rate)</option>
+                <option value="manual">ตามตารางเจ้าหนี้ / กรอกเอง</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">อัตราดอกเบี้ย (% ต่อปี):</label>
+              <input id="debtRateInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">ค่างวดต่อเดือน (บาท) *:</label>
+              <input id="debtMonthlyInput" type="number" step="0.01" class="form-input" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">วันครบกำหนดจ่าย (ทุกวันที่):</label>
+              <input id="debtDueDayInput" type="number" min="1" max="31" class="form-input" placeholder="1-31" value="1" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">จำนวนงวดทั้งหมด (เดือน):</label>
+              <input id="debtTermMonthsInput" type="number" min="1" class="form-input" placeholder="เช่น 10" value="10">
+            </div>
+            <div class="form-group">
+              <label class="form-label">งวดที่จ่ายไปแล้ว (เดือน):</label>
+              <input id="debtPaidMonthsInput" type="number" min="0" class="form-input" placeholder="0" value="0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">กระเป๋าเงินเริ่มต้นสำหรับตัดค่างวด:</label>
+            <select id="debtWalletInput" class="form-select">
+              <!-- Dynamic options -->
+            </select>
+          </div>
+
+          <button type="submit" class="btn-submit-main" id="btnSubmitDebt">
+            <i class="fa-solid fa-check"></i> บันทึกรายการหนี้
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: บันทึกชำระค่างวดหนี้ (PAY DEBT MODAL)
+       ========================================================= -->
+  <div id="payDebtModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-money-check-dollar" style="color: #0B9D83;"></i>
+          <span>บันทึกชำระค่างวด</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="payDebtForm" onsubmit="handleRecordDebtPayment(event)">
+          <input type="hidden" id="payDebtTargetId" value="">
+
+          <div style="background: var(--color-surface-elevated); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 8px;">
+            <div style="font-size: 0.72rem; color: var(--color-text-muted); font-weight: 600;">สัญญาหนี้ที่กำลังชำระ:</div>
+            <div id="payDebtContractTitle" style="font-size: 1rem; font-weight: 800; color: var(--color-text-primary); margin-top: 2px;">-</div>
+            <div id="payDebtRemainingInfo" style="font-size: 0.78rem; color: #7E22CE; font-weight: 700; margin-top: 2px;">เงินต้นคงเหลือ: ฿0.00</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">จ่ายออกจากกระเป๋าเงิน *:</label>
+            <select id="payDebtWalletSelect" class="form-select" required>
+              <!-- Dynamic options -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ยอดเงินที่จ่ายทั้งหมด (บาท) *:</label>
+            <input id="payDebtTotalAmount" type="number" step="0.01" min="0.01" class="form-input" placeholder="0.00" required oninput="autoSplitDebtPayment()">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">ส่วนตัดเงินต้น (ลดหนี้) *:</label>
+              <input id="payDebtPrincipalPortion" type="number" step="0.01" class="form-input" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ส่วนดอกเบี้ย (รายจ่าย):</label>
+              <input id="payDebtInterestPortion" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">วันที่ชำระ:</label>
+            <input id="payDebtDateInput" type="date" class="form-input" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">หมายเหตุ:</label>
+            <input id="payDebtNoteInput" type="text" class="form-input" placeholder="เช่น ค่างวดประจำเดือนกันยายน">
+          </div>
+
+          <div style="background: var(--color-primary-soft); border: 1px solid rgba(22, 142, 161, 0.2); border-radius: var(--radius-md); padding: 10px 12px; font-size: 0.74rem; color: var(--color-primary-dark); line-height: 1.4;">
+            <i class="fa-solid fa-shield-halved"></i> <strong>ป้องกันรายจ่ายซ้ำ:</strong> เงินจะตัดจากกระเป๋าเงินเพื่อลดเงินต้นของสัญญาหนี้โดยตรง เฉพาะส่วนดอกเบี้ยเท่านั้นที่จะถูกบันทึกเป็นรายจ่ายในระบบ
+          </div>
+
+          <button type="submit" class="btn-submit-main" id="btnSubmitPayDebt">
+            <i class="fa-solid fa-check"></i> ยืนยันบันทึกชำระค่างวด
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: เพิ่ม/แก้ไขบัตรเครดิตและบัตรกดเงินสด (CARD MODAL)
+       ========================================================= -->
+  <div id="cardModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">
+          <i class="fa-solid fa-credit-card" style="color: var(--color-primary-dark);"></i>
+          <span id="cardModalTitle">เพิ่มบัตรเครดิต / บัตรกดเงินสด</span>
+        </div>
+        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="cardForm" onsubmit="handleSaveCard(event)">
+          <input type="hidden" id="cardEditId" value="">
+
+          <div class="form-group">
+            <label class="form-label">ชื่อเรียกบัตร *:</label>
+            <input id="cardNicknameInput" type="text" class="form-input" placeholder="เช่น KBank OneSiam, SCB Ultra Platinum" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">ผู้ออกบัตร / ธนาคาร:</label>
+              <input id="cardIssuerInput" type="text" class="form-input" placeholder="เช่น กสิกรไทย, ไทยพาณิชย์, KTC">
+            </div>
+            <div class="form-group">
+              <label class="form-label">เลขท้าย 4 หลัก (เพื่อแยกบัตร):</label>
+              <input id="cardLastFourInput" type="text" maxlength="4" class="form-input" placeholder="เช่น 5678">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">วันตัดรอบบิล (Closing Day):</label>
+              <select id="cardClosingDayInput" class="form-select">
+                <option value="1">วันที่ 1</option>
+                <option value="5">วันที่ 5</option>
+                <option value="10">วันที่ 10</option>
+                <option value="15">วันที่ 15</option>
+                <option value="20" selected>วันที่ 20</option>
+                <option value="25">วันที่ 25</option>
+                <option value="99">วันสิ้นเดือน (Last Day of Month)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">วันครบกำหนดชำระ (Due Day):</label>
+              <select id="cardDueDayInput" class="form-select">
+                <option value="1">วันที่ 1</option>
+                <option value="5">วันที่ 5</option>
+                <option value="10" selected>วันที่ 10</option>
+                <option value="15">วันที่ 15</option>
+                <option value="20">วันที่ 20</option>
+                <option value="25">วันที่ 25</option>
+                <option value="99">วันสิ้นเดือน</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">วงเงินบัตร (บาท):</label>
+              <input id="cardLimitInput" type="number" step="0.01" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ยอดใช้จ่ายปัจจุบัน (ภาระหนี้):</label>
+              <input id="cardBalanceInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">รูปแบบการชำระปกติ:</label>
+            <select id="cardPaymentModeInput" class="form-select">
+              <option value="full">ชำระเต็มตามใบแจ้งยอด</option>
+              <option value="installment">ผ่อนชำระเป็นงวด</option>
+              <option value="partial">ชำระบางส่วนตามยอดที่กรอก</option>
+            </select>
+          </div>
+
+          <div style="font-size: 0.73rem; color: var(--color-text-muted); line-height: 1.4;">
+            <i class="fa-solid fa-lock"></i> ระบบจัดเก็บบัตรเพื่อติดตามรอบบิลและภาระหนี้เท่านั้น ไม่มีการเก็บ CVV, PIN หรือเลขบัตรเต็มเพื่อความปลอดภัยสูงสุด
+          </div>
+
+          <button type="submit" class="btn-submit-main" id="btnSubmitCard">
+            <i class="fa-solid fa-check"></i> บันทึกข้อมูลบัตร
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+<!-- Toast Message -->
   <div id="toast">บันทึกสำเร็จ 🎉</div>
 
+  
   <script>
 
 
@@ -2916,7 +4078,11 @@
       jobs: [],
       todos: [],
       bills: [],
-      equipment: []
+      equipment: [],
+      wallets: [],
+      debts: [],
+      cards: [],
+      debt_payments: []
     };
 
     var currentTab = 'transactions';
@@ -3022,6 +4188,9 @@
         if (results[3].data) appData.bills = results[3].data;
         if (results[4].data) appData.equipment = results[4].data;
 
+        await loadWallets();
+        await loadDebts();
+        await loadCards();
         setSyncStatus('synced');
         renderCategoryOptions();
         populateJobDropdowns();
@@ -4155,19 +5324,37 @@
       if (kpiBillsEl) kpiBillsEl.textContent = unpaidBills.length + ' บิล';
       if (kpiBillsSub) kpiBillsSub.textContent = 'ยอดรอชำระ ฿' + sumUnpaidBills.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-      // Monthly Debt Commitments
+      // Monthly Debt Commitments (Calculated from Debts subsystem + Installment Bills)
       var totalMonthlyDebt = 0;
-      var debtCount = 0;
-      appData.bills.forEach(function(b) {
-        var itemLower = (b.item || '').toLowerCase();
-        var noteLower = (b.note || '').toLowerCase();
-        if (itemLower.includes('ผ่อน') || itemLower.includes('งวด') || itemLower.includes('หนี้') || itemLower.includes('แชร์') || noteLower.includes('ผ่อน')) {
-          totalMonthlyDebt += (parseFloat(b.amount) || 0);
-          debtCount++;
+      var activeDebtCount = 0;
+      
+      // 1. Add from Debts registry
+      (appData.debts || []).forEach(function(d) {
+        if (d.status !== 'paid_off' && d.status !== 'archived') {
+          totalMonthlyDebt += (parseFloat(d.monthly_payment) || 0);
+          activeDebtCount++;
         }
       });
+
+      // 2. Also include any installment bills not already linked to a debt
+      appData.bills.forEach(function(b) {
+        if (!b.is_paid && !b.linked_debt_id) {
+          var itemLower = (b.item || '').toLowerCase();
+          var noteLower = (b.note || '').toLowerCase();
+          if (itemLower.includes('ผ่อน') || itemLower.includes('งวด') || itemLower.includes('หนี้') || itemLower.includes('แชร์') || noteLower.includes('ผ่อน')) {
+            totalMonthlyDebt += (parseFloat(b.amount) || 0);
+            activeDebtCount++;
+          }
+        }
+      });
+
       if (kpiDebtsEl) kpiDebtsEl.textContent = '฿' + totalMonthlyDebt.toLocaleString(undefined, { minimumFractionDigits: 2 });
-      if (kpiDebtsSub) kpiDebtsSub.textContent = (debtCount > 0 ? debtCount + ' รายการผ่อน/ภาระ' : 'ไม่มีภาระหนี้ระยะยาว');
+      if (kpiDebtsSub) kpiDebtsSub.textContent = activeDebtCount > 0 ? (activeDebtCount + ' รายการผ่อนชำระ') : 'ไม่มีภาระผ่อนในระบบ';
+
+      // Render new subsystems
+      renderWallets();
+      renderDebts();
+      renderCards();
 
       // 4. Critical Agenda: Upcoming Bills List
       var billsListEl = document.getElementById('dashBillsList');
@@ -5147,6 +6334,1185 @@
     });
 
   
+
+    // =========================================================
+    // SUBSYSTEM 1: MY WALLETS / ACCOUNTS (กระเป๋าเงินของฉัน)
+    // =========================================================
+    var defaultWallets = [
+      { id: 1, name: 'บัญชีสตูดิโอ (ไทยพาณิชย์)', type: 'bank', color: '#168EA1', icon: 'fa-building-columns', balance: 0, opening_balance: 0, notes: 'บัญชีหลักรับเงินงานสตูดิโอ' },
+      { id: 2, name: 'บัญชีส่วนตัว (กสิกรไทย)', type: 'bank', color: '#0B9D83', icon: 'fa-building-columns', balance: 0, opening_balance: 0, notes: 'บัญชีส่วนตัว' },
+      { id: 3, name: 'เงินสดสตูดิโอ', type: 'cash', color: '#D97706', icon: 'fa-money-bill-wave', balance: 0, opening_balance: 0, notes: 'เงินสดหมุนเวียนกองถ่าย' }
+    ];
+
+    async function loadWallets() {
+      try {
+        var res = await db.from('wallets').select('*').order('id', { ascending: true });
+        if (res.data && res.data.length > 0) {
+          appData.wallets = res.data;
+        } else {
+          loadWalletsFromLocal();
+        }
+      } catch (e) {
+        loadWalletsFromLocal();
+      }
+      calculateWalletBalances();
+    }
+
+    function loadWalletsFromLocal() {
+      var saved = localStorage.getItem('natthawit_studio_wallets');
+      if (saved) {
+        try { appData.wallets = JSON.parse(saved); } catch(e) { appData.wallets = defaultWallets.slice(); }
+      } else {
+        appData.wallets = defaultWallets.slice();
+        saveWalletsToLocal();
+      }
+    }
+
+    function saveWalletsToLocal() {
+      localStorage.setItem('natthawit_studio_wallets', JSON.stringify(appData.wallets));
+    }
+
+    function calculateWalletBalances() {
+      if (!appData.wallets || appData.wallets.length === 0) return;
+
+      var transfers = getLocalTransfers();
+
+      appData.wallets.forEach(function(w) {
+        var bal = parseFloat(w.opening_balance) || 0;
+
+        // Add/Subtract from transactions
+        appData.transactions.forEach(function(t) {
+          var amt = parseFloat(t.amount) || 0;
+          var details = t.details || '';
+          // Match by explicit wallet_id or account name in details
+          var isThisWallet = (t.wallet_id && parseInt(t.wallet_id, 10) === w.id) || details.includes(w.name);
+          if (!t.wallet_id && !details.includes(w.name) && w.id === 1) {
+            // Default studio transactions go to studio wallet
+            if (details.includes('บัญชีสตูดิโอ') || (!details.includes('บัญชีส่วนตัว') && !details.includes('เงินสด'))) {
+              isThisWallet = true;
+            }
+          }
+
+          if (isThisWallet) {
+            if (t.type === 'รายรับ') bal += amt;
+            else if (t.type === 'รายจ่าย' || t.type === 'ปรับยอดเงิน') bal -= amt;
+          }
+        });
+
+        // Add/Subtract internal transfers
+        transfers.forEach(function(tf) {
+          var tfAmt = parseFloat(tf.amount) || 0;
+          if (tf.from_wallet_id === w.id) bal -= tfAmt;
+          if (tf.to_wallet_id === w.id) bal += tfAmt;
+        });
+
+        w.balance = bal;
+      });
+    }
+
+    function getLocalTransfers() {
+      try {
+        var raw = localStorage.getItem('natthawit_studio_transfers');
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) { return []; }
+    }
+
+    function saveLocalTransfer(transfer) {
+      var list = getLocalTransfers();
+      list.push(transfer);
+      localStorage.setItem('natthawit_studio_transfers', JSON.stringify(list));
+    }
+
+    function renderWallets() {
+      var container = document.getElementById('dashWalletsList');
+      if (!container) return;
+
+      calculateWalletBalances();
+
+      var html = '';
+      (appData.wallets || []).forEach(function(w) {
+        var iconClass = w.type === 'cash' ? 'fa-money-bill-wave' : (w.type === 'e-wallet' ? 'fa-mobile-screen' : 'fa-building-columns');
+        var balStr = isBalanceHidden ? '฿ ••••••' : ((w.balance < 0 ? '−฿' : '฿') + Math.abs(w.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        var typeName = w.type === 'cash' ? 'เงินสด' : (w.type === 'e-wallet' ? 'e-Wallet' : 'ธนาคาร');
+
+        html += '<div class="wallet-card" onclick="openEditWallet(' + w.id + ')">' +
+          '<div class="wallet-top">' +
+            '<div class="wallet-icon-box" style="background: ' + (w.color || 'var(--color-primary)') + '20; color: ' + (w.color || 'var(--color-primary)') + ';">' +
+              '<i class="fa-solid ' + iconClass + '"></i>' +
+            '</div>' +
+            '<div class="wallet-name-wrap">' +
+              '<div class="wallet-name">' + escapeHtml(w.name) + '</div>' +
+              '<div class="wallet-type-tag">' + typeName + (w.notes ? ' • ' + escapeHtml(w.notes) : '') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="wallet-bal tabular-nums" style="' + (w.balance < 0 ? 'color:var(--color-danger);' : '') + '">' + balStr + '</div>' +
+          '<div class="wallet-footer-row">' +
+            '<button type="button" class="wallet-quick-btn" onclick="event.stopPropagation(); openTransferModal(' + w.id + ');"><i class="fa-solid fa-arrow-right-arrow-left"></i> โอนออก</button>' +
+            '<button type="button" class="wallet-quick-btn" onclick="event.stopPropagation(); openWalletReconModal(' + w.id + ');"><i class="fa-solid fa-calculator"></i> กระทบยอด</button>' +
+          '</div>' +
+        '</div>';
+      });
+
+      container.innerHTML = html;
+      populateWalletDropdowns();
+    }
+
+    function populateWalletDropdowns() {
+      var selects = ['transferFromWallet', 'transferToWallet', 'debtWalletInput', 'payDebtWalletSelect'];
+      selects.forEach(function(selId) {
+        var sel = document.getElementById(selId);
+        if (!sel) return;
+        var curVal = sel.value;
+        var opts = '';
+        (appData.wallets || []).forEach(function(w) {
+          opts += '<option value="' + w.id + '">' + escapeHtml(w.name) + ' (฿' + (parseFloat(w.balance)||0).toLocaleString(undefined, {minimumFractionDigits: 2}) + ')</option>';
+        });
+        sel.innerHTML = opts;
+        if (curVal) sel.value = curVal;
+      });
+    }
+
+    function openAddWalletModal() {
+      document.getElementById('walletEditId').value = '';
+      document.getElementById('walletModalTitle').textContent = 'เพิ่มกระเป๋าเงินใหม่';
+      document.getElementById('walletNameInput').value = '';
+      document.getElementById('walletTypeInput').value = 'bank';
+      document.getElementById('walletOpeningInput').value = '0.00';
+      document.getElementById('walletColorInput').value = '#168EA1';
+      document.getElementById('walletNotesInput').value = '';
+      document.getElementById('walletModal').classList.add('active');
+    }
+
+    function openEditWallet(id) {
+      var w = (appData.wallets || []).find(function(item) { return item.id === id; });
+      if (!w) return;
+      document.getElementById('walletEditId').value = w.id;
+      document.getElementById('walletModalTitle').textContent = 'แก้ไขกระเป๋าเงิน';
+      document.getElementById('walletNameInput').value = w.name;
+      document.getElementById('walletTypeInput').value = w.type || 'bank';
+      document.getElementById('walletOpeningInput').value = (parseFloat(w.opening_balance) || 0).toFixed(2);
+      document.getElementById('walletColorInput').value = w.color || '#168EA1';
+      document.getElementById('walletNotesInput').value = w.notes || '';
+      document.getElementById('walletModal').classList.add('active');
+    }
+
+    async function handleSaveWallet(e) {
+      e.preventDefault();
+      var id = document.getElementById('walletEditId').value;
+      var name = document.getElementById('walletNameInput').value.trim();
+      var type = document.getElementById('walletTypeInput').value;
+      var opening = parseFloat(document.getElementById('walletOpeningInput').value) || 0;
+      var color = document.getElementById('walletColorInput').value;
+      var notes = document.getElementById('walletNotesInput').value.trim();
+
+      if (!name) return;
+
+      if (id) {
+        var numId = parseInt(id, 10);
+        var w = appData.wallets.find(function(item) { return item.id === numId; });
+        if (w) {
+          w.name = name;
+          w.type = type;
+          w.opening_balance = opening;
+          w.color = color;
+          w.notes = notes;
+        }
+      } else {
+        var newId = (appData.wallets.length > 0 ? Math.max.apply(null, appData.wallets.map(function(w){return w.id;})) : 0) + 1;
+        appData.wallets.push({
+          id: newId,
+          name: name,
+          type: type,
+          opening_balance: opening,
+          balance: opening,
+          color: color,
+          notes: notes
+        });
+      }
+
+      saveWalletsToLocal();
+      closeAllDrawers();
+      showToast('บันทึกกระเป๋าเงินเรียบร้อยแล้ว 💼');
+      renderDashboard();
+    }
+
+    function openTransferModal(fromWalletId) {
+      populateWalletDropdowns();
+      var fromSel = document.getElementById('transferFromWallet');
+      var toSel = document.getElementById('transferToWallet');
+      if (fromWalletId && fromSel) fromSel.value = fromWalletId;
+      if (fromSel && toSel && fromSel.value === toSel.value) {
+        // Choose a different toWallet
+        for (var i = 0; i < toSel.options.length; i++) {
+          if (toSel.options[i].value !== fromSel.value) {
+            toSel.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      document.getElementById('transferAmountInput').value = '';
+      document.getElementById('transferFeeInput').value = '0.00';
+      document.getElementById('transferDateInput').value = getTodayDateStr();
+      document.getElementById('transferNoteInput').value = '';
+      document.getElementById('transferModal').classList.add('active');
+    }
+
+    function validateTransferWallets() {
+      var fromId = document.getElementById('transferFromWallet').value;
+      var toId = document.getElementById('transferToWallet').value;
+      if (fromId === toId) {
+        alert('กรุณาเลือกกระเป๋าต้นทางและปลายทางที่ต่างกัน');
+      }
+    }
+
+    async function handleInternalTransfer(e) {
+      e.preventDefault();
+      var fromId = parseInt(document.getElementById('transferFromWallet').value, 10);
+      var toId = parseInt(document.getElementById('transferToWallet').value, 10);
+      var amount = parseFloat(document.getElementById('transferAmountInput').value) || 0;
+      var fee = parseFloat(document.getElementById('transferFeeInput').value) || 0;
+      var dateStr = document.getElementById('transferDateInput').value || getTodayDateStr();
+      var note = document.getElementById('transferNoteInput').value.trim();
+
+      if (fromId === toId) {
+        alert('กระเป๋าต้นทางและปลายทางต้องไม่ซ้ำกัน');
+        return;
+      }
+      if (amount <= 0) {
+        alert('กรุณาระบุจำนวนเงินที่ต้องการโอน');
+        return;
+      }
+
+      var fromWallet = appData.wallets.find(function(w) { return w.id === fromId; });
+      var toWallet = appData.wallets.find(function(w) { return w.id === toId; });
+
+      // Record internal transfer
+      saveLocalTransfer({
+        id: Date.now(),
+        from_wallet_id: fromId,
+        from_wallet_name: fromWallet ? fromWallet.name : '',
+        to_wallet_id: toId,
+        to_wallet_name: toWallet ? toWallet.name : '',
+        amount: amount,
+        fee: fee,
+        date: dateStr,
+        note: note
+      });
+
+      // If fee > 0, record expense transaction for fee only
+      if (fee > 0) {
+        try {
+          await db.from('transactions').insert([{
+            date: dateStr,
+            type: 'รายจ่าย',
+            category: 'ค่าธรรมเนียม',
+            amount: fee,
+            details: '[ค่าธรรมเนียมโอนเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + ' ไป ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : ''),
+            wallet_id: fromId
+          }]);
+          await loadAllData();
+        } catch(err) {
+          console.warn('Fee transaction recording notice:', err);
+        }
+      }
+
+      closeAllDrawers();
+      showToast('โอนเงินสำเร็จ ฿' + amount.toLocaleString() + ' 💸');
+      renderDashboard();
+    }
+
+    function openWalletReconModal(walletId) {
+      openReconModal();
+      var w = appData.wallets.find(function(item) { return item.id === walletId; });
+      if (w) {
+        var accSel = document.getElementById('reconAccountSelect');
+        if (accSel) {
+          for (var i = 0; i < accSel.options.length; i++) {
+            if (accSel.options[i].value.includes(w.name) || w.name.includes(accSel.options[i].value)) {
+              accSel.selectedIndex = i;
+              break;
+            }
+          }
+        }
+        document.getElementById('reconSystemDisplay').textContent = (w.balance < 0 ? '−฿' : '฿') + Math.abs(w.balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('reconActualInput').value = w.balance.toFixed(2);
+        calculateReconDiff();
+      }
+    }
+
+    // =========================================================
+    // SUBSYSTEM 2: INTERACTIVE 6 KPI CARDS (DRILL-DOWNS)
+    // =========================================================
+
+    // 1. Income Breakdown
+    var currentIncomeTypeFilter = 'all';
+
+    function openIncomeBreakdownModal() {
+      document.getElementById('incomeSearchInput').value = '';
+      currentIncomeTypeFilter = 'all';
+      updateIncomeFilterButtons();
+      renderIncomeBreakdownList();
+      document.getElementById('incomeBreakdownModal').classList.add('active');
+    }
+
+    function filterIncomeBreakdown(type) {
+      currentIncomeTypeFilter = type;
+      updateIncomeFilterButtons();
+      renderIncomeBreakdownList();
+    }
+
+    function updateIncomeFilterButtons() {
+      var btns = document.querySelectorAll('#incomeJobTypeFilters .segmented-btn');
+      btns.forEach(function(b) {
+        var text = b.textContent.trim();
+        var match = (currentIncomeTypeFilter === 'all' && text === 'ทั้งหมด') ||
+                    (currentIncomeTypeFilter !== 'all' && text.includes(currentIncomeTypeFilter));
+        b.classList.toggle('active', match);
+      });
+    }
+
+    function renderIncomeBreakdownList() {
+      var container = document.getElementById('incomeBreakdownList');
+      var search = (document.getElementById('incomeSearchInput').value || '').toLowerCase().trim();
+      var totalEl = document.getElementById('incomeBreakdownTotal');
+      var countEl = document.getElementById('incomeBreakdownCount');
+      if (!container) return;
+
+      var now = new Date();
+      var todayStr = getTodayDateStr();
+      var curY = String(now.getFullYear());
+      var curM = String(now.getMonth() + 1).padStart(2, '0');
+
+      // Filter income transactions by period & scope
+      var periodTxs = appData.transactions.filter(function(t) {
+        if (t.type !== 'รายรับ') return false;
+        var tDate = t.date || '';
+        if (dashPeriod === 'today') return (tDate === todayStr);
+        if (dashPeriod === 'month') return (tDate.substring(0, 4) === curY && tDate.substring(5, 7) === curM);
+        if (dashPeriod === 'year') return (tDate.substring(0, 4) === curY);
+        return true;
+      });
+
+      // Group by Job
+      var jobMap = {};
+      var totalIncome = 0;
+
+      periodTxs.forEach(function(t) {
+        var amt = parseFloat(t.amount) || 0;
+        totalIncome += amt;
+        var jobKey = t.related_job || 'รายรับไม่ระบุงาน';
+
+        if (!jobMap[jobKey]) {
+          // Find matching job in appData.jobs
+          var jobObj = appData.jobs.find(function(j) {
+            return j.title === jobKey || String(j.id) === jobKey;
+          });
+
+          jobMap[jobKey] = {
+            key: jobKey,
+            title: jobObj ? jobObj.title : jobKey,
+            job_type: jobObj ? jobObj.job_type : (jobKey === 'รายรับไม่ระบุงาน' ? 'ทั่วไป' : 'งานบริการ'),
+            amount: 0,
+            txCount: 0,
+            transactions: []
+          };
+        }
+
+        jobMap[jobKey].amount += amt;
+        jobMap[jobKey].txCount++;
+        jobMap[jobKey].transactions.push(t);
+      });
+
+      var jobList = Object.values(jobMap);
+
+      // Filter by job type
+      if (currentIncomeTypeFilter !== 'all') {
+        jobList = jobList.filter(function(item) {
+          return item.job_type.includes(currentIncomeTypeFilter);
+        });
+      }
+
+      // Filter by search
+      if (search) {
+        jobList = jobList.filter(function(item) {
+          return item.title.toLowerCase().includes(search) || item.job_type.toLowerCase().includes(search);
+        });
+      }
+
+      // Sort descending
+      jobList.sort(function(a, b) { return b.amount - a.amount; });
+
+      if (totalEl) totalEl.textContent = '+฿' + totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      if (countEl) countEl.textContent = jobList.length + ' งาน';
+
+      if (jobList.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--color-text-muted); font-size: 0.88rem;">ไม่มีรายการรายรับในช่วงเวลานี้</div>';
+        return;
+      }
+
+      var html = '';
+      jobList.forEach(function(item, idx) {
+        var rankClass = idx === 0 ? 'rank-1' : (idx === 1 ? 'rank-2' : (idx === 2 ? 'rank-3' : 'rank-other'));
+        var pct = totalIncome > 0 ? ((item.amount / totalIncome) * 100).toFixed(1) : '0.0';
+
+        html += '<div class="breakdown-row" onclick="toggleBreakdownDetail(\'incDetail_' + idx + '\')">' +
+          '<div class="breakdown-row-top">' +
+            '<div class="breakdown-left">' +
+              '<span class="rank-badge ' + rankClass + '">' + (idx + 1) + '</span>' +
+              '<div style="min-width:0;">' +
+                '<div class="breakdown-item-name">' + escapeHtml(item.title) + '</div>' +
+                '<div style="font-size: 0.72rem; color: var(--color-text-muted); display: flex; align-items: center; gap: 6px;">' +
+                  '<span style="padding: 1px 6px; border-radius: var(--radius-full); background: var(--color-surface-muted); font-weight: 600;">' + escapeHtml(item.job_type) + '</span>' +
+                  '<span>' + item.txCount + ' งวดเงิน</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="breakdown-right">' +
+              '<span class="breakdown-item-val tabular-nums" style="color: var(--color-success);">+฿' + item.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</span>' +
+              '<span class="breakdown-item-pct tabular-nums">' + pct + '%</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="breakdown-bar-track">' +
+            '<div class="breakdown-bar-fill" style="width: ' + pct + '%; background: var(--color-success);"></div>' +
+          '</div>' +
+          '<div id="incDetail_' + idx + '" style="display:none; padding-top:8px; border-top:1px dashed var(--color-border-subtle); margin-top:4px;">' +
+            '<div style="font-size:0.72rem; font-weight:700; color:var(--color-text-muted); margin-bottom:4px;">ประวัติงวดเงินที่บันทึก:</div>' +
+            item.transactions.map(function(t){
+              return '<div style="display:flex; justify-content:space-between; font-size:0.75rem; padding:3px 0; color:var(--color-text-secondary);">' +
+                '<span><i class="fa-regular fa-calendar"></i> ' + t.date + ' ' + escapeHtml(t.details || '') + '</span>' +
+                '<strong style="color:var(--color-success);">+฿' + (parseFloat(t.amount)||0).toLocaleString() + '</strong>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      });
+
+      container.innerHTML = html;
+    }
+
+    function toggleBreakdownDetail(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = (el.style.display === 'none' ? 'block' : 'none');
+    }
+
+    // 2. Expense Breakdown
+    var currentExpenseGrouping = 'category'; // 'category', 'job', 'wallet'
+
+    function openExpenseBreakdownModal() {
+      document.getElementById('expenseSearchInput').value = '';
+      currentExpenseGrouping = 'category';
+      updateExpenseGroupButtons();
+      renderExpenseBreakdownList();
+      document.getElementById('expenseBreakdownModal').classList.add('active');
+    }
+
+    function setExpenseGrouping(grouping) {
+      currentExpenseGrouping = grouping;
+      updateExpenseGroupButtons();
+      renderExpenseBreakdownList();
+    }
+
+    function updateExpenseGroupButtons() {
+      var btnCat = document.getElementById('btnExpGroupCat');
+      var btnJob = document.getElementById('btnExpGroupJob');
+      var btnWal = document.getElementById('btnExpGroupWallet');
+      if (btnCat) btnCat.classList.toggle('active', currentExpenseGrouping === 'category');
+      if (btnJob) btnJob.classList.toggle('active', currentExpenseGrouping === 'job');
+      if (btnWal) btnWal.classList.toggle('active', currentExpenseGrouping === 'wallet');
+    }
+
+    function renderExpenseBreakdownList() {
+      var container = document.getElementById('expenseBreakdownList');
+      var search = (document.getElementById('expenseSearchInput').value || '').toLowerCase().trim();
+      var totalEl = document.getElementById('expenseBreakdownTotal');
+      var topCatEl = document.getElementById('expenseBreakdownTopCat');
+      if (!container) return;
+
+      var now = new Date();
+      var todayStr = getTodayDateStr();
+      var curY = String(now.getFullYear());
+      var curM = String(now.getMonth() + 1).padStart(2, '0');
+
+      var periodTxs = appData.transactions.filter(function(t) {
+        if (t.type !== 'รายจ่าย') return false;
+        var tDate = t.date || '';
+        if (dashPeriod === 'today') return (tDate === todayStr);
+        if (dashPeriod === 'month') return (tDate.substring(0, 4) === curY && tDate.substring(5, 7) === curM);
+        if (dashPeriod === 'year') return (tDate.substring(0, 4) === curY);
+        return true;
+      });
+
+      var map = {};
+      var totalExpense = 0;
+
+      periodTxs.forEach(function(t) {
+        var amt = parseFloat(t.amount) || 0;
+        totalExpense += amt;
+        var key = 'ยังไม่จัดหมวด';
+
+        if (currentExpenseGrouping === 'category') {
+          key = t.category || 'ยังไม่จัดหมวด';
+        } else if (currentExpenseGrouping === 'job') {
+          key = t.related_job || 'ค่าใช้จ่ายทั่วไป (ไม่ผูกงาน)';
+        } else if (currentExpenseGrouping === 'wallet') {
+          key = 'บัญชีสตูดิโอ';
+          (appData.wallets || []).forEach(function(w) {
+            if ((t.wallet_id && parseInt(t.wallet_id, 10) === w.id) || (t.details && t.details.includes(w.name))) {
+              key = w.name;
+            }
+          });
+        }
+
+        if (!map[key]) {
+          var catObj = appData.categories.find(function(c) { return c.name === key; });
+          map[key] = {
+            title: key,
+            icon: catObj ? catObj.icon : 'fa-receipt',
+            color: catObj ? catObj.color : '#EB2437',
+            amount: 0,
+            txCount: 0,
+            transactions: []
+          };
+        }
+
+        map[key].amount += amt;
+        map[key].txCount++;
+        map[key].transactions.push(t);
+      });
+
+      var list = Object.values(map);
+
+      if (search) {
+        list = list.filter(function(item) {
+          return item.title.toLowerCase().includes(search);
+        });
+      }
+
+      list.sort(function(a, b) { return b.amount - a.amount; });
+
+      if (totalEl) totalEl.textContent = '−฿' + totalExpense.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      if (topCatEl) topCatEl.textContent = list.length > 0 ? list[0].title : '-';
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--color-text-muted); font-size: 0.88rem;">ไม่มีรายการรายจ่ายในช่วงเวลานี้</div>';
+        return;
+      }
+
+      var html = '';
+      list.forEach(function(item, idx) {
+        var rankClass = idx === 0 ? 'rank-1' : (idx === 1 ? 'rank-2' : (idx === 2 ? 'rank-3' : 'rank-other'));
+        var pct = totalExpense > 0 ? ((item.amount / totalExpense) * 100).toFixed(1) : '0.0';
+
+        html += '<div class="breakdown-row" onclick="toggleBreakdownDetail(\'expDetail_' + idx + '\')">' +
+          '<div class="breakdown-row-top">' +
+            '<div class="breakdown-left">' +
+              '<span class="rank-badge ' + rankClass + '">' + (idx + 1) + '</span>' +
+              '<div style="min-width:0;">' +
+                '<div class="breakdown-item-name">' + escapeHtml(item.title) + '</div>' +
+                '<div style="font-size: 0.72rem; color: var(--color-text-muted);">' + item.txCount + ' รายการ</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="breakdown-right">' +
+              '<span class="breakdown-item-val tabular-nums" style="color: var(--color-danger);">−฿' + item.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</span>' +
+              '<span class="breakdown-item-pct tabular-nums">' + pct + '%</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="breakdown-bar-track">' +
+            '<div class="breakdown-bar-fill" style="width: ' + pct + '%; background: ' + (item.color || 'var(--color-danger)') + ';"></div>' +
+          '</div>' +
+          '<div id="expDetail_' + idx + '" style="display:none; padding-top:8px; border-top:1px dashed var(--color-border-subtle); margin-top:4px;">' +
+            '<div style="font-size:0.72rem; font-weight:700; color:var(--color-text-muted); margin-bottom:4px;">รายการในหมวดนี้:</div>' +
+            item.transactions.map(function(t){
+              return '<div style="display:flex; justify-content:space-between; font-size:0.75rem; padding:3px 0; color:var(--color-text-secondary);">' +
+                '<span><i class="fa-regular fa-calendar"></i> ' + t.date + ' ' + escapeHtml(t.details || '') + '</span>' +
+                '<strong style="color:var(--color-danger);">−฿' + (parseFloat(t.amount)||0).toLocaleString() + '</strong>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      });
+
+      container.innerHTML = html;
+    }
+
+    // 3. Cashflow Net Summary
+    function openCashflowNetModal() {
+      var inc = parseFloat(document.getElementById('dashKpiIncome').textContent.replace(/[^\d.-]/g, '')) || 0;
+      var exp = parseFloat(document.getElementById('dashKpiExpense').textContent.replace(/[^\d.-]/g, '')) || 0;
+      var diff = inc - exp;
+
+      var periodText = (dashPeriod === 'today' ? 'วันนี้' : (dashPeriod === 'month' ? 'เดือนนี้' : 'ปีนี้'));
+      document.getElementById('netModalPeriodLabel').textContent = 'ข้อมูลรอบ: ' + periodText + ' • Natthawit Studio';
+      document.getElementById('netModalIncome').textContent = '+฿' + inc.toLocaleString(undefined, {minimumFractionDigits: 2});
+      document.getElementById('netModalExpense').textContent = '−฿' + exp.toLocaleString(undefined, {minimumFractionDigits: 2});
+      
+      var diffEl = document.getElementById('netModalDiff');
+      diffEl.textContent = (diff >= 0 ? '+฿' : '−฿') + Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2});
+      diffEl.style.color = diff >= 0 ? 'var(--color-primary)' : 'var(--color-danger)';
+
+      document.getElementById('cashflowNetModal').classList.add('active');
+    }
+
+    // 4. Receivables List
+    function openReceivablesModal() {
+      var container = document.getElementById('receivablesList');
+      var totalEl = document.getElementById('receivablesTotalAmount');
+      var countEl = document.getElementById('receivablesTotalCount');
+      if (!container) return;
+
+      var todayStr = getTodayDateStr();
+      var receivables = [];
+      var sumUnpaid = 0;
+
+      appData.jobs.forEach(function(j) {
+        var budget = parseFloat(j.budget) || 0;
+        if (budget <= 0) return;
+
+        // Calculate received
+        var received = 0;
+        appData.transactions.forEach(function(t) {
+          if (t.type === 'รายรับ' && (t.related_job === j.title || t.related_job === String(j.id))) {
+            received += (parseFloat(t.amount) || 0);
+          }
+        });
+
+        var outstanding = budget - received;
+        if (outstanding > 0) {
+          sumUnpaid += outstanding;
+          var isOverdue = j.date < todayStr;
+          receivables.push({
+            job: j,
+            budget: budget,
+            received: received,
+            outstanding: outstanding,
+            isOverdue: isOverdue
+          });
+        }
+      });
+
+      // Sort overdue first, then by outstanding descending
+      receivables.sort(function(a, b) {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        return b.outstanding - a.outstanding;
+      });
+
+      if (totalEl) totalEl.textContent = '฿' + sumUnpaid.toLocaleString(undefined, {minimumFractionDigits: 2});
+      if (countEl) countEl.textContent = receivables.length + ' งาน';
+
+      if (receivables.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--color-text-muted); font-size:0.88rem;">ไม่มีงานที่มียอดค้างรับในขณะนี้ 🎉</div>';
+      } else {
+        var html = '';
+        receivables.forEach(function(item) {
+          var j = item.job;
+          var statusPill = item.isOverdue ? '<span style="background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:var(--radius-full); font-size:0.7rem; font-weight:800;"><i class="fa-solid fa-triangle-exclamation"></i> เกินกำหนด</span>'
+                                          : '<span style="background:#FEF3C7; color:#B45309; padding:2px 8px; border-radius:var(--radius-full); font-size:0.7rem; font-weight:700;">รอรับเงิน</span>';
+
+          html += '<div class="breakdown-row" onclick="openEditJob(' + j.id + ')">' +
+            '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
+              '<div>' +
+                '<div class="breakdown-item-name">' + escapeHtml(j.title) + '</div>' +
+                '<div style="font-size:0.73rem; color:var(--color-text-muted); margin-top:2px;">' +
+                  '<i class="fa-regular fa-calendar"></i> ' + j.date + (j.location ? ' • ' + escapeHtml(j.location) : '') +
+                '</div>' +
+              '</div>' +
+              statusPill +
+            '</div>' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface-elevated); padding:8px 12px; border-radius:var(--radius-xs); font-size:0.78rem; margin-top:4px;">' +
+              '<span>งบทั้งหมด: ฿' + item.budget.toLocaleString() + ' (รับแล้ว: ฿' + item.received.toLocaleString() + ')</span>' +
+              '<strong style="color:#B45309; font-size:0.95rem;">ค้างรับ: ฿' + item.outstanding.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</strong>' +
+            '</div>' +
+          '</div>';
+        });
+        container.innerHTML = html;
+      }
+
+      document.getElementById('receivablesModal').classList.add('active');
+    }
+
+    // 5. Shortcut to Bills
+    function goToPendingBills() {
+      closeAllDrawers();
+      switchTab('bills');
+      currentBillFilter = 'unpaid';
+      renderBillsList();
+    }
+
+    // 6. Scroll to Debts Section
+    function scrollToDebtsSection() {
+      closeAllDrawers();
+      var sec = document.getElementById('debtsSection');
+      if (sec) {
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // =========================================================
+    // SUBSYSTEM 3: DEBTS & INSTALLMENTS (หนี้สิน & การผ่อนชำระ)
+    // =========================================================
+    var defaultDebts = [
+      { id: 1, name: 'Shopee SPayLater (เลนส์ 24-70mm)', lender: 'Shopee', original_principal: 38900, remaining_principal: 15560, interest_method: 'zero', interest_rate: 0, monthly_payment: 3890, due_day: 15, term_months: 10, paid_months: 6, status: 'active' },
+      { id: 2, name: 'ผ่อนกล้อง Sony A7 IV', lender: 'KBank Smart Pay', original_principal: 82000, remaining_principal: 49200, interest_method: 'zero', interest_rate: 0, monthly_payment: 8200, due_day: 5, term_months: 10, paid_months: 4, status: 'active' }
+    ];
+
+    async function loadDebts() {
+      try {
+        var res = await db.from('debts').select('*').order('id', { ascending: true });
+        if (res.data && res.data.length > 0) {
+          appData.debts = res.data;
+        } else {
+          loadDebtsFromLocal();
+        }
+      } catch (e) {
+        loadDebtsFromLocal();
+      }
+    }
+
+    function loadDebtsFromLocal() {
+      var saved = localStorage.getItem('natthawit_studio_debts');
+      if (saved) {
+        try { appData.debts = JSON.parse(saved); } catch(e) { appData.debts = defaultDebts.slice(); }
+      } else {
+        appData.debts = defaultDebts.slice();
+        saveDebtsToLocal();
+      }
+    }
+
+    function saveDebtsToLocal() {
+      localStorage.setItem('natthawit_studio_debts', JSON.stringify(appData.debts));
+    }
+
+    function renderDebts() {
+      var container = document.getElementById('dashDebtsList');
+      var totalPrincipalEl = document.getElementById('dashDebtTotalPrincipal');
+      var monthlyDueEl = document.getElementById('dashDebtMonthlyDue');
+      var activeCountEl = document.getElementById('dashDebtActiveCount');
+      if (!container) return;
+
+      var totalPrincipal = 0;
+      var totalMonthly = 0;
+      var activeCount = 0;
+
+      var html = '';
+      (appData.debts || []).forEach(function(d) {
+        if (d.status === 'archived') return;
+
+        var orig = parseFloat(d.original_principal) || 0;
+        var rem = parseFloat(d.remaining_principal) || 0;
+        var monthly = parseFloat(d.monthly_payment) || 0;
+
+        if (d.status !== 'paid_off' && rem > 0) {
+          totalPrincipal += rem;
+          totalMonthly += monthly;
+          activeCount++;
+        }
+
+        var progressPct = orig > 0 ? Math.min(100, Math.max(0, Math.round(((orig - rem) / orig) * 100))) : 0;
+        var methodLabel = d.interest_method === 'zero' ? '0% ไม่มีดอกเบี้ย' :
+                         (d.interest_method === 'reducing' ? 'ลดต้นลดดอก ' + (d.interest_rate||0) + '%' :
+                         (d.interest_method === 'flat' ? 'Flat Rate ' + (d.interest_rate||0) + '%' : 'ตามตารางเจ้าหนี้'));
+
+        var estMonths = monthly > 0 ? Math.ceil(rem / monthly) : 0;
+
+        html += '<div class="debt-card">' +
+          '<div class="debt-card-header">' +
+            '<div>' +
+              '<div class="debt-card-title">' + escapeHtml(d.name) + '</div>' +
+              '<div style="font-size:0.72rem; color:var(--color-text-muted); margin-top:2px;">' +
+                (d.lender ? escapeHtml(d.lender) + ' • ' : '') + 'ครบกำหนดทุกวันที่ ' + (d.due_day || 1) + ' ของเดือน' +
+              '</div>' +
+            '</div>' +
+            '<span class="debt-lender-badge">' + methodLabel + '</span>' +
+          '</div>' +
+          '<div class="debt-progress-container">' +
+            '<div class="debt-progress-labels">' +
+              '<span>ชำระเงินต้นแล้ว ' + progressPct + '%</span>' +
+              '<span>เหลือประมาณ ' + estMonths + ' งวด</span>' +
+            '</div>' +
+            '<div class="debt-progress-track">' +
+              '<div class="debt-progress-fill" style="width: ' + progressPct + '%;"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="debt-metrics-row">' +
+            '<div class="debt-metric-box">' +
+              '<div class="debt-metric-lbl">เงินต้นคงเหลือ</div>' +
+              '<div class="debt-metric-num tabular-nums" style="color:#7E22CE;">฿' + rem.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</div>' +
+            '</div>' +
+            '<div class="debt-metric-box">' +
+              '<div class="debt-metric-lbl">ค่างวดต่อเดือน</div>' +
+              '<div class="debt-metric-num tabular-nums">฿' + monthly.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="debt-footer-row">' +
+            '<button type="button" class="btn-pay-debt" onclick="openPayDebtModal(' + d.id + ')"><i class="fa-solid fa-check"></i> บันทึกจ่ายงวดนี้</button>' +
+            '<button type="button" class="wallet-quick-btn" onclick="openEditDebt(' + d.id + ')"><i class="fa-solid fa-pen"></i> แก้ไข</button>' +
+          '</div>' +
+        '</div>';
+      });
+
+      if (totalPrincipalEl) totalPrincipalEl.textContent = '฿' + totalPrincipal.toLocaleString(undefined, {minimumFractionDigits: 2});
+      if (monthlyDueEl) monthlyDueEl.textContent = '฿' + totalMonthly.toLocaleString(undefined, {minimumFractionDigits: 2});
+      if (activeCountEl) activeCountEl.textContent = activeCount + ' สัญญา';
+
+      container.innerHTML = html;
+    }
+
+    function openAddDebtModal() {
+      document.getElementById('debtEditId').value = '';
+      document.getElementById('debtModalTitle').textContent = 'เพิ่มรายการหนี้ / การผ่อนชำระ';
+      document.getElementById('debtNameInput').value = '';
+      document.getElementById('debtLenderInput').value = '';
+      document.getElementById('debtOriginalInput').value = '';
+      document.getElementById('debtRemainingInput').value = '';
+      document.getElementById('debtInterestMethodInput').value = 'zero';
+      document.getElementById('debtRateInput').value = '0';
+      document.getElementById('debtMonthlyInput').value = '';
+      document.getElementById('debtDueDayInput').value = '1';
+      document.getElementById('debtTermMonthsInput').value = '10';
+      document.getElementById('debtPaidMonthsInput').value = '0';
+      populateWalletDropdowns();
+      document.getElementById('debtModal').classList.add('active');
+    }
+
+    function openEditDebt(id) {
+      var d = (appData.debts || []).find(function(item) { return item.id === id; });
+      if (!d) return;
+      document.getElementById('debtEditId').value = d.id;
+      document.getElementById('debtModalTitle').textContent = 'แก้ไขสัญญาหนี้ / รายการผ่อน';
+      document.getElementById('debtNameInput').value = d.name;
+      document.getElementById('debtLenderInput').value = d.lender || '';
+      document.getElementById('debtOriginalInput').value = d.original_principal || '';
+      document.getElementById('debtRemainingInput').value = d.remaining_principal || '';
+      document.getElementById('debtInterestMethodInput').value = d.interest_method || 'zero';
+      document.getElementById('debtRateInput').value = d.interest_rate || '0';
+      document.getElementById('debtMonthlyInput').value = d.monthly_payment || '';
+      document.getElementById('debtDueDayInput').value = d.due_day || 1;
+      document.getElementById('debtTermMonthsInput').value = d.term_months || 10;
+      document.getElementById('debtPaidMonthsInput').value = d.paid_months || 0;
+      populateWalletDropdowns();
+      if (d.default_wallet_id) document.getElementById('debtWalletInput').value = d.default_wallet_id;
+      document.getElementById('debtModal').classList.add('active');
+    }
+
+    function autoFillRemaining() {
+      var orig = parseFloat(document.getElementById('debtOriginalInput').value) || 0;
+      var remInput = document.getElementById('debtRemainingInput');
+      if (remInput && !remInput.value && orig > 0) {
+        remInput.value = orig.toFixed(2);
+      }
+    }
+
+    function updateDebtMethodNotice() {
+      var m = document.getElementById('debtInterestMethodInput').value;
+      var rateInput = document.getElementById('debtRateInput');
+      if (m === 'zero') {
+        rateInput.value = '0';
+        rateInput.disabled = true;
+      } else {
+        rateInput.disabled = false;
+      }
+    }
+
+    async function handleSaveDebt(e) {
+      e.preventDefault();
+      var id = document.getElementById('debtEditId').value;
+      var name = document.getElementById('debtNameInput').value.trim();
+      var lender = document.getElementById('debtLenderInput').value.trim();
+      var orig = parseFloat(document.getElementById('debtOriginalInput').value) || 0;
+      var rem = parseFloat(document.getElementById('debtRemainingInput').value) || 0;
+      var method = document.getElementById('debtInterestMethodInput').value;
+      var rate = parseFloat(document.getElementById('debtRateInput').value) || 0;
+      var monthly = parseFloat(document.getElementById('debtMonthlyInput').value) || 0;
+      var dueDay = parseInt(document.getElementById('debtDueDayInput').value, 10) || 1;
+      var term = parseInt(document.getElementById('debtTermMonthsInput').value, 10) || 1;
+      var paid = parseInt(document.getElementById('debtPaidMonthsInput').value, 10) || 0;
+      var walletId = parseInt(document.getElementById('debtWalletInput').value, 10) || null;
+
+      if (!name) return;
+
+      if (id) {
+        var numId = parseInt(id, 10);
+        var d = appData.debts.find(function(item) { return item.id === numId; });
+        if (d) {
+          d.name = name;
+          d.lender = lender;
+          d.original_principal = orig;
+          d.remaining_principal = rem;
+          d.interest_method = method;
+          d.interest_rate = rate;
+          d.monthly_payment = monthly;
+          d.due_day = dueDay;
+          d.term_months = term;
+          d.paid_months = paid;
+          d.default_wallet_id = walletId;
+        }
+      } else {
+        var newId = (appData.debts.length > 0 ? Math.max.apply(null, appData.debts.map(function(d){return d.id;})) : 0) + 1;
+        appData.debts.push({
+          id: newId,
+          name: name,
+          lender: lender,
+          original_principal: orig,
+          remaining_principal: rem,
+          interest_method: method,
+          interest_rate: rate,
+          monthly_payment: monthly,
+          due_day: dueDay,
+          term_months: term,
+          paid_months: paid,
+          default_wallet_id: walletId,
+          status: 'active'
+        });
+      }
+
+      saveDebtsToLocal();
+      closeAllDrawers();
+      showToast('บันทึกรายการหนี้เรียบร้อยแล้ว 💳');
+      renderDashboard();
+    }
+
+    function openPayDebtModal(debtId) {
+      var d = (appData.debts || []).find(function(item) { return item.id === debtId; });
+      if (!d) return;
+
+      document.getElementById('payDebtTargetId').value = d.id;
+      document.getElementById('payDebtContractTitle').textContent = d.name + (d.lender ? ' (' + d.lender + ')' : '');
+      document.getElementById('payDebtRemainingInfo').textContent = 'เงินต้นคงเหลือ: ฿' + (parseFloat(d.remaining_principal)||0).toLocaleString(undefined, {minimumFractionDigits: 2});
+
+      populateWalletDropdowns();
+      if (d.default_wallet_id) document.getElementById('payDebtWalletSelect').value = d.default_wallet_id;
+
+      var monthly = parseFloat(d.monthly_payment) || 0;
+      document.getElementById('payDebtTotalAmount').value = monthly.toFixed(2);
+      document.getElementById('payDebtPrincipalPortion').value = monthly.toFixed(2);
+      document.getElementById('payDebtInterestPortion').value = '0.00';
+      document.getElementById('payDebtDateInput').value = getTodayDateStr();
+      document.getElementById('payDebtNoteInput').value = 'ค่างวด ' + d.name;
+
+      document.getElementById('payDebtModal').classList.add('active');
+    }
+
+    function autoSplitDebtPayment() {
+      var targetId = parseInt(document.getElementById('payDebtTargetId').value, 10);
+      var d = (appData.debts || []).find(function(item) { return item.id === targetId; });
+      var total = parseFloat(document.getElementById('payDebtTotalAmount').value) || 0;
+
+      if (!d || d.interest_method === 'zero') {
+        document.getElementById('payDebtPrincipalPortion').value = total.toFixed(2);
+        document.getElementById('payDebtInterestPortion').value = '0.00';
+      } else if (d.interest_method === 'flat' || d.interest_method === 'reducing') {
+        var rate = (parseFloat(d.interest_rate) || 0) / 100 / 12;
+        var rem = parseFloat(d.remaining_principal) || 0;
+        var estInterest = rem * rate;
+        var prin = Math.max(0, total - estInterest);
+        document.getElementById('payDebtPrincipalPortion').value = prin.toFixed(2);
+        document.getElementById('payDebtInterestPortion').value = estInterest.toFixed(2);
+      }
+    }
+
+    async function handleRecordDebtPayment(e) {
+      e.preventDefault();
+      var debtId = parseInt(document.getElementById('payDebtTargetId').value, 10);
+      var walletId = parseInt(document.getElementById('payDebtWalletSelect').value, 10);
+      var total = parseFloat(document.getElementById('payDebtTotalAmount').value) || 0;
+      var principal = parseFloat(document.getElementById('payDebtPrincipalPortion').value) || 0;
+      var interest = parseFloat(document.getElementById('payDebtInterestPortion').value) || 0;
+      var dateStr = document.getElementById('payDebtDateInput').value || getTodayDateStr();
+      var note = document.getElementById('payDebtNoteInput').value.trim();
+
+      var d = (appData.debts || []).find(function(item) { return item.id === debtId; });
+      if (!d) return;
+
+      // 1. Reduce Debt Remaining Principal
+      d.remaining_principal = Math.max(0, (parseFloat(d.remaining_principal) || 0) - principal);
+      d.paid_months = (parseInt(d.paid_months, 10) || 0) + 1;
+      if (d.remaining_principal <= 0) d.status = 'paid_off';
+      saveDebtsToLocal();
+
+      // 2. If interest > 0, record interest as expense transaction only (prevents double-counting principal!)
+      if (interest > 0) {
+        try {
+          await db.from('transactions').insert([{
+            date: dateStr,
+            type: 'รายจ่าย',
+            category: 'ดอกเบี้ย/ค่าธรรมเนียม',
+            amount: interest,
+            details: '[ดอกเบี้ยงวด] ' + d.name + (note ? ' (' + note + ')' : ''),
+            wallet_id: walletId
+          }]);
+        } catch(err) {
+          console.warn('Debt interest transaction notice:', err);
+        }
+      }
+
+      closeAllDrawers();
+      showToast('บันทึกชำระงวดสำเร็จ ฿' + total.toLocaleString() + ' 🎉');
+      renderDashboard();
+    }
+
+    // =========================================================
+    // SUBSYSTEM 4: CREDIT & CASH CARDS (บัตรเครดิต & บัตรกดเงินสด)
+    // =========================================================
+    var defaultCards = [
+      { id: 1, name: 'KBank OneSiam', issuer: 'กสิกรไทย', last_four: '4829', closing_day: 20, due_day: 10, credit_limit: 100000, current_balance: 14200, default_payment_mode: 'full' }
+    ];
+
+    async function loadCards() {
+      try {
+        var res = await db.from('cards').select('*').order('id', { ascending: true });
+        if (res.data && res.data.length > 0) {
+          appData.cards = res.data;
+        } else {
+          loadCardsFromLocal();
+        }
+      } catch (e) {
+        loadCardsFromLocal();
+      }
+    }
+
+    function loadCardsFromLocal() {
+      var saved = localStorage.getItem('natthawit_studio_cards');
+      if (saved) {
+        try { appData.cards = JSON.parse(saved); } catch(e) { appData.cards = defaultCards.slice(); }
+      } else {
+        appData.cards = defaultCards.slice();
+        saveCardsToLocal();
+      }
+    }
+
+    function saveCardsToLocal() {
+      localStorage.setItem('natthawit_studio_cards', JSON.stringify(appData.cards));
+    }
+
+    function renderCards() {
+      var container = document.getElementById('dashCardsList');
+      if (!container) return;
+
+      var html = '';
+      (appData.cards || []).forEach(function(c) {
+        var bal = parseFloat(c.current_balance) || 0;
+        var limit = parseFloat(c.credit_limit) || 0;
+        var closeDayText = c.closing_day === 99 ? 'สิ้นเดือน' : ('วันที่ ' + c.closing_day);
+        var dueDayText = c.due_day === 99 ? 'สิ้นเดือน' : ('วันที่ ' + c.due_day);
+
+        html += '<div class="card-tracker-card" onclick="openEditCard(' + c.id + ')">' +
+          '<div class="card-top-row">' +
+            '<div>' +
+              '<div class="card-issuer-name">' + escapeHtml(c.issuer || 'CREDIT CARD') + '</div>' +
+              '<div class="card-nickname">' + escapeHtml(c.name) + '</div>' +
+            '</div>' +
+            '<i class="fa-solid fa-credit-card" style="font-size:1.4rem; opacity:0.85;"></i>' +
+          '</div>' +
+          '<div class="card-digits">•••• •••• •••• ' + (c.last_four || '••••') + '</div>' +
+          '<div class="card-bottom-row">' +
+            '<div>' +
+              '<div style="opacity:0.75; font-size:0.68rem;">ตัดรอบ: ' + closeDayText + ' • ครบกำหนด: ' + dueDayText + '</div>' +
+              '<div style="font-weight:700;">ยอดใช้: ฿' + bal.toLocaleString(undefined, {minimumFractionDigits: 2}) + '</div>' +
+            '</div>' +
+            (limit > 0 ? '<div style="opacity:0.75; font-size:0.68rem; text-align:right;">วงเงิน: ฿' + limit.toLocaleString() + '</div>' : '') +
+          '</div>' +
+        '</div>';
+      });
+
+      container.innerHTML = html;
+    }
+
+    function openAddCardModal() {
+      document.getElementById('cardEditId').value = '';
+      document.getElementById('cardModalTitle').textContent = 'เพิ่มบัตรเครดิต / บัตรกดเงินสด';
+      document.getElementById('cardNicknameInput').value = '';
+      document.getElementById('cardIssuerInput').value = '';
+      document.getElementById('cardLastFourInput').value = '';
+      document.getElementById('cardClosingDayInput').value = '20';
+      document.getElementById('cardDueDayInput').value = '10';
+      document.getElementById('cardLimitInput').value = '';
+      document.getElementById('cardBalanceInput').value = '0.00';
+      document.getElementById('cardPaymentModeInput').value = 'full';
+      document.getElementById('cardModal').classList.add('active');
+    }
+
+    function openEditCard(id) {
+      var c = (appData.cards || []).find(function(item) { return item.id === id; });
+      if (!c) return;
+      document.getElementById('cardEditId').value = c.id;
+      document.getElementById('cardModalTitle').textContent = 'แก้ไขบัตรเครดิต / บัตรกดเงินสด';
+      document.getElementById('cardNicknameInput').value = c.name;
+      document.getElementById('cardIssuerInput').value = c.issuer || '';
+      document.getElementById('cardLastFourInput').value = c.last_four || '';
+      document.getElementById('cardClosingDayInput').value = String(c.closing_day || 20);
+      document.getElementById('cardDueDayInput').value = String(c.due_day || 10);
+      document.getElementById('cardLimitInput').value = c.credit_limit || '';
+      document.getElementById('cardBalanceInput').value = (parseFloat(c.current_balance)||0).toFixed(2);
+      document.getElementById('cardPaymentModeInput').value = c.default_payment_mode || 'full';
+      document.getElementById('cardModal').classList.add('active');
+    }
+
+    async function handleSaveCard(e) {
+      e.preventDefault();
+      var id = document.getElementById('cardEditId').value;
+      var name = document.getElementById('cardNicknameInput').value.trim();
+      var issuer = document.getElementById('cardIssuerInput').value.trim();
+      var lastFour = document.getElementById('cardLastFourInput').value.trim();
+      var closeDay = parseInt(document.getElementById('cardClosingDayInput').value, 10) || 20;
+      var dueDay = parseInt(document.getElementById('cardDueDayInput').value, 10) || 10;
+      var limit = parseFloat(document.getElementById('cardLimitInput').value) || 0;
+      var bal = parseFloat(document.getElementById('cardBalanceInput').value) || 0;
+      var mode = document.getElementById('cardPaymentModeInput').value;
+
+      if (!name) return;
+
+      if (id) {
+        var numId = parseInt(id, 10);
+        var c = appData.cards.find(function(item) { return item.id === numId; });
+        if (c) {
+          c.name = name;
+          c.issuer = issuer;
+          c.last_four = lastFour;
+          c.closing_day = closeDay;
+          c.due_day = dueDay;
+          c.credit_limit = limit;
+          c.current_balance = bal;
+          c.default_payment_mode = mode;
+        }
+      } else {
+        var newId = (appData.cards.length > 0 ? Math.max.apply(null, appData.cards.map(function(c){return c.id;})) : 0) + 1;
+        appData.cards.push({
+          id: newId,
+          name: name,
+          issuer: issuer,
+          last_four: lastFour,
+          closing_day: closeDay,
+          due_day: dueDay,
+          credit_limit: limit,
+          current_balance: bal,
+          default_payment_mode: mode
+        });
+      }
+
+      saveCardsToLocal();
+      closeAllDrawers();
+      showToast('บันทึกข้อมูลบัตรเรียบร้อยแล้ว 💳');
+      renderDashboard();
+    }
+
+    // =========================================================
+    // SOFT KEYBOARD DETECTION (MOBILE ERGONOMICS)
+    // =========================================================
+    window.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('focusin', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          document.body.classList.add('keyboard-open');
+        }
+      });
+      document.addEventListener('focusout', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          document.body.classList.remove('keyboard-open');
+        }
+      });
+    });
+
+
   </script>
 </body>
 </html>
