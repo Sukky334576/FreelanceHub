@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Natthawit Studio">
+  <meta name="apple-mobile-web-app-title" content="Freelance Hub">
   <meta name="theme-color" content="#164F57">
   <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <title>Natthawit Production & Finance Hub</title>
+  <title>Freelance Hub - Natthawit Production & Finance</title>
   
   <!-- FontAwesome & Google Fonts: IBM Plex Sans Thai + Noto Sans Thai + Plus Jakarta Sans -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1387,6 +1390,51 @@
     .btn-delete-job:hover {
       background: rgba(235, 36, 55, 0.16) !important;
     }
+
+    .btn-danger-outline {
+      width: 100%;
+      height: 46px;
+      border-radius: var(--radius-md);
+      background: rgba(235, 36, 55, 0.08);
+      border: 1.5px solid rgba(235, 36, 55, 0.25);
+      color: var(--color-danger);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+      box-sizing: border-box;
+    }
+    .btn-danger-outline:hover {
+      background: rgba(235, 36, 55, 0.16);
+      border-color: rgba(235, 36, 55, 0.4);
+    }
+
+    .btn-card-del {
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #FFFFFF;
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .btn-card-del:hover {
+      background: rgba(235, 36, 55, 0.88);
+      border-color: #EB2437;
+      color: #FFFFFF;
+      transform: scale(1.05);
+    }
+
 
     /* Alert Banners */
     .alert-banner {
@@ -3893,6 +3941,9 @@
           <button type="submit" class="btn-submit-main" id="btnSubmitDebt">
             <i class="fa-solid fa-check"></i> บันทึกรายการหนี้
           </button>
+          <button type="button" class="btn-danger-outline" id="btnDeleteDebt" style="display:none; margin-top: 10px;" onclick="onDeleteCurrentDebt()">
+            <i class="fa-solid fa-trash-can"></i> ลบรายการหนี้นี้
+          </button>
         </form>
       </div>
     </div>
@@ -4052,6 +4103,9 @@
 
           <button type="submit" class="btn-submit-main" id="btnSubmitCard">
             <i class="fa-solid fa-check"></i> บันทึกข้อมูลบัตร
+          </button>
+          <button type="button" class="btn-danger-outline" id="btnDeleteCard" style="display:none; margin-top: 10px;" onclick="onDeleteCurrentCard()">
+            <i class="fa-solid fa-trash-can"></i> ลบบัตรนี้
           </button>
         </form>
       </div>
@@ -4319,6 +4373,22 @@
     function loadMoreTransactions() {
       txDisplayLimit += 35;
       renderTransactions();
+    }
+
+    // Helper: Build formatted transaction details string with Scope & Account tag
+    function buildTxDetails(scope, account, note) {
+      var s = (scope === 'personal' || scope === 'ส่วนตัว') ? 'ส่วนตัว' : 'สตูดิโอ';
+      var a = account || 'บัญชีสตูดิโอ';
+      var n = note ? String(note).trim() : '';
+      return '[' + s + ' | ' + a + ']' + (n ? ' ' + n : '');
+    }
+
+    function selectTxType(type) {
+      if (typeof setTxFormType === 'function') setTxFormType(type);
+    }
+
+    function renderBillsList() {
+      if (typeof renderBills === 'function') renderBills();
     }
 
     // Helper: Parse Scope & Account from transaction details
@@ -7071,8 +7141,8 @@
 
     function loadDebtsFromLocal() {
       var saved = localStorage.getItem('natthawit_studio_debts');
-      if (saved) {
-        try { appData.debts = JSON.parse(saved); } catch(e) { appData.debts = defaultDebts.slice(); }
+      if (saved !== null) {
+        try { appData.debts = JSON.parse(saved); } catch(e) { appData.debts = []; }
       } else {
         appData.debts = defaultDebts.slice();
         saveDebtsToLocal();
@@ -7147,9 +7217,19 @@
           '<div class="debt-footer-row">' +
             '<button type="button" class="btn-pay-debt" onclick="openPayDebtModal(' + d.id + ')"><i class="fa-solid fa-check"></i> บันทึกจ่ายงวดนี้</button>' +
             '<button type="button" class="wallet-quick-btn" onclick="openEditDebt(' + d.id + ')"><i class="fa-solid fa-pen"></i> แก้ไข</button>' +
+            '<button type="button" class="wallet-quick-btn" style="color:#DC2626;" onclick="deleteDebt(' + d.id + ', event)" title="ลบรายการหนี้"><i class="fa-solid fa-trash-can"></i> ลบ</button>' +
           '</div>' +
         '</div>';
       });
+
+      if (!html) {
+        html = '<div style="grid-column: 1 / -1; padding: 24px 16px; text-align: center; background: var(--color-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-lg); color: var(--color-text-muted);">' +
+          '<i class="fa-solid fa-credit-card" style="font-size: 2rem; margin-bottom: 8px; opacity: 0.5; color: #7E22CE;"></i>' +
+          '<div style="font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px;">ยังไม่มีรายการหนี้สินหรือการผ่อนชำระ</div>' +
+          '<div style="font-size: 0.78rem; margin-bottom: 12px;">บันทึกรายการผ่อนอุปกรณ์ หรือสัญญาหนี้เพื่อติดตามภาระและค่างวดรายเดือน</div>' +
+          '<button type="button" class="btn-section-action" style="display:inline-flex;" onclick="openAddDebtModal()"><i class="fa-solid fa-plus"></i> เพิ่มรายการหนี้/ผ่อน</button>' +
+        '</div>';
+      }
 
       if (totalPrincipalEl) totalPrincipalEl.textContent = '฿' + totalPrincipal.toLocaleString(undefined, {minimumFractionDigits: 2});
       if (monthlyDueEl) monthlyDueEl.textContent = '฿' + totalMonthly.toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -7161,6 +7241,8 @@
     function openAddDebtModal() {
       document.getElementById('debtEditId').value = '';
       document.getElementById('debtModalTitle').textContent = 'เพิ่มรายการหนี้ / การผ่อนชำระ';
+      var delBtn = document.getElementById('btnDeleteDebt');
+      if (delBtn) delBtn.style.display = 'none';
       document.getElementById('debtNameInput').value = '';
       document.getElementById('debtLenderInput').value = '';
       document.getElementById('debtOriginalInput').value = '';
@@ -7180,6 +7262,8 @@
       if (!d) return;
       document.getElementById('debtEditId').value = d.id;
       document.getElementById('debtModalTitle').textContent = 'แก้ไขสัญญาหนี้ / รายการผ่อน';
+      var delBtn = document.getElementById('btnDeleteDebt');
+      if (delBtn) delBtn.style.display = 'block';
       document.getElementById('debtNameInput').value = d.name;
       document.getElementById('debtLenderInput').value = d.lender || '';
       document.getElementById('debtOriginalInput').value = d.original_principal || '';
@@ -7247,9 +7331,18 @@
           d.paid_months = paid;
           d.default_wallet_id = walletId;
         }
+        try {
+          await db.from('debts').update({
+            name: name, lender: lender, original_principal: orig, remaining_principal: rem,
+            interest_method: method, interest_rate: rate, monthly_payment: monthly,
+            due_day: dueDay, term_months: term, paid_months: paid, default_wallet_id: walletId
+          }).eq('id', numId);
+        } catch(err) {
+          console.warn('Debts table update notice:', err);
+        }
       } else {
         var newId = (appData.debts.length > 0 ? Math.max.apply(null, appData.debts.map(function(d){return d.id;})) : 0) + 1;
-        appData.debts.push({
+        var newDebtObj = {
           id: newId,
           name: name,
           lender: lender,
@@ -7263,13 +7356,58 @@
           paid_months: paid,
           default_wallet_id: walletId,
           status: 'active'
-        });
+        };
+        appData.debts.push(newDebtObj);
+        try {
+          var sRes = await db.from('debts').insert([newDebtObj]).select();
+          if (sRes.data && sRes.data[0]) {
+            newDebtObj.id = sRes.data[0].id;
+          }
+        } catch(err) {
+          console.warn('Debts table insert notice:', err);
+        }
       }
 
       saveDebtsToLocal();
       closeAllDrawers();
       showToast('บันทึกรายการหนี้เรียบร้อยแล้ว 💳');
       renderDashboard();
+    }
+
+    async function deleteDebt(id, e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      id = parseInt(id, 10);
+      var d = (appData.debts || []).find(function(item) { return item.id === id; });
+      if (!d) return;
+
+      if (!confirm('ยืนยันต้องการลบรายการหนี้/การผ่อน "' + d.name + '" ใช่หรือไม่?')) {
+        return;
+      }
+
+      try {
+        try {
+          await db.from('debts').delete().eq('id', id);
+        } catch(err) {
+          console.warn('Supabase debt delete notice:', err);
+        }
+
+        appData.debts = (appData.debts || []).filter(function(item) { return item.id !== id; });
+        saveDebtsToLocal();
+
+        closeAllDrawers();
+        showToast('ลบรายการหนี้เรียบร้อย 🗑️');
+        renderDashboard();
+      } catch(err) {
+        console.error('Error deleting debt:', err);
+        alert('เกิดข้อผิดพลาดในการลบรายการหนี้: ' + err.message);
+      }
+    }
+
+    function onDeleteCurrentDebt() {
+      var id = parseInt(document.getElementById('debtEditId').value, 10);
+      if (id) {
+        deleteDebt(id);
+      }
     }
 
     function openPayDebtModal(debtId) {
@@ -7373,8 +7511,8 @@
 
     function loadCardsFromLocal() {
       var saved = localStorage.getItem('natthawit_studio_cards');
-      if (saved) {
-        try { appData.cards = JSON.parse(saved); } catch(e) { appData.cards = defaultCards.slice(); }
+      if (saved !== null) {
+        try { appData.cards = JSON.parse(saved); } catch(e) { appData.cards = []; }
       } else {
         appData.cards = defaultCards.slice();
         saveCardsToLocal();
@@ -7402,7 +7540,10 @@
               '<div class="card-issuer-name">' + escapeHtml(c.issuer || 'CREDIT CARD') + '</div>' +
               '<div class="card-nickname">' + escapeHtml(c.name) + '</div>' +
             '</div>' +
-            '<i class="fa-solid fa-credit-card" style="font-size:1.4rem; opacity:0.85;"></i>' +
+            '<div style="display:flex; align-items:center; gap:8px;">' +
+              '<button type="button" class="btn-card-del" onclick="deleteCard(' + c.id + ', event)" title="ลบบัตร"><i class="fa-solid fa-trash-can"></i></button>' +
+              '<i class="fa-solid fa-credit-card" style="font-size:1.4rem; opacity:0.85;"></i>' +
+            '</div>' +
           '</div>' +
           '<div class="card-digits">•••• •••• •••• ' + (c.last_four || '••••') + '</div>' +
           '<div class="card-bottom-row">' +
@@ -7415,12 +7556,23 @@
         '</div>';
       });
 
+      if (!html) {
+        html = '<div style="grid-column: 1 / -1; padding: 24px 16px; text-align: center; background: var(--color-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-lg); color: var(--color-text-muted);">' +
+          '<i class="fa-solid fa-id-card" style="font-size: 2rem; margin-bottom: 8px; opacity: 0.5; color: var(--color-primary);"></i>' +
+          '<div style="font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px;">ยังไม่มีบัตรเครดิตหรือบัตรกดเงินสดที่บันทึกไว้</div>' +
+          '<div style="font-size: 0.78rem; margin-bottom: 12px;">บันทึกบัตรเพื่อติดตามวันตัดรอบบิล วันครบกำหนดชำระ และยอดใช้จ่าย</div>' +
+          '<button type="button" class="btn-section-action" style="display:inline-flex;" onclick="openAddCardModal()"><i class="fa-solid fa-plus"></i> เพิ่มบัตรเครดิต/กดเงินสด</button>' +
+        '</div>';
+      }
+
       container.innerHTML = html;
     }
 
     function openAddCardModal() {
       document.getElementById('cardEditId').value = '';
       document.getElementById('cardModalTitle').textContent = 'เพิ่มบัตรเครดิต / บัตรกดเงินสด';
+      var delBtn = document.getElementById('btnDeleteCard');
+      if (delBtn) delBtn.style.display = 'none';
       document.getElementById('cardNicknameInput').value = '';
       document.getElementById('cardIssuerInput').value = '';
       document.getElementById('cardLastFourInput').value = '';
@@ -7437,6 +7589,8 @@
       if (!c) return;
       document.getElementById('cardEditId').value = c.id;
       document.getElementById('cardModalTitle').textContent = 'แก้ไขบัตรเครดิต / บัตรกดเงินสด';
+      var delBtn = document.getElementById('btnDeleteCard');
+      if (delBtn) delBtn.style.display = 'block';
       document.getElementById('cardNicknameInput').value = c.name;
       document.getElementById('cardIssuerInput').value = c.issuer || '';
       document.getElementById('cardLastFourInput').value = c.last_four || '';
@@ -7475,9 +7629,17 @@
           c.current_balance = bal;
           c.default_payment_mode = mode;
         }
+        try {
+          await db.from('cards').update({
+            name: name, issuer: issuer, last_four: lastFour, closing_day: closeDay,
+            due_day: dueDay, credit_limit: limit, current_balance: bal, default_payment_mode: mode
+          }).eq('id', numId);
+        } catch(err) {
+          console.warn('Cards table update notice:', err);
+        }
       } else {
         var newId = (appData.cards.length > 0 ? Math.max.apply(null, appData.cards.map(function(c){return c.id;})) : 0) + 1;
-        appData.cards.push({
+        var newCardObj = {
           id: newId,
           name: name,
           issuer: issuer,
@@ -7487,13 +7649,58 @@
           credit_limit: limit,
           current_balance: bal,
           default_payment_mode: mode
-        });
+        };
+        appData.cards.push(newCardObj);
+        try {
+          var sRes = await db.from('cards').insert([newCardObj]).select();
+          if (sRes.data && sRes.data[0]) {
+            newCardObj.id = sRes.data[0].id;
+          }
+        } catch(err) {
+          console.warn('Cards table insert notice:', err);
+        }
       }
 
       saveCardsToLocal();
       closeAllDrawers();
       showToast('บันทึกข้อมูลบัตรเรียบร้อยแล้ว 💳');
       renderDashboard();
+    }
+
+    async function deleteCard(id, e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      id = parseInt(id, 10);
+      var c = (appData.cards || []).find(function(item) { return item.id === id; });
+      if (!c) return;
+
+      if (!confirm('ยืนยันต้องการลบบัตร "' + c.name + '" ใช่หรือไม่?')) {
+        return;
+      }
+
+      try {
+        try {
+          await db.from('cards').delete().eq('id', id);
+        } catch(err) {
+          console.warn('Supabase card delete notice:', err);
+        }
+
+        appData.cards = (appData.cards || []).filter(function(item) { return item.id !== id; });
+        saveCardsToLocal();
+
+        closeAllDrawers();
+        showToast('ลบบัตรเรียบร้อย 🗑️');
+        renderDashboard();
+      } catch(err) {
+        console.error('Error deleting card:', err);
+        alert('เกิดข้อผิดพลาดในการลบบัตร: ' + err.message);
+      }
+    }
+
+    function onDeleteCurrentCard() {
+      var id = parseInt(document.getElementById('cardEditId').value, 10);
+      if (id) {
+        deleteCard(id);
+      }
     }
 
     // =========================================================
