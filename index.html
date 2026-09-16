@@ -1025,6 +1025,24 @@
     .tx-amount.income { color: var(--color-success); }
     .tx-amount.expense { color: var(--color-danger); }
 
+    .tx-row-del-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-muted);
+      padding: 6px 8px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tx-row-del-btn:hover {
+      color: var(--color-danger);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
     /* Floating Action Button (FAB - Ergonomic & Non-overlapping) */
     .fab-container {
       position: fixed;
@@ -1935,6 +1953,25 @@
 
     .wallet-quick-btn:hover {
       background: var(--color-primary-light);
+    }
+
+    .wallet-card-del-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-text-muted);
+      padding: 4px 6px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: var(--transition);
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wallet-card-del-btn:hover {
+      color: var(--color-danger);
+      background: rgba(239, 68, 68, 0.12);
     }
 
     /* =========================================================
@@ -3146,6 +3183,9 @@
           <button type="submit" id="btnTxSubmit" class="btn-submit-main">
             ยืนยันบันทึก
           </button>
+          <button type="button" class="btn-danger-outline" id="btnDeleteTx" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border-radius: var(--radius-md); border: 1.5px solid #fca5a5; background: #fef2f2; color: #ef4444; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 8px;" onclick="onDeleteCurrentTx()">
+            <i class="fa-solid fa-trash-can"></i> ลบรายการนี้
+          </button>
         </form>
       </div>
     </div>
@@ -3515,9 +3555,8 @@
           <div class="form-group">
             <label class="form-label">เลือกบัญชีที่ต้องการตรวจสอบ:</label>
             <select id="reconAccountSelect" class="form-select" onchange="updateReconSystemBalance()">
+              <!-- Populated dynamically from appData.wallets -->
               <option value="all">รวมทุกบัญชี (ภาพรวมทั้งหมด)</option>
-              <option value="บัญชีสตูดิโอ">บัญชีสตูดิโอ</option>
-              <option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option>
             </select>
           </div>
 
@@ -3766,6 +3805,16 @@
             </select>
           </div>
 
+          <div class="form-group" style="background: rgba(22, 142, 161, 0.08); border: 1.5px solid var(--color-primary); border-radius: var(--radius-md); padding: 12px 14px;">
+            <label class="form-label" style="color: var(--color-primary-dark); font-weight: 700; margin-bottom: 4px;">
+              <i class="fa-solid fa-coins"></i> ยอดเงินในบัญชีจริงตอนนี้ (บาท) *
+            </label>
+            <input id="walletActualBalanceInput" type="number" step="0.01" class="form-input" placeholder="0.00" required style="font-size: 1.25rem; font-weight: 800; color: var(--color-primary);">
+            <div style="font-size: 0.74rem; color: var(--color-text-secondary); margin-top: 4px;">
+              💡 กรอกยอดเงินคงเหลือตามหน้าสมุดบัญชี/แอปธนาคารจริง ระบบจะใช้ยอดนี้เป็นยอดคงเหลือปัจจุบันทันที
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">ยอดเงินตั้งต้น (บาท):</label>
             <input id="walletOpeningInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
@@ -3787,6 +3836,9 @@
 
           <button type="submit" class="btn-submit-main" id="btnSubmitWallet">
             <i class="fa-solid fa-check"></i> บันทึกกระเป๋าเงิน
+          </button>
+          <button type="button" id="btnDeleteWallet" class="btn-danger-outline" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border-radius: var(--radius-md); border: 1.5px solid #fca5a5; background: #fef2f2; color: #ef4444; font-weight: 700; font-size: 0.9rem; cursor: pointer; align-items: center; justify-content: center; gap: 8px;" onclick="onDeleteCurrentWallet()">
+            <i class="fa-solid fa-trash-can"></i> ลบกระเป๋าเงิน/บัญชีนี้
           </button>
         </form>
       </div>
@@ -4532,6 +4584,9 @@
             '</div>' +
             '<div class="tx-right">' +
               '<div class="tx-amount ' + amtClass + '">' + amtStr + '</div>' +
+              '<button type="button" class="tx-row-del-btn" title="ลบรายการนี้" onclick="event.stopPropagation(); deleteTx(' + t.id + ');">' +
+                '<i class="fa-regular fa-trash-can"></i>' +
+              '</button>' +
               '<i class="fa-solid fa-chevron-right tx-chevron"></i>' +
             '</div>' +
           '</div>';
@@ -4572,9 +4627,36 @@
     }
 
     // =========================================================
-    // SCREEN 03: ฟอร์มบันทึกเงิน (TRANSACTION MODAL)
     // =========================================================
+    // SCREEN 03: ฟอร์มบันทึกเงิน (TRANSACTION MODAL & CRUD)
+    // =========================================================
+    function adjustWalletBalanceForTx(tx, isRevert) {
+      if (!tx || !appData.wallets || appData.wallets.length === 0) return;
+      var amt = parseFloat(tx.amount) || 0;
+      if (amt === 0) return;
+      var meta = (typeof parseTxMetadata === 'function') ? parseTxMetadata(tx.details) : { account: 'บัญชีสตูดิโอ' };
+      var accName = meta.account || 'บัญชีสตูดิโอ';
+
+      var target = appData.wallets.find(function(w) {
+        return (tx.wallet_id && parseInt(tx.wallet_id, 10) === w.id) ||
+               w.name === accName ||
+               accName.includes(w.name) ||
+               w.name.includes(accName);
+      });
+      if (!target && appData.wallets.length > 0) {
+        target = appData.wallets[0];
+      }
+      if (!target) return;
+
+      var isIncome = (tx.type === 'รายรับ');
+      var delta = isIncome ? amt : -amt;
+      if (isRevert) delta = -delta;
+
+      target.balance = (parseFloat(target.balance) || 0) + delta;
+    }
+
     function openAddTxModal() {
+      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       document.getElementById('txEditId').value = '';
       document.getElementById('txDrawerTitle').textContent = 'บันทึกรายการเงิน';
       document.getElementById('txAmount').value = '';
@@ -4584,8 +4666,13 @@
       var curTime = new Date().toTimeString().substring(0, 5);
       document.getElementById('txTime').value = curTime;
       document.getElementById('txDetails').value = '';
-      document.getElementById('txAccount').value = 'บัญชีสตูดิโอ';
+      if (appData.wallets && appData.wallets.length > 0) {
+        var txAccEl = document.getElementById('txAccount');
+        if (txAccEl) txAccEl.value = appData.wallets[0].name;
+      }
       renderCategoryOptions();
+      var delBtn = document.getElementById('btnDeleteTx');
+      if (delBtn) delBtn.style.display = 'none';
       document.getElementById('txDrawer').classList.add('active');
     }
 
@@ -4593,6 +4680,7 @@
       var tx = appData.transactions.find(function(t) { return t.id === id; });
       if (!tx) return;
 
+      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       document.getElementById('txEditId').value = tx.id;
       document.getElementById('txDrawerTitle').textContent = 'แก้ไขรายการเงิน';
       document.getElementById('txAmount').value = tx.amount || '';
@@ -4600,7 +4688,10 @@
 
       var meta = parseTxMetadata(tx.details);
       setTxFormScope(meta.scope === 'personal' ? 'ส่วนตัว' : 'สตูดิโอ');
-      document.getElementById('txAccount').value = meta.account || 'บัญชีสตูดิโอ';
+      var txAccEl = document.getElementById('txAccount');
+      if (txAccEl) {
+        txAccEl.value = meta.account || (appData.wallets[0] ? appData.wallets[0].name : 'บัญชีสตูดิโอ');
+      }
       document.getElementById('txDetails').value = meta.details || '';
       document.getElementById('txDate').value = tx.date || getTodayDateStr();
       document.getElementById('txTime').value = new Date().toTimeString().substring(0, 5);
@@ -4609,6 +4700,9 @@
       if (document.getElementById('txRelatedJob')) {
         document.getElementById('txRelatedJob').value = tx.related_job || '';
       }
+
+      var delBtn = document.getElementById('btnDeleteTx');
+      if (delBtn) delBtn.style.display = 'flex';
 
       document.getElementById('txDrawer').classList.add('active');
     }
@@ -4637,7 +4731,7 @@
       }
 
       var scope = document.getElementById('txScope').value || 'สตูดิโอ';
-      var account = document.getElementById('txAccount').value || 'บัญชีสตูดิโอ';
+      var account = document.getElementById('txAccount').value || (appData.wallets[0] ? appData.wallets[0].name : 'บัญชีสตูดิโอ');
       var detailsUser = document.getElementById('txDetails').value.trim();
       var combinedDetails = '[' + scope + ' | ' + account + ']' + (detailsUser ? ' ' + detailsUser : '');
 
@@ -4659,16 +4753,34 @@
       try {
         setSyncStatus('saving');
         if (editId) {
-          var res = await db.from('transactions').update(payload).eq('id', editId);
+          var numId = parseInt(editId, 10);
+          var oldTx = appData.transactions.find(function(t) { return t.id === numId; });
+          if (oldTx) {
+            adjustWalletBalanceForTx(oldTx, true);
+          }
+
+          var res = await db.from('transactions').update(payload).eq('id', numId);
           if (res.error) throw res.error;
+
+          if (oldTx) {
+            Object.assign(oldTx, payload);
+            adjustWalletBalanceForTx(oldTx, false);
+          }
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('แก้ไขรายการเงินสำเร็จ 🎉');
         } else {
-          var res = await db.from('transactions').insert([payload]);
+          var res = await db.from('transactions').insert([payload]).select();
           if (res.error) throw res.error;
+          var newTx = (res.data && res.data.length > 0) ? res.data[0] : Object.assign({ id: Date.now() }, payload);
+          appData.transactions.unshift(newTx);
+          adjustWalletBalanceForTx(newTx, false);
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('บันทึกรายการเงินสำเร็จ 🎉');
         }
         closeAllDrawers();
-        await loadAllData();
+        renderDashboard();
+        renderTransactions();
+        setSyncStatus('synced');
       } catch (err) {
         console.error('Error saving transaction:', err);
         alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err.message || 'เครือข่ายขัดข้อง กรุณาลองใหม่อีกครั้ง'));
@@ -4682,17 +4794,37 @@
     }
 
     async function deleteTx(id) {
-      if (confirm('ต้องการลบรายการนี้ใช่หรือไม่? ข้อมูลจะถูกลบออกจากระบบ')) {
-        try {
-          setSyncStatus('saving');
-          await db.from('transactions').delete().eq('id', id);
-          showToast('ลบรายการเงินแล้ว 🗑️');
-          closeAllDrawers();
-          await loadAllData();
-        } catch(e) {
-          console.error(e);
-          alert('ลบไม่สำเร็จ: ' + e.message);
+      if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่? ยอดเงินในบัญชีจะถูกปรับคืนโดยอัตโนมัติ')) return;
+      var numId = parseInt(id, 10);
+      try {
+        setSyncStatus('saving');
+        var tx = appData.transactions.find(function(t) { return t.id === numId; });
+        if (tx) {
+          adjustWalletBalanceForTx(tx, true);
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         }
+
+        var res = await db.from('transactions').delete().eq('id', numId);
+        if (res.error) console.warn('Supabase delete error:', res.error);
+
+        appData.transactions = appData.transactions.filter(function(t) { return t.id !== numId; });
+
+        showToast('ลบรายการเงินแล้ว 🗑️');
+        closeAllDrawers();
+        renderDashboard();
+        renderTransactions();
+        setSyncStatus('synced');
+      } catch(e) {
+        console.error(e);
+        alert('ลบไม่สำเร็จ: ' + e.message);
+        setSyncStatus('error');
+      }
+    }
+
+    function onDeleteCurrentTx() {
+      var id = document.getElementById('txEditId').value;
+      if (id) {
+        deleteTx(parseInt(id, 10));
       }
     }
 
@@ -5600,6 +5732,7 @@
     // RECONCILIATION MODAL (ตรวจสอบและปรับยอดเงินจริง)
     // =========================================================
     function openReconModal() {
+      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       var reconDateInput = document.getElementById('reconDateInput');
       var reconReasonInput = document.getElementById('reconReasonInput');
       var reconActInput = document.getElementById('reconActualInput');
@@ -5615,22 +5748,14 @@
     }
 
     function getSystemBalanceForAccount(account) {
-      var total = 0;
-      appData.transactions.forEach(function(t) {
-        var parseTxDetails = (typeof parseTxMetadata === 'function') ? parseTxMetadata : function(d) { return { scope: 'studio', account: 'บัญชีสตูดิโอ' }; };
-        var meta = parseTxMetadata(t.details);
-        var match = false;
-        if (account === 'all') match = true;
-        else if (account === 'บัญชีสตูดิโอ') match = (meta.account === 'บัญชีสตูดิโอ' || meta.scope === 'studio');
-        else if (account === 'บัญชีส่วนตัว') match = (meta.account === 'บัญชีส่วนตัว' || meta.scope === 'personal');
-
-        if (match) {
-          var a = parseFloat(t.amount) || 0;
-          if (t.type === 'รายรับ') total += a;
-          else if (t.type === 'รายจ่าย' || t.type === 'ปรับยอดเงิน') total -= a;
-        }
+      if (account === 'all') {
+        return (appData.wallets || []).reduce(function(sum, w) { return sum + (parseFloat(w.balance) || 0); }, 0);
+      }
+      var target = (appData.wallets || []).find(function(w) {
+        return String(w.id) === String(account) || w.name === account;
       });
-      return total;
+      if (target) return parseFloat(target.balance) || 0;
+      return 0;
     }
 
     function updateReconSystemBalance() {
@@ -5677,11 +5802,19 @@
 
       try {
         var acc = document.getElementById('reconAccountSelect').value;
+        var targetWallet = (appData.wallets || []).find(function(w) {
+          return String(w.id) === String(acc) || w.name === acc;
+        });
         var sysBal = parseFloat(document.getElementById('reconSystemBalance')?.dataset.value) || 0;
         var actual = parseFloat(document.getElementById('reconActualInput').value) || 0;
         var date = document.getElementById('reconDateInput').value || getTodayDateStr();
         var reason = document.getElementById('reconReasonInput').value.trim() || 'กระทบยอดประจำงวด';
         var diff = actual - sysBal;
+
+        if (targetWallet) {
+          targetWallet.balance = actual;
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+        }
 
         if (Math.abs(diff) < 0.005) {
           localStorage.setItem('natthawit_last_recon_date', date);
@@ -5691,10 +5824,10 @@
           return;
         }
 
-        // Build safe adjustment transaction
-        var metaScope = (acc === 'บัญชีส่วนตัว' ? 'personal' : 'studio');
-        var metaAccount = (acc === 'all' ? 'บัญชีสตูดิโอ' : acc);
-        var detailsEncoded = buildTxDetails(metaScope, metaAccount, '[ปรับยอดเงินจริง] ส่วนต่าง ' + (diff > 0 ? '+' : '') + diff.toFixed(2) + ' บาท (' + reason + ')');
+        // Build safe adjustment transaction for audit log
+        var walletName = targetWallet ? targetWallet.name : (acc === 'all' ? 'ทุกบัญชี' : acc);
+        var metaScope = walletName.includes('ส่วนตัว') ? 'personal' : 'studio';
+        var detailsEncoded = buildTxDetails(metaScope, walletName, '[ปรับยอดเงินจริง] ' + (diff > 0 ? 'เงินเพิ่ม +' : 'เงินลด -') + Math.abs(diff).toFixed(2) + ' บาท (' + reason + ')');
 
         var payload = {
           date: date,
@@ -5705,20 +5838,18 @@
         };
 
         var res = await db.from('transactions').insert([payload]).select();
-        if (res.error) throw res.error;
-
         if (res.data && res.data.length > 0) {
           appData.transactions.unshift(res.data[0]);
         }
 
         localStorage.setItem('natthawit_last_recon_date', date);
-        showToast('ปรับยอดเงินสำเร็จ ยอดเงินในระบบอัปเดตแล้ว ✨');
+        showToast('ปรับยอดเงิน ' + walletName + ' เป็น ฿' + actual.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' เรียบร้อยแล้ว ✨');
         closeAllDrawers();
         renderDashboard();
         renderTransactions();
       } catch(err) {
         console.error(err);
-        alert('เกิดข้อผิดพลาดในการปรับยอด: ' + err.message);
+        alert('เกิดข้อผิดพลาดในการปรับยอดเงิน: ' + (err.message || err));
       } finally {
         if (btn) btn.disabled = false;
       }
@@ -6426,6 +6557,7 @@
         loadWalletsFromLocal();
       }
       calculateWalletBalances();
+      populateAllWalletSelects();
     }
 
     function loadWalletsFromLocal() {
@@ -6444,39 +6576,10 @@
 
     function calculateWalletBalances() {
       if (!appData.wallets || appData.wallets.length === 0) return;
-
-      var transfers = getLocalTransfers();
-
       appData.wallets.forEach(function(w) {
-        var bal = parseFloat(w.opening_balance) || 0;
-
-        // Add/Subtract from transactions
-        appData.transactions.forEach(function(t) {
-          var amt = parseFloat(t.amount) || 0;
-          var details = t.details || '';
-          // Match by explicit wallet_id or account name in details
-          var isThisWallet = (t.wallet_id && parseInt(t.wallet_id, 10) === w.id) || details.includes(w.name);
-          if (!t.wallet_id && !details.includes(w.name) && w.id === 1) {
-            // Default studio transactions go to studio wallet
-            if (details.includes('บัญชีสตูดิโอ') || (!details.includes('บัญชีส่วนตัว') && !details.includes('เงินสด'))) {
-              isThisWallet = true;
-            }
-          }
-
-          if (isThisWallet) {
-            if (t.type === 'รายรับ') bal += amt;
-            else if (t.type === 'รายจ่าย' || t.type === 'ปรับยอดเงิน') bal -= amt;
-          }
-        });
-
-        // Add/Subtract internal transfers
-        transfers.forEach(function(tf) {
-          var tfAmt = parseFloat(tf.amount) || 0;
-          if (tf.from_wallet_id === w.id) bal -= tfAmt;
-          if (tf.to_wallet_id === w.id) bal += tfAmt;
-        });
-
-        w.balance = bal;
+        if (typeof w.balance === 'undefined' || isNaN(w.balance) || w.balance === null) {
+          w.balance = parseFloat(w.opening_balance) || 0;
+        }
       });
     }
 
@@ -6502,7 +6605,8 @@
       var html = '';
       (appData.wallets || []).forEach(function(w) {
         var iconClass = w.type === 'cash' ? 'fa-money-bill-wave' : (w.type === 'e-wallet' ? 'fa-mobile-screen' : 'fa-building-columns');
-        var balStr = isBalanceHidden ? '฿ ••••••' : ((w.balance < 0 ? '−฿' : '฿') + Math.abs(w.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        var bal = parseFloat(w.balance) || 0;
+        var balStr = isBalanceHidden ? '฿ ••••••' : ((bal < 0 ? '−฿' : '฿') + Math.abs(bal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         var typeName = w.type === 'cash' ? 'เงินสด' : (w.type === 'e-wallet' ? 'e-Wallet' : 'ธนาคาร');
 
         html += '<div class="wallet-card" onclick="openEditWallet(' + w.id + ')">' +
@@ -6514,9 +6618,13 @@
               '<div class="wallet-name">' + escapeHtml(w.name) + '</div>' +
               '<div class="wallet-type-tag">' + typeName + (w.notes ? ' • ' + escapeHtml(w.notes) : '') + '</div>' +
             '</div>' +
+            '<button type="button" class="wallet-card-del-btn" title="ลบกระเป๋าเงินนี้" onclick="event.stopPropagation(); deleteWallet(' + w.id + ');">' +
+              '<i class="fa-regular fa-trash-can"></i>' +
+            '</button>' +
           '</div>' +
-          '<div class="wallet-bal tabular-nums" style="' + (w.balance < 0 ? 'color:var(--color-danger);' : '') + '">' + balStr + '</div>' +
+          '<div class="wallet-bal tabular-nums" style="' + (bal < 0 ? 'color:var(--color-danger);' : '') + '">' + balStr + '</div>' +
           '<div class="wallet-footer-row">' +
+            '<button type="button" class="wallet-quick-btn" onclick="event.stopPropagation(); openEditWallet(' + w.id + ');"><i class="fa-solid fa-pen-to-square"></i> แก้ไข</button>' +
             '<button type="button" class="wallet-quick-btn" onclick="event.stopPropagation(); openTransferModal(' + w.id + ');"><i class="fa-solid fa-arrow-right-arrow-left"></i> โอนออก</button>' +
             '<button type="button" class="wallet-quick-btn" onclick="event.stopPropagation(); openWalletReconModal(' + w.id + ');"><i class="fa-solid fa-calculator"></i> กระทบยอด</button>' +
           '</div>' +
@@ -6524,10 +6632,38 @@
       });
 
       container.innerHTML = html;
-      populateWalletDropdowns();
+      populateAllWalletSelects();
     }
 
-    function populateWalletDropdowns() {
+    function populateAllWalletSelects() {
+      // 1. txAccount
+      var txAcc = document.getElementById('txAccount');
+      if (txAcc) {
+        var curTx = txAcc.value;
+        var txOpts = '';
+        (appData.wallets || []).forEach(function(w) {
+          txOpts += '<option value="' + escapeHtml(w.name) + '">' + escapeHtml(w.name) + '</option>';
+        });
+        if (txOpts) txAcc.innerHTML = txOpts;
+        if (curTx && (appData.wallets || []).some(function(w){ return w.name === curTx; })) {
+          txAcc.value = curTx;
+        }
+      }
+
+      // 2. reconAccountSelect
+      var reconAcc = document.getElementById('reconAccountSelect');
+      if (reconAcc) {
+        var curRecon = reconAcc.value;
+        var rOpts = '<option value="all">รวมทุกบัญชี (ภาพรวมทั้งหมด)</option>';
+        (appData.wallets || []).forEach(function(w) {
+          var bal = parseFloat(w.balance) || 0;
+          rOpts += '<option value="' + w.id + '">' + escapeHtml(w.name) + ' (฿' + bal.toLocaleString(undefined, {minimumFractionDigits: 2}) + ')</option>';
+        });
+        reconAcc.innerHTML = rOpts;
+        if (curRecon) reconAcc.value = curRecon;
+      }
+
+      // 3. Other selects
       var selects = ['transferFromWallet', 'transferToWallet', 'debtWalletInput', 'payDebtWalletSelect'];
       selects.forEach(function(selId) {
         var sel = document.getElementById(selId);
@@ -6542,14 +6678,21 @@
       });
     }
 
+    function populateWalletDropdowns() {
+      populateAllWalletSelects();
+    }
+
     function openAddWalletModal() {
       document.getElementById('walletEditId').value = '';
       document.getElementById('walletModalTitle').textContent = 'เพิ่มกระเป๋าเงินใหม่';
       document.getElementById('walletNameInput').value = '';
       document.getElementById('walletTypeInput').value = 'bank';
+      document.getElementById('walletActualBalanceInput').value = '0.00';
       document.getElementById('walletOpeningInput').value = '0.00';
       document.getElementById('walletColorInput').value = '#168EA1';
       document.getElementById('walletNotesInput').value = '';
+      var delBtn = document.getElementById('btnDeleteWallet');
+      if (delBtn) delBtn.style.display = 'none';
       document.getElementById('walletModal').classList.add('active');
     }
 
@@ -6557,12 +6700,15 @@
       var w = (appData.wallets || []).find(function(item) { return item.id === id; });
       if (!w) return;
       document.getElementById('walletEditId').value = w.id;
-      document.getElementById('walletModalTitle').textContent = 'แก้ไขกระเป๋าเงิน';
+      document.getElementById('walletModalTitle').textContent = 'แก้ไขกระเป๋าเงิน / บัญชี';
       document.getElementById('walletNameInput').value = w.name;
       document.getElementById('walletTypeInput').value = w.type || 'bank';
+      document.getElementById('walletActualBalanceInput').value = (parseFloat(w.balance) || 0).toFixed(2);
       document.getElementById('walletOpeningInput').value = (parseFloat(w.opening_balance) || 0).toFixed(2);
       document.getElementById('walletColorInput').value = w.color || '#168EA1';
       document.getElementById('walletNotesInput').value = w.notes || '';
+      var delBtn = document.getElementById('btnDeleteWallet');
+      if (delBtn) delBtn.style.display = 'flex';
       document.getElementById('walletModal').classList.add('active');
     }
 
@@ -6571,11 +6717,16 @@
       var id = document.getElementById('walletEditId').value;
       var name = document.getElementById('walletNameInput').value.trim();
       var type = document.getElementById('walletTypeInput').value;
+      var actual = parseFloat(document.getElementById('walletActualBalanceInput').value);
+      if (isNaN(actual)) actual = 0;
       var opening = parseFloat(document.getElementById('walletOpeningInput').value) || 0;
       var color = document.getElementById('walletColorInput').value;
       var notes = document.getElementById('walletNotesInput').value.trim();
 
-      if (!name) return;
+      if (!name) {
+        alert('กรุณากรอกชื่อกระเป๋าเงิน/บัญชี');
+        return;
+      }
 
       if (id) {
         var numId = parseInt(id, 10);
@@ -6583,27 +6734,74 @@
         if (w) {
           w.name = name;
           w.type = type;
+          w.balance = actual;
           w.opening_balance = opening;
           w.color = color;
           w.notes = notes;
         }
+        try {
+          await db.from('wallets').update({
+            name: name,
+            type: type,
+            balance: actual,
+            opening_balance: opening,
+            color: color,
+            notes: notes
+          }).eq('id', numId);
+        } catch(err) {
+          // Local fallback
+        }
       } else {
         var newId = (appData.wallets.length > 0 ? Math.max.apply(null, appData.wallets.map(function(w){return w.id;})) : 0) + 1;
-        appData.wallets.push({
+        var newWallet = {
           id: newId,
           name: name,
           type: type,
           opening_balance: opening,
-          balance: opening,
+          balance: actual,
           color: color,
           notes: notes
-        });
+        };
+        appData.wallets.push(newWallet);
+        try {
+          await db.from('wallets').insert([newWallet]);
+        } catch(err) {
+          // Local fallback
+        }
       }
 
       saveWalletsToLocal();
       closeAllDrawers();
       showToast('บันทึกกระเป๋าเงินเรียบร้อยแล้ว 💼');
       renderDashboard();
+      populateAllWalletSelects();
+    }
+
+    async function deleteWallet(id) {
+      var w = (appData.wallets || []).find(function(item) { return item.id === id; });
+      if (!w) return;
+      if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบกระเป๋าเงิน "' + w.name + '"?')) return;
+
+      appData.wallets = (appData.wallets || []).filter(function(item) { return item.id !== id; });
+      saveWalletsToLocal();
+
+      try {
+        await db.from('wallets').delete().eq('id', id);
+      } catch(err) {
+        // Local fallback
+      }
+
+      closeAllDrawers();
+      showToast('ลบกระเป๋าเงินเรียบร้อยแล้ว 🗑️');
+      renderDashboard();
+      populateAllWalletSelects();
+    }
+
+    function onDeleteCurrentWallet() {
+      var id = document.getElementById('walletEditId').value;
+      if (id) {
+        deleteWallet(parseInt(id, 10));
+      }
     }
 
     function openTransferModal(fromWalletId) {
@@ -6669,6 +6867,11 @@
         note: note
       });
 
+      // Update wallet balances directly
+      if (fromWallet) fromWallet.balance = (parseFloat(fromWallet.balance) || 0) - (amount + fee);
+      if (toWallet) toWallet.balance = (parseFloat(toWallet.balance) || 0) + amount;
+      saveWalletsToLocal();
+
       // If fee > 0, record expense transaction for fee only
       if (fee > 0) {
         try {
@@ -6680,7 +6883,6 @@
             details: '[ค่าธรรมเนียมโอนเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + ' ไป ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : ''),
             wallet_id: fromId
           }]);
-          await loadAllData();
         } catch(err) {
           console.warn('Fee transaction recording notice:', err);
         }
@@ -6692,20 +6894,22 @@
     }
 
     function openWalletReconModal(walletId) {
+      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       openReconModal();
       var w = appData.wallets.find(function(item) { return item.id === walletId; });
       if (w) {
         var accSel = document.getElementById('reconAccountSelect');
         if (accSel) {
-          for (var i = 0; i < accSel.options.length; i++) {
-            if (accSel.options[i].value.includes(w.name) || w.name.includes(accSel.options[i].value)) {
-              accSel.selectedIndex = i;
-              break;
-            }
-          }
+          accSel.value = w.id;
         }
-        document.getElementById('reconSystemDisplay').textContent = (w.balance < 0 ? '−฿' : '฿') + Math.abs(w.balance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('reconActualInput').value = w.balance.toFixed(2);
+        var sysEl = document.getElementById('reconSystemBalance');
+        if (sysEl) {
+          var sysBal = parseFloat(w.balance) || 0;
+          sysEl.textContent = (sysBal < 0 ? '−฿' : '฿') + Math.abs(sysBal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          sysEl.dataset.value = sysBal;
+        }
+        var actInput = document.getElementById('reconActualInput');
+        if (actInput) actInput.value = (parseFloat(w.balance) || 0).toFixed(2);
         calculateReconDiff();
       }
     }
