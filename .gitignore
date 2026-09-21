@@ -2,4 +2,6 @@
 .wrangler/
 *.backup
 *.pre_phase1
+*.bundle
+*.zip
 node_modules/
