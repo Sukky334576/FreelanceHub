@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คู่มือฟีเจอร์ระบบ - ณัฐวิทย์ โปรดักชัน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #0a84ff;
+      --gold: #ff9f0a;
+      --bg: #000000;
+      --card: rgba(28, 28, 30, 0.78);
+      --card-inner: rgba(44, 44, 46, 0.6);
+      --text: #f5f5f7;
+      --muted: #86868b;
+      --income: #30d158;
+      --expense: #ff453a;
+      --blue: #0a84ff;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Noto Sans Thai", sans-serif;
+      letter-spacing: -0.01em;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 28px 16px 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 820px; margin: 0 auto; }
+    .header {
+      text-align: center;
+      padding: 36px 22px;
+      background: radial-gradient(circle at 50% 0%, rgba(10, 132, 255, 0.15) 0%, rgba(28, 28, 30, 0.85) 100%);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    h1 { font-size: 1.6rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .subtitle { font-size: 0.9rem; color: var(--muted); }
+    .link-box {
+      margin-top: 16px;
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 12px;
+      display: inline-block;
+      word-break: break-all;
+    }
+    .link-box a { color: var(--blue); text-decoration: none; font-weight: 700; }
+    .section-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 20px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .feature-item {
+      background: var(--card-inner);
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .feature-item h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-item p { font-size: 0.85rem; color: #cbd5e1; }
+    .print-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .section-card { background: #fff; border: 1px solid #ccc; color: #000; break-inside: avoid; }
+      .feature-item { background: #f8fafc; border: 1px solid #e2e8f0; color: #000; }
+      .feature-item p { color: #334155; }
+      .print-btn { display: none; }
+      .link-box { background: #f1f5f9; color: #000; }
+      .link-box a { color: #0284c7; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">DOCUMENTATION & SPECIFICATION</div>
+      <h1>🎬 คู่มือสรุปฟีเจอร์ระบบ Natthawit Hub</h1>
+      <p class="subtitle">ระบบบริหารการเงินและตารางงานสตูดิโอ (Production & Finance Hub)</p>
+      <button class="print-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> พิมพ์เอกสาร / บันทึกเป็น PDF</button>
+    </div>
+
+    <!-- 1. Finance -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-chart-line" style="color:var(--income);"></i> 1. ฟีเจอร์ด้านการเงิน & กระแสเงินสด</div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-wallet"></i> สรุปยอดเงินคงเหลือสะสมสุทธิ (Total Balance)</h3>
+        <p>คำนวณจาก รายรับทั้งหมด - รายจ่ายทั้งหมด แบบ Real-time</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-calculator"></i> คาดการณ์เงินสิ้นเดือน (Cash Flow Forecast)</h3>
+        <p>คำนวณตามสูตร <code>ยอดคงเหลือสุทธิ + งบงานค้างทำ - บิลรอจ่าย</code> ให้เห็นสภาพคล่องล่วงหน้า</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-sliders"></i> ตัวกรองอิสระประจำแต่ละการ์ด (Independent Filters)</h3>
+        <p>แต่ละการ์ดมี Dropdown เลือกช่วงเวลาได้อิสระ เช่น ดูรายจ่ายเดือนนี้ ควบคู่กับดูรายรับปีนี้ได้พร้อมกัน</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-chart-simple"></i> กราฟแท่งเปรียบเทียบแนวโน้ม</h3>
+        <p>สลับดูย้อนหลัง 3 เดือน / 6 เดือน / 12 เดือน / ตลอดกาล พร้อมแท่งเขียว (รับ) และแท่งแดง (จ่าย)</p>
+      </div>
+    </div>
+
+    <!-- 2. Calendar -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-calendar-days" style="color:var(--primary);"></i> 2. ฟีเจอร์ด้านตารางงาน & กองถ่าย</div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-tags"></i> ปฏิทินแยกประเภทงาน 5 รูปแบบ</h3>
+        <p>วันถ่ายงาน 🟡, เดินทาง 🔵, ตัดต่องาน 🟣, ประชุม 🟢, วันพักผ่อน 🔴 พร้อมรองรับงานหลายวัน (Range)</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-layer-group"></i> สลับมุมมอง 2 แบบ</h3>
+        <p>สลับระหว่าง <strong>มุมมองปฏิทิน</strong> (พร้อมไทม์ไลน์รายวัน) และ <strong>มุมมองรายการงาน</strong> (พร้อมค้นหาและตัวกรองสถานะ)</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-coins"></i> บันทึกงบประมาณ & กำไร</h3>
+        <p>คำนวณกำไรสุทธิต่องาน และแตะสลับสถานะ <code>[✅ เสร็จแล้ว]</code> / <code>[⏳ ค้างทำ]</code> ได้ในคลิกเดียว</p>
+      </div>
+    </div>
+
+    <!-- 3. Reminders -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-bell" style="color:var(--primary);"></i> 3. ฟีเจอร์การแจ้งเตือน iPhone & ปฏิทิน</div>
+      <div class="feature-item">
+        <h3><i class="fa-brands fa-apple"></i> Apple Calendar Sync (.ics Engine)</h3>
+        <p>ซิงค์งานเข้าปฏิทิน iPhone พร้อมเสียงและแบนเนอร์เตือนบนหน้าจอล็อคและ Apple Watch แม้ปิดหน้าจอ</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-list-check"></i> เลือกระยะเวลาเตือนล่วงหน้าได้หลายวัน</h3>
+        <p>เลือกได้พร้อมกันทั้ง: วันงาน (09:00 น.), ล่วงหน้า 1 วัน, 2 วัน, 3 วัน, 7 วัน</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-circle-check" style="color:var(--income);"></i> ป้ายบอกสถานะการตั้งเตือน</h3>
+        <p>การ์ดงานมีป้ายบอกชัดเจน: <code>🔔 ตั้งเตือนแล้ว (สีเขียว)</code> vs <code>🔔 ยังไม่ตั้งเตือน (สีเทา)</code></p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-arrows-rotate"></i> ปุ่มซิงค์งานค้างทำทั้งหมดในคลิกเดียว</h3>
+        <p>แตะปุ่ม <code>[🔔 ซิงค์เตือน iPhone]</code> เพื่อส่งทุกคิวงานที่ยังไม่ได้ทำเข้า iPhone ทันที</p>
+      </div>
+    </div>
+
+    <!-- 4. Bills & Equipment -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-credit-card" style="color:var(--blue);"></i> 4. ฟีเจอร์บิลรายเดือน & ทะเบียนอุปกรณ์</div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-receipt"></i> บิลค่าใช้จ่ายประจำเดือน</h3>
+        <p>ติดตามค่าน้ำ, ค่าไฟ, ค่าเน็ต, ค่าผ่อนอุปกรณ์ พร้อมสรุปยอดรวม/รอจ่าย/จ่ายแล้ว และสลับสถานะในคลิกเดียว</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-camera"></i> ทะเบียนอุปกรณ์สตูดิโอ</h3>
+        <p>บันทึกกล้อง เลนส์ ไฟ ไมค์ พร้อมราคาทุน วันที่ซื้อ และสรุปมูลค่าทรัพย์สินรวมของสตูดิโอ</p>
+      </div>
+    </div>
+
+    <!-- 5. PDF & CRUD -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-file-pdf" style="color:var(--expense);"></i> 5. ฟีเจอร์ออกเอกสาร & การแก้ไขข้อมูล</div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-file-invoice-dollar"></i> ออกใบเสนอราคา / ใบแจ้งหนี้ (PDF)</h3>
+        <p>กดปุ่ม <code>[📄 ออก PDF]</code> จากงาน แล้วแชร์ตรงเข้า LINE หรือ AirDrop ส่งให้ลูกค้าได้ทันที</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-pen-to-square"></i> ระบบแก้ไข & ลบข้อมูลครบวงจร (Full CRUD)</h3>
+        <p>มีปุ่มปากกา <code>[✏️ แก้ไข]</code> และถังขยะ <code>[🗑️ ลบ]</code> ให้ทุกส่วน กรอกผิดแก้ไขได้ทันทีไม่ต้องลบพิมพ์ใหม่</p>
+      </div>
+    </div>
+
+    <!-- 6. Themes & Cloud -->
+    <div class="section-card">
+      <div class="section-title"><i class="fa-solid fa-cloud" style="color:var(--income);"></i> 6. ฟีเจอร์ธีม & ระบบ Cloud</div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-palette"></i> ธีมสี 5 สไตล์</h3>
+        <p>ส้ม Complementary, ดำ-ทอง Obsidian, มัลติคัลเลอร์ Full-Color, เขียวมิ้นต์ Analogous, น้ำตาล Earth Tone พร้อมจำค่าอัตโนมัติ</p>
+      </div>
+      <div class="feature-item">
+        <h3><i class="fa-solid fa-bolt"></i> ออนไลน์ตลอด 24 ชม. ไม่ต้องเปิดคอมพิวเตอร์</h3>
+        <p>ข้อมูลเชื่อมโยงกับ Supabase Realtime Database บนระบบ Cloud CDN สากล</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
