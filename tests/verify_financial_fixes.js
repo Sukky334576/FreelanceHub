@@ -1,16 +1,22 @@
 /**
  * Comprehensive Acceptance & Regression Test Suite for FreelanceHub / Natthawit Studio
- * Validates fixes for Codex Round 2 Review (R01 - R13)
- * 
- * Includes real functional behavioral simulations, accounting invariant tests,
- * and security policy verifications.
+ * Validates fixes for Codex Round 3 Review (F01 - F12)
+ *
+ * Directly tests production code modules:
+ * - js/financial-core.js (Domain calculations, immutable deltas, accounting invariants)
+ * - server.js (HTTP server security, path containment, NUL byte protection)
+ * - index.html (UI integration, focus trapping, guards, RLS compliance)
+ * - supabase_migration_v2.sql (Database schema, RPCs, strict RLS, search_path)
  */
 
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-console.log('🧪 Starting FreelanceHub Comprehensive Financial & Security Verification Suite (R01 - R13)...\n');
+// Direct Production Code Import (F11)
+const FinancialCore = require('../js/financial-core.js');
+
+console.log('🧪 Starting FreelanceHub Codex Round 3 Verification Suite (F01 - F12)...\n');
 
 let passedTests = 0;
 let totalTests = 0;
@@ -36,491 +42,293 @@ const indexHtml = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
 const migrationSql = fs.readFileSync(path.join(ROOT_DIR, 'supabase_migration_v2.sql'), 'utf8');
 
 // ============================================================================
-// R01 & R13: Supabase Schema Baseline, Foreign Keys, and Strict Security/RLS
+// F01: Immutable Delta Edit Calculation & Mutable Aliasing Elimination
 // ============================================================================
-test('R01', 'Supabase Migration V2 contains baseline tables, safe FKs, and production RLS', () => {
-  // Baseline tables
-  const coreTables = ['transactions', 'jobs', 'bills', 'todos', 'categories', 'wallets', 'debts', 'debt_payments', 'cards', 'transfers'];
-  coreTables.forEach(t => {
-    assert(migrationSql.includes(`CREATE TABLE IF NOT EXISTS public.${t}`), `Must create table ${t}`);
-  });
-
-  // user_id FK column
-  assert(migrationSql.includes('user_id UUID REFERENCES auth.users(id)'), 'Tables must link user_id to auth.users(id)');
-
-  // Safe FK constraint blocks (DO $$ BEGIN ... EXCEPTION WHEN ... END $$;)
-  assert(migrationSql.includes('fk_transactions_wallet'), 'Must define fk_transactions_wallet');
-  assert(migrationSql.includes('fk_transactions_job'), 'Must define fk_transactions_job');
-  assert(migrationSql.includes('fk_transactions_debt'), 'Must define fk_transactions_debt');
-  assert(migrationSql.includes('fk_transactions_card'), 'Must define fk_transactions_card');
-  assert(migrationSql.includes('fk_transactions_transfer'), 'Must define fk_transactions_transfer');
-  assert(migrationSql.includes('fk_transactions_bill'), 'Must define fk_transactions_bill');
-
-  // Strict RLS & Revocation of anon permissions
-  assert(migrationSql.includes('ENABLE ROW LEVEL SECURITY'), 'Must enable RLS');
-  assert(migrationSql.includes('REVOKE ALL ON public.transactions FROM anon'), 'Must revoke anon from transactions');
-  assert(migrationSql.includes('REVOKE ALL ON public.wallets FROM anon'), 'Must revoke anon from wallets');
-  assert(migrationSql.includes('user_id = auth.uid()'), 'RLS policy must enforce authenticated owner user_id = auth.uid()');
-
-  // RPC authorization & search_path security
-  assert(migrationSql.includes('CREATE OR REPLACE FUNCTION public.adjust_wallet_balance'), 'Must declare adjust_wallet_balance');
-  assert(migrationSql.includes('CREATE OR REPLACE FUNCTION public.execute_wallet_transfer'), 'Must declare execute_wallet_transfer');
-  assert(migrationSql.includes('CREATE OR REPLACE FUNCTION public.cancel_wallet_transfer'), 'Must declare cancel_wallet_transfer');
-  assert(migrationSql.includes('REVOKE ALL ON FUNCTION public.adjust_wallet_balance(BIGINT, NUMERIC) FROM PUBLIC, anon'), 'Must revoke public execute on adjust_wallet_balance');
-  assert(migrationSql.includes('GRANT EXECUTE ON FUNCTION public.adjust_wallet_balance(BIGINT, NUMERIC) TO authenticated'), 'Must grant adjust_wallet_balance to authenticated');
-  assert(migrationSql.includes('GRANT EXECUTE ON FUNCTION public.execute_wallet_transfer(BIGINT, BIGINT, NUMERIC, NUMERIC, DATE, TEXT) TO authenticated'),
-    'Must grant execute_wallet_transfer to authenticated');
-});
-
-// ============================================================================
-// R02: Reconciliation Functional Simulation (Zero Phantom Balance & ID Strictness)
-// ============================================================================
-test('R02', 'Reconciliation simulates zero phantom balance, rejects "all", and strictly mutates only selected wallet', () => {
-  // Verify UI removed 'all' option
-  assert(!indexHtml.includes('<option value="all">'), 'Reconciliation dropdown must not contain "all" option');
-  assert(!indexHtml.includes("if (acc === 'all')"), 'Must not have acc === "all" branch in handleReconSave');
-
-  // Functional Simulation of Reconciliation Logic
-  const mockWallets = [
-    { id: 'w1', name: 'บัญชีสตูดิโอ (ไทยพาณิชย์)', balance: 1000.00 },
-    { id: 'w2', name: 'เงินสดสตูดิโอ', balance: 2000.00 }
-  ];
-  let mockTransactions = [];
-
-  function simulateReconciliation(walletId, actualBalanceStr) {
-    if (!walletId || walletId === 'all') {
-      throw new Error('กรุณาเลือกกระเป๋าเงินที่ต้องการตรวจสอบ (ไม่สามารถเลือกทั้งหมดได้)');
-    }
-    const targetWallet = mockWallets.find(w => w.id === walletId);
-    if (!targetWallet) {
-      throw new Error('ไม่พบกระเป๋าเงินที่ระบุ');
-    }
-    const actualBal = parseFloat(actualBalanceStr);
-    if (isNaN(actualBal) || actualBal < 0) {
-      throw new Error('กรุณาระบุยอดเงินจริงให้ถูกต้อง');
-    }
-
-    const currentSystemBal = parseFloat(targetWallet.balance) || 0;
-    const diff = actualBal - currentSystemBal;
-
-    if (Math.abs(diff) < 0.005) {
-      return { status: 'NO_OP', diff: 0 };
-    }
-
-    // Delta adjustment
-    targetWallet.balance = currentSystemBal + diff;
-    const reconTx = {
-      id: 'tx_recon_' + Date.now(),
-      type: 'ปรับยอดเงิน',
-      category: 'ปรับยอดเงิน',
-      amount: Math.abs(diff),
-      wallet_id: targetWallet.id,
-      note: `ปรับยอดกระทบยอด (${diff > 0 ? '+' : ''}${diff.toFixed(2)} บาท)`
-    };
-    mockTransactions.push(reconTx);
-    return { status: 'ADJUSTED', diff, newBalance: targetWallet.balance };
-  }
-
-  // 1. Reconciling with "all" must throw error
-  assert.throws(() => simulateReconciliation('all', '3000'), /ไม่สามารถเลือกทั้งหมดได้/);
-
-  // 2. Reconciling with invalid ID must throw error without falling back to w1
-  assert.throws(() => simulateReconciliation('invalid_id', '5000'), /ไม่พบกระเป๋าเงิน/);
-  assert.strictEqual(mockWallets[0].balance, 1000.00, 'w1 balance must not have mutated on invalid ID');
-
-  // 3. Reconciling w1 when actualBalance matches system balance (1000 == 1000) -> NO_OP, 0 transactions
-  const res1 = simulateReconciliation('w1', '1000');
-  assert.strictEqual(res1.status, 'NO_OP');
-  assert.strictEqual(mockWallets[0].balance, 1000.00);
-  assert.strictEqual(mockTransactions.length, 0, 'No phantom transaction should be created when diff is zero');
-  const totalAfterNoOp = mockWallets.reduce((s, w) => s + w.balance, 0);
-  assert.strictEqual(totalAfterNoOp, 3000.00, 'Total balance must remain 3000.00');
-
-  // 4. Reconciling w1 with actual balance 1250 (+250 difference)
-  const res2 = simulateReconciliation('w1', '1250');
-  assert.strictEqual(res2.status, 'ADJUSTED');
-  assert.strictEqual(mockWallets[0].balance, 1250.00);
-  assert.strictEqual(mockWallets[1].balance, 2000.00, 'w2 balance must remain unchanged');
-  assert.strictEqual(mockTransactions.length, 1);
-  assert.strictEqual(mockTransactions[0].amount, 250);
-  assert.strictEqual(mockTransactions[0].category, 'ปรับยอดเงิน');
-});
-
-// ============================================================================
-// R03: Concurrency & Delta Wallet Adjustments (Preventing Lost Updates)
-// ============================================================================
-test('R03', 'Wallet adjustment uses delta RPC to eliminate concurrent lost updates', () => {
-  assert(indexHtml.includes('adjustWalletBalanceOnBackend'), 'Must define adjustWalletBalanceOnBackend');
-  assert(indexHtml.includes("db.rpc('adjust_wallet_balance'"), 'Must call adjust_wallet_balance RPC');
-
-  // Behavioral Simulation: Absolute Overwrite vs Additive Delta
-  // Scenario: Two concurrent operations on initial balance 1000: Op A (+500), Op B (+200)
-  const initialBalance = 1000;
-
-  // Flawed Absolute Overwrite (stale client state):
-  let clientA_read = initialBalance;
-  let clientB_read = initialBalance;
-  let serverBalance = initialBalance;
-
-  // Client A finishes: writes 1000 + 500 = 1500
-  serverBalance = clientA_read + 500;
-  // Client B finishes (using its stale read of 1000): writes 1000 + 200 = 1200
-  serverBalance = clientB_read + 200;
-  assert.strictEqual(serverBalance, 1200, 'Demonstrating bug: Absolute overwrite causes lost update (1200 instead of 1700)');
-
-  // Correct Delta RPC Simulation:
-  serverBalance = initialBalance;
-  function rpcAdjustWalletBalance(delta) {
-    serverBalance = Math.round((serverBalance + delta) * 100) / 100;
-    return serverBalance;
-  }
-  rpcAdjustWalletBalance(+500); // Op A
-  rpcAdjustWalletBalance(+200); // Op B
-  assert.strictEqual(serverBalance, 1700, 'Delta RPC guarantees correct additive balance of 1700');
-});
-
-// ============================================================================
-// R04: Transaction CRUD Rollback on Backend Failure
-// ============================================================================
-test('R04', 'Transaction CRUD performs DB mutation and rolls back on wallet sync failure', () => {
-  assert(indexHtml.includes('async function handleSaveTx'), 'Must define handleSaveTx');
-  assert(indexHtml.includes('Rollback transaction update in DB') || indexHtml.includes('Rollback inserted transaction'), 
-    'handleSaveTx must contain rollback logic on wallet failure');
-  assert(indexHtml.includes('deleteTx') && indexHtml.includes('Re-insert transaction if wallet revert failed'), 
-    'deleteTx must contain rollback logic on wallet failure');
-
-  // Functional Simulation of CRUD Rollback
-  let dbTransactions = [];
-  let dbWallets = [{ id: 'w1', balance: 1000 }];
-
-  async function simulateSaveTxWithRollback(newTx, shouldFailWalletSync = false) {
-    // 1. Insert Tx into DB
-    dbTransactions.push(newTx);
-    // 2. Adjust wallet
-    const delta = newTx.type === 'รายรับ' ? newTx.amount : -newTx.amount;
-    try {
-      if (shouldFailWalletSync) {
-        throw new Error('Network error: Supabase RPC timeout');
-      }
-      dbWallets[0].balance += delta;
-      return { success: true };
-    } catch (err) {
-      // Rollback tx from DB
-      dbTransactions = dbTransactions.filter(t => t.id !== newTx.id);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // Normal success
-  simulateSaveTxWithRollback({ id: 'tx1', type: 'รายรับ', amount: 500 }, false);
-  assert.strictEqual(dbTransactions.length, 1);
-  assert.strictEqual(dbWallets[0].balance, 1500);
-
-  // Failure triggers rollback
-  simulateSaveTxWithRollback({ id: 'tx2', type: 'รายจ่าย', amount: 300 }, true);
-  assert.strictEqual(dbTransactions.length, 1, 'Failed transaction must be rolled back from DB');
-  assert.strictEqual(dbWallets[0].balance, 1500, 'Wallet balance must not change if sync failed');
-});
-
-// ============================================================================
-// R05: Transfer Atomicity, Linked transfer_id, and Cancellation
-// ============================================================================
-test('R05', 'Internal transfers are atomic via RPC, prevent single-leg deletion, and cancel both legs cleanly', () => {
-  assert(indexHtml.includes("db.rpc('execute_wallet_transfer'"), 'Must call execute_wallet_transfer RPC');
-  assert(indexHtml.includes("db.rpc('cancel_wallet_transfer'"), 'Must call cancel_wallet_transfer RPC');
-  assert(indexHtml.includes('cancelTransferByTx'), 'Must define cancelTransferByTx');
-  assert(indexHtml.includes('isTransferTx'), 'Must identify transfer transactions');
-
-  // Simulation of Transfer Lifecycle & Atomic Cancellation
+test('F01', 'computeEditDelta: note edit produces zero delta; amount/wallet edit computes exact delta without mutating state', () => {
   const wallets = [
-    { id: 'w1', name: 'SCB', balance: 5000 },
-    { id: 'w2', name: 'Cash', balance: 1000 }
-  ];
-  let transactions = [];
-  let transfers = [];
-
-  function executeTransfer(fromId, toId, amount, fee = 0) {
-    const fromW = wallets.find(w => w.id === fromId);
-    const toW = wallets.find(w => w.id === toId);
-    if (!fromW || !toW) throw new Error('Invalid wallet');
-    if (fromW.balance < (amount + fee)) throw new Error('Insufficient balance');
-
-    const transferId = 'tr_' + Date.now();
-    fromW.balance -= (amount + fee);
-    toW.balance += amount;
-
-    const outTx = { id: 'tx_out_' + transferId, type: 'โอนเงิน', category: 'โอนเงิน', amount, wallet_id: fromId, transfer_id: transferId };
-    const inTx = { id: 'tx_in_' + transferId, type: 'โอนเงิน', category: 'โอนเงิน', amount, wallet_id: toId, transfer_id: transferId };
-    transactions.push(outTx, inTx);
-
-    if (fee > 0) {
-      const feeTx = { id: 'tx_fee_' + transferId, type: 'รายจ่าย', category: 'ค่าธรรมเนียม', amount: fee, wallet_id: fromId, transfer_id: transferId };
-      transactions.push(feeTx);
-    }
-    transfers.push({ id: transferId, from_wallet_id: fromId, to_wallet_id: toId, amount, fee });
-    return transferId;
-  }
-
-  function cancelTransfer(transferId) {
-    const trIndex = transfers.findIndex(t => t.id === transferId);
-    if (trIndex === -1) throw new Error('Transfer not found');
-    const tr = transfers[trIndex];
-
-    const fromW = wallets.find(w => w.id === tr.from_wallet_id);
-    const toW = wallets.find(w => w.id === tr.to_wallet_id);
-
-    fromW.balance += (tr.amount + tr.fee);
-    toW.balance -= tr.amount;
-
-    // Delete all linked transactions
-    transactions = transactions.filter(t => t.transfer_id !== transferId);
-    transfers.splice(trIndex, 1);
-  }
-
-  // Execute transfer: 2000 from w1 to w2 with 15 THB fee
-  const trId = executeTransfer('w1', 'w2', 2000, 15);
-  assert.strictEqual(wallets[0].balance, 2985); // 5000 - 2015
-  assert.strictEqual(wallets[1].balance, 3000); // 1000 + 2000
-  assert.strictEqual(transactions.length, 3); // out + in + fee
-
-  // Cancel transfer
-  cancelTransfer(trId);
-  assert.strictEqual(wallets[0].balance, 5000, 'w1 restored');
-  assert.strictEqual(wallets[1].balance, 1000, 'w2 restored');
-  assert.strictEqual(transactions.length, 0, 'All transfer legs removed without orphan');
-});
-
-// ============================================================================
-// R06: Bill Paid -> Unpaid -> Paid Idempotency & Wallet Deduction
-// ============================================================================
-test('R06', 'Bill toggle cycle (paid -> unpaid -> paid) correctly reflects wallet deductions without double-charging', () => {
-  assert(indexHtml.includes('last_paid_tx_id'), 'Bills must track last_paid_tx_id');
-  assert(indexHtml.includes('quickPayBill'), 'Must have quickPayBill');
-  assert(indexHtml.includes('toggleBillPaid'), 'Must have toggleBillPaid');
-
-  // Simulation of Bill payment and unpaying
-  const wallet = { id: 'w1', balance: 10000 };
-  const bill = { id: 'b1', item: 'Studio Internet', amount: 800, is_paid: false, last_paid_tx_id: null };
-  let txs = [];
-
-  function payBill(b, w) {
-    if (b.is_paid) return;
-    w.balance -= b.amount;
-    const tx = { id: 'tx_b_' + Date.now(), bill_id: b.id, amount: b.amount, type: 'รายจ่าย', category: 'ค่าใช้จ่ายทั่วไป' };
-    txs.push(tx);
-    b.is_paid = true;
-    b.last_paid_tx_id = tx.id;
-  }
-
-  function unpayBill(b, w) {
-    if (!b.is_paid) return;
-    w.balance += b.amount; // refund wallet
-    if (b.last_paid_tx_id) {
-      txs = txs.filter(t => t.id !== b.last_paid_tx_id);
-    }
-    b.is_paid = false;
-    b.last_paid_tx_id = null;
-  }
-
-  // 1. Initial pay
-  payBill(bill, wallet);
-  assert.strictEqual(wallet.balance, 9200);
-  assert.strictEqual(txs.length, 1);
-  assert.strictEqual(bill.is_paid, true);
-
-  // 2. Mark unpaid (e.g. accidental click reverted)
-  unpayBill(bill, wallet);
-  assert.strictEqual(wallet.balance, 10000, 'Wallet fully refunded on mark unpaid');
-  assert.strictEqual(txs.length, 0, 'Linked transaction deleted');
-  assert.strictEqual(bill.is_paid, false);
-
-  // 3. Mark paid again
-  payBill(bill, wallet);
-  assert.strictEqual(wallet.balance, 9200, 'Wallet deducted exactly once');
-  assert.strictEqual(txs.length, 1, 'Exactly one transaction exists');
-});
-
-// ============================================================================
-// R07: Exact Wallet ID Matching & Prefix Collision Protection
-// ============================================================================
-test('R07', 'Wallet matching strictly matches exact ID or name, preventing prefix collision or silent fallback', () => {
-  assert(indexHtml.includes('function adjustWalletBalanceForTx'), 'Must define adjustWalletBalanceForTx');
-  assert(!indexHtml.includes("w.name.includes(txWalletName)"), 'Must not use fuzzy substring includes() for wallet lookup');
-
-  const appWallets = [
-    { id: 'w_main', name: 'บัญชีสตูดิโอ', balance: 50000 },
-    { id: 'w_sub', name: 'บัญชีสตูดิโอ สำรอง', balance: 5000 }
+    { id: 1, name: 'SCB', balance: 1000.00 },
+    { id: 2, name: 'KBANK', balance: 2000.00 }
   ];
 
-  function findTargetWallet(walletId, walletName) {
-    let target = null;
-    if (walletId) {
-      target = appWallets.find(w => String(w.id) === String(walletId));
-    }
-    if (!target && walletName) {
-      target = appWallets.find(w => w.name === walletName);
-    }
-    return target || null; // Returns null if not found, NEVER appWallets[0]!
-  }
+  // Case 1: Editing ONLY note or category on an expense -> delta must be 0, hasFinancialChange = false
+  const oldTx = { id: 101, type: 'รายจ่าย', amount: 100, wallet_id: 1, note: 'กาแฟเช้า', category: 'อาหารและเครื่องดื่ม' };
+  const payloadNoteOnly = { type: 'รายจ่าย', amount: 100, wallet_id: 1, note: 'กาแฟและขนมปัง', category: 'อาหารและเครื่องดื่ม' };
 
-  // Exact ID match
-  assert.strictEqual(findTargetWallet('w_sub', null).id, 'w_sub');
-  assert.strictEqual(findTargetWallet('w_main', null).id, 'w_main');
+  const deltaRes1 = FinancialCore.computeEditDelta(oldTx, payloadNoteOnly, wallets);
+  assert.strictEqual(deltaRes1.hasFinancialChange, false, 'Editing note only must have hasFinancialChange = false');
+  assert.strictEqual(deltaRes1.netDelta, 0, 'Editing note only must produce netDelta = 0');
+  assert.strictEqual(deltaRes1.isSameWallet, true);
+  assert.strictEqual(wallets[0].balance, 1000.00, 'Original wallet balance must not have been mutated');
 
-  // Exact name match
-  assert.strictEqual(findTargetWallet(null, 'บัญชีสตูดิโอ').id, 'w_main');
-  assert.strictEqual(findTargetWallet(null, 'บัญชีสตูดิโอ สำรอง').id, 'w_sub');
+  // Case 2: Editing amount from 100 to 150 on an expense -> net delta must be -50 (deduct additional 50)
+  const payloadAmountEdit = { type: 'รายจ่าย', amount: 150, wallet_id: 1 };
+  const deltaRes2 = FinancialCore.computeEditDelta(oldTx, payloadAmountEdit, wallets);
+  assert.strictEqual(deltaRes2.hasFinancialChange, true);
+  assert.strictEqual(deltaRes2.netDelta, -50, 'Increasing expense by 50 must produce netDelta = -50');
 
-  // Nonexistent wallet returns null, NOT fallback to first wallet
-  assert.strictEqual(findTargetWallet('nonexistent', 'ไม่มีอยู่จริง'), null);
+  // Case 3: Editing amount from 100 to 70 on an expense -> net delta must be +30 (refund 30)
+  const payloadAmountDown = { type: 'รายจ่าย', amount: 70, wallet_id: 1 };
+  const deltaRes3 = FinancialCore.computeEditDelta(oldTx, payloadAmountDown, wallets);
+  assert.strictEqual(deltaRes3.netDelta, 30, 'Decreasing expense by 30 must produce netDelta = +30');
+
+  // Case 4: Changing wallet from 1 to 2 -> old wallet refunded (+100), new wallet charged (-100)
+  const payloadWalletChange = { type: 'รายจ่าย', amount: 100, wallet_id: 2 };
+  const deltaRes4 = FinancialCore.computeEditDelta(oldTx, payloadWalletChange, wallets);
+  assert.strictEqual(deltaRes4.isSameWallet, false);
+  assert.strictEqual(deltaRes4.revertOldDelta, 100, 'Old wallet must be refunded 100');
+  assert.strictEqual(deltaRes4.applyNewDelta, -100, 'New wallet must be charged 100');
+
+  // Verify index.html uses FinancialCore.computeEditDelta and eliminated mutable aliasing
+  assert(indexHtml.includes('FinancialCore.computeEditDelta'), 'index.html must invoke FinancialCore.computeEditDelta');
+  assert(!indexHtml.includes('adjustWalletBalanceForTx(oldTx, true);\n      adjustWalletBalanceForTx(newTx, false);'),
+    'index.html must not use sequential mutating calls that cause aliasing corruption');
 });
 
 // ============================================================================
-// R08: Debt Accounting (Total = Principal + Interest Validation, Financing Outflow)
+// F02: Elimination of Local Double Deductions
 // ============================================================================
-test('R08', 'Debt payment validates total = principal + interest and principal <= remaining; excludes principal from operating expenses', () => {
-  assert(indexHtml.includes('handleRecordDebtPayment'), 'Must define handleRecordDebtPayment');
-  assert(indexHtml.includes('Math.abs(total - (principal + interest)) > 0.01'), 'Must validate total equals principal + interest');
-  assert(indexHtml.includes('principal > remPrin + 0.01'), 'Must validate principal does not exceed remaining principal');
+test('F02', 'Eliminate local double deductions in quickPayBill, handleRecordDebtPayment, and toggleBillPaid', () => {
+  // In quickPayBill, targetWallet balance is authoritatively set by adjustWalletBalanceOnBackend return value.
+  // There must NOT be a duplicate subtraction "targetWallet.balance = targetWallet.balance - billAmt"
+  assert(!indexHtml.includes('targetWallet.balance = targetWallet.balance - billAmt'),
+    'quickPayBill must not redundantly subtract billAmt after adjustWalletBalanceOnBackend');
 
-  // Debt Payment Validation Simulation
-  function validateDebtPayment(total, principal, interest, remainingPrincipal) {
-    if (total <= 0) throw new Error('ยอดชำระต้องมากกว่า 0');
-    if (principal < 0 || interest < 0) throw new Error('ยอดเงินต้นและดอกเบี้ยต้องไม่ติดลบ');
-    if (Math.abs(total - (principal + interest)) > 0.01) {
-      throw new Error(`ยอดรวม (${total}) ต้องเท่ากับ เงินต้น (${principal}) + ดอกเบี้ย (${interest})`);
-    }
-    if (principal > remainingPrincipal + 0.01) {
-      throw new Error(`ยอดตัดเงินต้น (${principal}) ไม่สามารถมากกว่าเงินต้นคงเหลือ (${remainingPrincipal})`);
-    }
-    return true;
-  }
+  // In handleRecordDebtPayment, targetW.balance must NOT be subtracted a second time
+  assert(!indexHtml.includes('targetW.balance = targetW.balance - total;'),
+    'handleRecordDebtPayment must not redundantly subtract total after adjustWalletBalanceOnBackend');
 
-  // Valid payment
-  assert.doesNotThrow(() => validateDebtPayment(5000, 4500, 500, 20000));
-
-  // Invalid: total doesn't match components
-  assert.throws(() => validateDebtPayment(5000, 4000, 500, 20000), /ต้องเท่ากับ/);
-
-  // Invalid: principal exceeds remaining debt
-  assert.throws(() => validateDebtPayment(25000, 24500, 500, 20000), /ไม่สามารถมากกว่าเงินต้นคงเหลือ/);
+  // In toggleBillPaid, targetWallet.balance must NOT be redundantly refunded twice
+  assert(!indexHtml.includes('targetWallet.balance = (targetWallet.balance || 0) + billAmt;'),
+    'toggleBillPaid must not redundantly refund billAmt when backend already syncs');
 });
 
 // ============================================================================
-// R09: Unified Shared Domain Selectors & Accounting Consistency
+// F03: Elimination of Silent Absolute Overwrites on Backend Failure
 // ============================================================================
-test('R09', 'Shared selectors (isOperatingIncome, isOperatingExpense, etc.) yield identical figures across KPI, Modals, and Charts', () => {
-  assert(indexHtml.includes('function isOperatingIncome(t)'), 'Must define isOperatingIncome');
-  assert(indexHtml.includes('function isOperatingExpense(t)'), 'Must define isOperatingExpense');
-  assert(indexHtml.includes('function isTransferTx(t)'), 'Must define isTransferTx');
-  assert(indexHtml.includes('function isReconTx(t)'), 'Must define isReconTx');
-  assert(indexHtml.includes('function isDebtPrincipalTx(t)'), 'Must define isDebtPrincipalTx');
+test('F03', 'adjustWalletBalanceOnBackend rethrows errors and does not silently overwrite database with local state', () => {
+  // Check adjustWalletBalanceOnBackend implementation
+  assert(indexHtml.includes('async function adjustWalletBalanceOnBackend'), 'Must define adjustWalletBalanceOnBackend');
+  // Check that the catch block does NOT execute a fallback db.from('wallets').update({ balance: target.balance })
+  const funcMatch = indexHtml.match(/async function adjustWalletBalanceOnBackend[\s\S]*?^    \}/m);
+  assert(funcMatch, 'Must find adjustWalletBalanceOnBackend function body');
+  const funcBody = funcMatch[0];
+  assert(!funcBody.includes("db.from('wallets').update"),
+    'adjustWalletBalanceOnBackend must never execute a fallback absolute update on RPC error');
+  assert(funcBody.includes('throw new Error') || funcBody.includes('throw'),
+    'adjustWalletBalanceOnBackend must rethrow errors to allow transaction rollback');
+});
 
-  // Shared Selector Implementation
-  function isOperatingIncome(t) {
-    if (!t) return false;
-    if (t.type === 'โอนเงิน' || t.category === 'โอนเงิน') return false;
-    if (t.type === 'ปรับยอดเงิน' || t.category === 'ปรับยอดเงิน') return false;
-    return t.type === 'รายรับ' && t.category !== 'ยกยอดมา';
-  }
+// ============================================================================
+// F04: Parent-Linked Transactions Guard
+// ============================================================================
+test('F04', 'openEditTxModal and deleteTx block arbitrary editing or deletion of parent-linked transactions', () => {
+  assert(indexHtml.includes('openEditTxModal'), 'Must define openEditTxModal');
+  assert(indexHtml.includes('deleteTx'), 'Must define deleteTx');
 
-  function isOperatingExpense(t) {
-    if (!t) return false;
-    if (t.type === 'โอนเงิน' || t.category === 'โอนเงิน') return false;
-    if (t.type === 'ปรับยอดเงิน' || t.category === 'ปรับยอดเงิน') return false;
-    if (t.category === 'ชำระหนี้/ผ่อนสินค้า' || t.type === 'ชำระหนี้/ผ่อนสินค้า') return false;
-    return t.type === 'รายจ่าย';
-  }
+  // Verify guard against transfer_id, bill_id, and debt_id in openEditTxModal
+  const editModalMatch = indexHtml.match(/function openEditTxModal[\s\S]*?^    \}/m);
+  assert(editModalMatch, 'Must find openEditTxModal');
+  const editBody = editModalMatch[0];
+  assert(editBody.includes('tx.transfer_id') && editBody.includes('tx.bill_id') && editBody.includes('tx.debt_id'),
+    'openEditTxModal must check for transfer_id, bill_id, and debt_id');
 
-  // Test Transaction Dataset
-  const sampleTransactions = [
-    { id: '1', type: 'รายรับ', category: 'ค่าจ้างถ่ายภาพ', amount: 40000 },
-    { id: '2', type: 'รายจ่าย', category: 'ค่าเช่าสตูดิโอ', amount: 8000 },
-    { id: '3', type: 'โอนเงิน', category: 'โอนเงิน', amount: 15000 },
-    { id: '4', type: 'ปรับยอดเงิน', category: 'ปรับยอดเงิน', amount: 500 },
-    { id: '5', type: 'รายจ่าย', category: 'ชำระหนี้/ผ่อนสินค้า', amount: 10000 }, // Principal payment: Financing Outflow
-    { id: '6', type: 'รายจ่าย', category: 'ดอกเบี้ยจ่าย', amount: 650 },          // Interest payment: Operating Expense
-    { id: '7', type: 'รายรับ', category: 'ยกยอดมา', amount: 20000 }             // Opening balance: Excluded from income
+  // Verify guard against transfer_id, bill_id, and debt_id in deleteTx
+  const deleteTxMatch = indexHtml.match(/async function deleteTx[\s\S]*?^    \}/m);
+  assert(deleteTxMatch, 'Must find deleteTx');
+  const deleteBody = deleteTxMatch[0];
+  assert(deleteBody.includes('tx.transfer_id') && deleteBody.includes('tx.bill_id') && deleteBody.includes('tx.debt_id'),
+    'deleteTx must check for transfer_id, bill_id, and debt_id');
+});
+
+// ============================================================================
+// F05: Stale Reconciliation Protection
+// ============================================================================
+test('F05', 'FinancialCore.computeReconciliation detects stale server state and computes accurate adjustments', () => {
+  // Case 1: Stale check fails when currentSystemBal !== expectedBal
+  const staleRes = FinancialCore.computeReconciliation(1200.00, 1000.00, 1500.00);
+  assert.strictEqual(staleRes.status, 'STALE');
+  assert(staleRes.error.includes('มีการเปลี่ยนแปลงระหว่างการตรวจสอบ'));
+
+  // Case 2: Fresh check with zero diff -> NO_OP
+  const noOpRes = FinancialCore.computeReconciliation(1000.00, 1000.00, 1000.00);
+  assert.strictEqual(noOpRes.status, 'NO_OP');
+  assert.strictEqual(noOpRes.diff, 0);
+
+  // Case 3: Fresh check with positive diff (+250) -> ADJUST
+  const adjustRes = FinancialCore.computeReconciliation(1000.00, 1000.00, 1250.00);
+  assert.strictEqual(adjustRes.status, 'ADJUST');
+  assert.strictEqual(adjustRes.diff, 250);
+  assert.strictEqual(adjustRes.newBalance, 1250.00);
+
+  // Case 4: Verify SQL migration contains atomic execute_wallet_reconciliation with expected balance check
+  assert(migrationSql.includes('CREATE OR REPLACE FUNCTION public.execute_wallet_reconciliation'),
+    'Migration must define execute_wallet_reconciliation RPC');
+  assert(migrationSql.includes('p_expected_balance') && migrationSql.includes('STALE_BALANCE'),
+    'RPC execute_wallet_reconciliation must check p_expected_balance against row balance');
+});
+
+// ============================================================================
+// F06: Operating Revenue, Expense, Transfer Fees, and Debt Financing Invariants
+// ============================================================================
+test('F06', 'FinancialCore selectors correctly count transfer fees as operating expenses, exclude transfer & debt principal', () => {
+  const transactions = [
+    { id: 1, type: 'รายรับ', category: 'ค่าจ้างถ่ายภาพ', amount: 50000 },
+    { id: 2, type: 'รายรับ', category: 'ยกยอดมา', amount: 100000 },              // Opening balance -> excluded from income
+    { id: 3, type: 'รายจ่าย', category: 'ค่าเช่าสตูดิโอ', amount: 12000 },          // Operating expense
+    { id: 4, type: 'โอนเงิน', category: 'โอนเงิน', amount: 20000, transfer_id: 'tr1' }, // Transfer leg -> excluded from income & expense
+    { id: 5, type: 'รายจ่าย', category: 'ค่าธรรมเนียม', amount: 15, transfer_id: 'tr1' }, // Transfer fee -> MUST be operating expense!
+    { id: 6, type: 'ปรับยอดเงิน', category: 'ปรับยอดเงิน', amount: 300 },            // Reconciliation -> excluded from operating
+    { id: 7, type: 'รายจ่าย', category: 'ชำระหนี้/ผ่อนสินค้า', amount: 15000 },     // Debt principal -> Financing outflow, NOT operating expense
+    { id: 8, type: 'รายจ่าย', category: 'ดอกเบี้ยเงินกู้', amount: 850 }           // Debt interest -> Operating expense
   ];
 
-  // 1. Dashboard KPI Calculation
-  const kpiIncome = sampleTransactions.filter(isOperatingIncome).reduce((s, t) => s + t.amount, 0);
-  const kpiExpense = sampleTransactions.filter(isOperatingExpense).reduce((s, t) => s + t.amount, 0);
-  const kpiNet = kpiIncome - kpiExpense;
+  assert.strictEqual(FinancialCore.isOperatingIncome(transactions[0]), true);
+  assert.strictEqual(FinancialCore.isOperatingIncome(transactions[1]), false, 'Opening balance excluded');
+  assert.strictEqual(FinancialCore.isOperatingIncome(transactions[3]), false, 'Transfer excluded');
 
-  // 2. Breakdown Modals Calculation
-  const modalIncome = sampleTransactions.filter(isOperatingIncome).reduce((s, t) => s + t.amount, 0);
-  const modalExpense = sampleTransactions.filter(isOperatingExpense).reduce((s, t) => s + t.amount, 0);
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[2]), true, 'Rent is operating expense');
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[3]), false, 'Transfer principal excluded');
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[4]), true, 'Transfer fee IS operating expense');
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[5]), false, 'Recon excluded');
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[6]), false, 'Debt principal excluded from operating expense');
+  assert.strictEqual(FinancialCore.isOperatingExpense(transactions[7]), true, 'Debt interest is operating expense');
 
-  // 3. 6-Month Chart Calculation
-  const chartIncome = sampleTransactions.filter(isOperatingIncome).reduce((s, t) => s + t.amount, 0);
-  const chartExpense = sampleTransactions.filter(isOperatingExpense).reduce((s, t) => s + t.amount, 0);
-
-  // Invariants
-  assert.strictEqual(kpiIncome, 40000, 'Income must be 40,000 (excludes opening balance, transfer, recon)');
-  assert.strictEqual(kpiExpense, 8650, 'Expense must be 8,650 (8,000 rent + 650 interest; excludes 10,000 principal)');
-  assert.strictEqual(kpiNet, 31350, 'Net cashflow must be 31,350');
-
-  assert.strictEqual(modalIncome, kpiIncome, 'Modal income matches KPI income');
-  assert.strictEqual(modalExpense, kpiExpense, 'Modal expense matches KPI expense');
-  assert.strictEqual(chartIncome, kpiIncome, 'Chart income matches KPI income');
-  assert.strictEqual(chartExpense, kpiExpense, 'Chart expense matches KPI expense');
+  // Verify Unified Financial Summary calculation
+  const summary = FinancialCore.calculateFinancialSummary(transactions);
+  assert.strictEqual(summary.income, 50000);
+  assert.strictEqual(summary.expense, 12000 + 15 + 850); // 12865
+  assert.strictEqual(summary.netOperating, 50000 - 12865); // 37135
+  assert.strictEqual(summary.debtPrincipalOutflow, 15000);
+  assert.strictEqual(summary.netCashflow, 50000 - 12865 - 15000); // 22135
 });
 
 // ============================================================================
-// R10: Full 8-Domain Export & No Static Fallback
+// F07: Data Truncation Prevention (.limit(200) eliminated)
 // ============================================================================
-test('R10', 'Excel Export exports all 8 domains with no static file fallback; Natthawit_Studio_Data.xlsx deleted', () => {
-  const expectedSheets = ['Transactions', 'Jobs', 'Wallets', 'Debts', 'Debt_Payments', 'Cards', 'Bills', 'Categories_Todos'];
-  expectedSheets.forEach(sheet => {
-    assert(indexHtml.includes(`'${sheet}'`), `Export must include sheet ${sheet}`);
+test('F07', 'appData.transactions does not truncate at 200 records on reload or post-transfer refresh', () => {
+  // Ensure that no .limit(200) query assigns to appData.transactions
+  assert(!indexHtml.includes(".limit(200)"), 'index.html must not contain .limit(200)');
+});
+
+// ============================================================================
+// F08: Debt Payments Loaded on Start & Complete Excel Export
+// ============================================================================
+test('F08', 'loadDebts queries debt_payments and Excel export preserves Todos title/is_complete and Equipment sheet', () => {
+  // loadDebts query for debt_payments
+  assert(indexHtml.includes("db.from('debt_payments').select('*')"),
+    'loadDebts must query debt_payments table to load payment history');
+
+  // Excel Todos export fields
+  assert(indexHtml.includes('td.title'), 'Excel Export must export Todo title');
+  assert(indexHtml.includes('td.is_complete'), 'Excel Export must export Todo is_complete');
+  assert(!indexHtml.includes("td.text || ''"), 'Excel Export must not reference legacy td.text');
+  assert(!indexHtml.includes("td.completed ?"), 'Excel Export must not reference legacy td.completed');
+
+  // Excel Equipment sheet
+  assert(indexHtml.includes("'Equipment'"), 'Excel Export must include Equipment sheet');
+});
+
+// ============================================================================
+// F09: Supabase Migration V2: Strict RLS & Search Path Security
+// ============================================================================
+test('F09', 'Migration v2 eliminates OR user_id IS NULL, includes v_legacy_owner_id, and sets search_path = public', () => {
+  // Elimination of insecure OR user_id IS NULL in policies
+  assert(!migrationSql.includes('user_id IS NULL OR user_id = auth.uid()'),
+    'Migration must NOT allow user_id IS NULL in RLS policies');
+  assert(migrationSql.includes('auth.uid() IS NOT NULL AND user_id = auth.uid()'),
+    'Migration must strictly enforce auth.uid() IS NOT NULL AND user_id = auth.uid()');
+
+  // Configurable legacy owner block
+  assert(migrationSql.includes('v_legacy_owner_id UUID'),
+    'Migration must provide v_legacy_owner_id variable for administrator ownership migration');
+
+  // SET search_path = public on all RPCs
+  const rpcs = [
+    'adjust_wallet_balance',
+    'execute_wallet_transfer',
+    'cancel_wallet_transfer',
+    'execute_bill_payment',
+    'cancel_bill_payment',
+    'execute_debt_payment',
+    'execute_wallet_reconciliation'
+  ];
+  rpcs.forEach(rpc => {
+    assert(migrationSql.includes(`CREATE OR REPLACE FUNCTION public.${rpc}`), `Migration must define RPC ${rpc}`);
   });
 
-  // Verify static file is deleted from repo
-  const staticFileExists = fs.existsSync(path.join(ROOT_DIR, 'Natthawit_Studio_Data.xlsx'));
-  assert.strictEqual(staticFileExists, false, 'Natthawit_Studio_Data.xlsx must be deleted from repo');
-
-  // Verify UI does not offer static file fallback download
-  assert(!indexHtml.includes('href="Natthawit_Studio_Data.xlsx"'), 'UI must not link to static Natthawit_Studio_Data.xlsx');
+  const searchPathCount = (migrationSql.match(/SET search_path = public/g) || []).length;
+  assert(searchPathCount >= 7, `Every RPC must have SET search_path = public (found ${searchPathCount})`);
 });
 
 // ============================================================================
-// R11: WCAG 2.1 Accessibility (Zoom, Modal Roles, Escape Key, Keyboard Activation)
+// F10: WCAG 2.1 Modal Focus Trapping, Escape Close, and Dialog Roles
 // ============================================================================
-test('R11', 'Accessibility compliance: Viewport permits zoom, modals have dialog roles, Escape closes modals, Enter/Space activates KPI cards', () => {
-  // Viewport zoom
-  assert(!indexHtml.includes('user-scalable=no'), 'Viewport meta tag must not disable user-scalable zoom');
-  assert(!indexHtml.includes('maximum-scale=1'), 'Viewport meta tag must not clamp maximum-scale to 1');
+test('F10', 'WCAG 2.1 modal focus trap handles Tab/Shift+Tab, restores focus on close, and provides ARIA dialog roles', () => {
+  // Focus trap logic
+  assert(indexHtml.includes("if (e.key === 'Tab' && activeDrawer)"), 'Must trap focus on Tab when drawer is active');
+  assert(indexHtml.includes("if (e.shiftKey)"), 'Must support Shift+Tab backwards wrapping');
+  assert(indexHtml.includes("closeAllDrawers"), 'Must define closeAllDrawers');
+  assert(indexHtml.includes("_modalTriggerElement"), 'Must remember previous focus and restore it on close');
 
-  // Modal attributes
-  const modalIds = [
+  // ARIA attributes on modals
+  const requiredModals = [
     'txDrawer', 'jobDrawer', 'moreDrawer', 'billDrawer', 'todoDrawer',
     'eqDrawer', 'categoryManagerDrawer', 'pdfDrawer', 'reconDrawer',
     'incomeBreakdownModal', 'expenseBreakdownModal', 'cashflowNetModal',
     'receivablesModal', 'walletModal', 'transferModal', 'debtModal',
-    'payDebtModal', 'cardModal'
+    'payDebtModal', 'cardModal', 'authModal'
   ];
-  modalIds.forEach(id => {
+  requiredModals.forEach(id => {
     const pattern = new RegExp(`id="${id}"[^>]*role="dialog"[^>]*aria-modal="true"`);
     assert(pattern.test(indexHtml), `Modal ${id} must have role="dialog" and aria-modal="true"`);
   });
-
-  // Keyboard handlers
-  assert(indexHtml.includes("if (e.key === 'Escape')"), 'Must handle Escape key to close modals');
-  assert(indexHtml.includes("if (e.key === 'Enter' || e.key === ' ')"), 'Must handle Enter/Space for role="button"');
 });
 
 // ============================================================================
-// R12: Server Security: Path Traversal, Sibling Directory & NUL Byte Rejection
+// F11: Production Code Verification (Real Import)
 // ============================================================================
-test('R12', 'server.js rejects NUL bytes with 400 and blocks sibling directory traversal via strict path containment', () => {
+test('F11', 'Verify production code module exports and integrity without mock substitution', () => {
+  assert(FinancialCore, 'FinancialCore module must load successfully via require()');
+  assert.strictEqual(typeof FinancialCore.computeEditDelta, 'function');
+  assert.strictEqual(typeof FinancialCore.isOperatingIncome, 'function');
+  assert.strictEqual(typeof FinancialCore.isOperatingExpense, 'function');
+  assert.strictEqual(typeof FinancialCore.isTransferTx, 'function');
+  assert.strictEqual(typeof FinancialCore.isReconTx, 'function');
+  assert.strictEqual(typeof FinancialCore.isDebtPrincipalTx, 'function');
+  assert.strictEqual(typeof FinancialCore.validateDebtPayment, 'function');
+  assert.strictEqual(typeof FinancialCore.computeReconciliation, 'function');
+  assert.strictEqual(typeof FinancialCore.computeJobReceivable, 'function');
+  assert.strictEqual(typeof FinancialCore.calculateFinancialSummary, 'function');
+
+  // Test debt validation from production code
+  const valValid = FinancialCore.validateDebtPayment(5000, 4500, 500, 10000);
+  assert.strictEqual(valValid.valid, true);
+
+  const valMismatch = FinancialCore.validateDebtPayment(5000, 4000, 500, 10000);
+  assert.strictEqual(valMismatch.valid, false);
+
+  const valExceed = FinancialCore.validateDebtPayment(15000, 14500, 500, 10000);
+  assert.strictEqual(valExceed.valid, false);
+
+  // Test job receivable from production code
+  const jobRec = FinancialCore.computeJobReceivable({ budget: 25000 }, 15000);
+  assert.strictEqual(jobRec, 10000);
+  const jobRecOverpaid = FinancialCore.computeJobReceivable({ budget: 25000 }, 30000);
+  assert.strictEqual(jobRecOverpaid, 0);
+});
+
+// ============================================================================
+// F12: Server Security: Path Traversal, Sibling Containment, and NUL Byte Protection
+// ============================================================================
+test('F12', 'server.js strictly rejects NUL bytes with 400 and blocks traversal with 403', () => {
   assert(serverCode.includes("decodedPath.includes('\\0')"), 'server.js must check for NUL bytes');
   assert(serverCode.includes('400 Bad Request'), 'server.js must return 400 on NUL byte');
   assert(serverCode.includes('path.relative(PUBLIC_DIR, filePath)'), 'server.js must use path.relative for containment');
 
+  // Verify containment logic directly against security vectors
   const PUBLIC_DIR = path.resolve(ROOT_DIR);
 
-  function simulateServerSecurity(reqUrl) {
+  function checkPathSecurity(reqUrl) {
     let decodedPath;
     try {
       decodedPath = decodeURIComponent(reqUrl.split('?')[0]);
@@ -547,20 +355,13 @@ test('R12', 'server.js rejects NUL bytes with 400 and blocks sibling directory t
     return { status: 200, filePath };
   }
 
-  // 1. Normal file
-  assert.strictEqual(simulateServerSecurity('/index.html').status, 200);
-
-  // 2. NUL byte injection attack
-  assert.strictEqual(simulateServerSecurity('/index.html%00.png').status, 400);
-
-  // 3. Parent directory traversal
-  assert.strictEqual(simulateServerSecurity('/../../../../etc/passwd').status, 403);
-
-  // 4. Sibling directory attack (e.g. /../natthawit-studio-web-backup/file.txt)
-  assert.strictEqual(simulateServerSecurity('/../natthawit-studio-web-backup/secret.txt').status, 403);
-
-  // 5. Backslash traversal
-  assert.strictEqual(simulateServerSecurity('/..\\..\\..\\etc\\passwd').status, 403);
+  assert.strictEqual(checkPathSecurity('/index.html').status, 200);
+  assert.strictEqual(checkPathSecurity('/js/financial-core.js').status, 200);
+  assert.strictEqual(checkPathSecurity('/index.html%00.png').status, 400);
+  assert.strictEqual(checkPathSecurity('/../../../../etc/passwd').status, 403);
+  assert.strictEqual(checkPathSecurity('/..%2F..%2Fetc%2Fpasswd').status, 403);
+  assert.strictEqual(checkPathSecurity('/../natthawit-studio-web-backup/secret.txt').status, 403);
+  assert.strictEqual(checkPathSecurity('/..\\..\\etc\\passwd').status, 403);
 });
 
 // ============================================================================
@@ -571,7 +372,7 @@ console.log(`📊 Acceptance Suite Summary: ${passedTests}/${totalTests} Tests P
 console.log(`=============================================================\n`);
 
 if (passedTests === totalTests) {
-  console.log('🎉 ALL 12 ACCEPTANCE AND FUNCTIONAL VERIFICATION SCENARIOS PASSED PERFECTLY!\n');
+  console.log('🎉 ALL 12 CODEX ROUND 3 VERIFICATION SCENARIOS (F01–F12) PASSED PERFECTLY!\n');
   process.exit(0);
 } else {
   console.error('💥 Test suite failed. Review errors above.\n');

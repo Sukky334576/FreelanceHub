@@ -23,6 +23,8 @@
   <!-- Libraries: Supabase & Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Financial Core Business Rules & Pure Calculations -->
+  <script src="js/financial-core.js"></script>
 
   <style>
 
@@ -2396,6 +2398,9 @@
           <span id="syncStatusBadge" class="status-badge">
             <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> บันทึกแล้ว
           </span>
+          <button id="mobileAuthBtn" class="status-badge" onclick="openAuthModal()" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); color: var(--text-secondary); padding: 4px 8px;" title="บัญชีผู้ใช้งาน">
+            <i class="fa-solid fa-user"></i>
+          </button>
           <div class="mobile-avatar" onclick="openMoreDrawer()" title="เมนูเพิ่มเติม">
             <i class="fa-solid fa-grip"></i>
           </div>
@@ -2409,6 +2414,9 @@
           <p id="desktopPageSub" style="font-size: 0.8rem; color: var(--text-secondary);">จัดการกระแสเงินสดและธุรกรรมสตูดิโอ</p>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
+          <span id="desktopAuthBadge" class="status-badge" onclick="openAuthModal()" style="cursor: pointer; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); padding: 6px 12px;" title="จัดการบัญชีผู้ใช้งาน">
+            <i class="fa-solid fa-user"></i> <span id="desktopAuthText">เข้าสู่ระบบ</span>
+          </span>
           <span id="desktopSyncBadge" class="status-badge">
             <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> บันทึกแล้ว
           </span>
@@ -3020,6 +3028,26 @@
         <div class="page-container">
           <div class="page-header">
             <h2 class="page-title">ตั้งค่าระบบ</h2>
+          </div>
+
+          <div class="card-surface" style="margin-bottom: 16px;">
+            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">🔐 บัญชีผู้ใช้งานและความปลอดภัย (Account & Security)</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+              ระบบแยกสิทธิ์ข้อมูลเฉพาะผู้ใช้ตามมาตรฐาน Row Level Security (RLS) ปกป้องข้อมูลทางการเงินอย่างเข้มงวด
+            </p>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 14px;">
+              • สถานะ: <strong id="settingsAuthStatus" style="color: var(--text-muted);">ยังไม่ได้เข้าสู่ระบบ</strong><br>
+              • อีเมล: <strong id="settingsAuthEmail">-</strong><br>
+              • สิทธิ์การเข้าถึง: <span id="settingsAuthRole" class="status-badge" style="font-size: 0.75rem; padding: 2px 8px;">Anonymous / Guest</span>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button id="settingsBtnSignIn" class="btn-primary" onclick="openAuthModal('signin')" style="padding: 8px 18px; font-size: 0.85rem; cursor: pointer;">
+                🔑 เข้าสู่ระบบ / สมัครสมาชิก
+              </button>
+              <button id="settingsBtnSignOut" class="btn-danger-outline" onclick="handleSignOut()" style="display: none; padding: 8px 18px; font-size: 0.85rem; cursor: pointer;">
+                🚪 ออกจากระบบ
+              </button>
+            </div>
           </div>
 
           <div class="card-surface">
@@ -4174,6 +4202,48 @@
     </div>
   </div>
 
+  <!-- =======================================================
+       DRAWER / MODAL: เข้าสู่ระบบ / บัญชีผู้ใช้งาน (AUTH MODAL)
+       ======================================================= -->
+  <div id="authModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 440px;">
+      <div class="drawer-header">
+        <div class="drawer-title" id="authModalTitle">🔐 เข้าสู่ระบบ Natthawit Studio</div>
+        <button class="drawer-close-btn" onclick="closeAllDrawers()" aria-label="ปิดหน้าต่าง">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="drawer-body">
+        <p id="authModalSubtitle" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+          ลงชื่อเข้าใช้เพื่อซิงค์ข้อมูลอย่างปลอดภัยตามมาตรฐาน Row Level Security (RLS)
+        </p>
+
+        <form id="authForm" onsubmit="event.preventDefault(); handleAuthSubmit();">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="authEmail">อีเมล (Email) *</label>
+            <input type="email" id="authEmail" class="form-input" placeholder="name@example.com" required autocomplete="email">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label class="form-label" for="authPassword">รหัสผ่าน (Password) *</label>
+            <input type="password" id="authPassword" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+
+          <div id="authErrorMsg" style="display: none; padding: 10px 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: #ef4444; font-size: 0.8rem; margin-bottom: 14px;"></div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button type="submit" id="authSubmitBtn" class="btn-primary" style="width: 100%; justify-content: center; height: 44px; font-size: 0.95rem;">
+              เข้าสู่ระบบ
+            </button>
+            <button type="button" id="authToggleModeBtn" class="btn-secondary" onclick="toggleAuthMode()" style="width: 100%; justify-content: center; height: 38px; font-size: 0.85rem; background: transparent; border: 1px dashed var(--border-color);">
+              ยังไม่มีบัญชี? สมัครสมาชิกใหม่
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 <!-- Toast Message -->
   <div id="toast">บันทึกสำเร็จ 🎉</div>
 
@@ -4652,22 +4722,19 @@
     async function adjustWalletBalanceOnBackend(walletId, delta) {
       if (!walletId || isNaN(delta) || delta === 0) return;
       walletId = parseInt(walletId, 10);
-      try {
-        var rpcRes = await db.rpc('adjust_wallet_balance', { p_wallet_id: walletId, p_delta: delta });
-        if (!rpcRes.error && rpcRes.data !== undefined && rpcRes.data !== null) {
-          var targetW = (appData.wallets || []).find(function(w) { return w.id === walletId; });
-          if (targetW) targetW.balance = parseFloat(rpcRes.data);
-          return rpcRes.data;
-        }
-      } catch (e) {
-        // Fallback to direct update if RPC is missing
+
+      var targetW = (appData.wallets || []).find(function(w) { return w.id === walletId; });
+      if (!targetW) throw new Error('ไม่พบกระเป๋าเงิน ID ' + walletId);
+
+      var rpcRes = await db.rpc('adjust_wallet_balance', { p_wallet_id: walletId, p_delta: delta });
+      if (rpcRes.error) {
+        throw new Error('การปรับยอดเงินล้มเหลว: ' + rpcRes.error.message);
       }
-      var target = (appData.wallets || []).find(function(w) { return w.id === walletId; });
-      if (!target) throw new Error('ไม่พบกระเป๋าเงิน ID ' + walletId);
-      var newBal = (parseFloat(target.balance) || 0);
-      var res = await db.from('wallets').update({ balance: newBal, updated_at: new Date().toISOString() }).eq('id', walletId);
-      if (res.error) throw res.error;
-      return newBal;
+      if (rpcRes.data !== undefined && rpcRes.data !== null) {
+        targetW.balance = parseFloat(rpcRes.data);
+        return parseFloat(rpcRes.data);
+      }
+      throw new Error('ไม่ได้รับข้อมูลยอดคงเหลือตอบกลับจากเซิร์ฟเวอร์');
     }
 
     async function syncWalletBalanceToBackend(walletId, newBalance) {
@@ -4736,6 +4803,19 @@
       var numId = parseInt(id, 10);
       var tx = appData.transactions.find(function(t) { return t.id === numId; });
       if (!tx) return;
+
+      if (tx.transfer_id) {
+        alert('รายการนี้เป็นรายการโอนเงินระหว่างกระเป๋า ไม่สามารถแก้ไขโดยตรงได้ กรุณายกเลิกการโอนแล้วทำรายการใหม่');
+        return;
+      }
+      if (tx.bill_id) {
+        alert('รายการนี้เชื่อมโยงกับการชำระบิลประจำ กรุณาจัดการผ่านแท็บบิลรายเดือน (Bills) เพื่อรักษาสถานะบิลให้ถูกต้อง');
+        return;
+      }
+      if (tx.debt_id) {
+        alert('รายการนี้เชื่อมโยงกับการชำระค่างวดหนี้สิน กรุณาจัดการผ่านแท็บหนี้สิน (Debts) เพื่อรักษายอดเงินต้นและประวัติให้ถูกต้อง');
+        return;
+      }
 
       document.getElementById('txEditId').value = tx.id;
       document.getElementById('txDrawerTitle').textContent = 'แก้ไขรายการเงิน';
@@ -4828,27 +4908,44 @@
           var oldTx = appData.transactions.find(function(t) { return t.id === numId; });
           if (!oldTx) throw new Error('ไม่พบรายการที่ต้องการแก้ไข');
 
-          // Check if editing a transfer leg
+          // Check if editing a transfer, bill, or debt leg
           if (oldTx.transfer_id) {
             alert('รายการนี้เกิดจากการโอนเงิน ไม่สามารถแก้ไขโดยตรงได้ กรุณายกเลิกรายการโอนแล้วทำรายการใหม่');
             return;
           }
+          if (oldTx.bill_id) {
+            alert('รายการนี้เชื่อมโยงกับการชำระบิลประจำ กรุณาจัดการผ่านแท็บบิลรายเดือน (Bills) เพื่อรักษาสถานะบิลให้ถูกต้อง');
+            return;
+          }
+          if (oldTx.debt_id) {
+            alert('รายการนี้เชื่อมโยงกับการชำระค่างวดหนี้ กรุณาจัดการผ่านแท็บหนี้สิน (Debts) เพื่อรักษายอดเงินต้นและประวัติให้ถูกต้อง');
+            return;
+          }
+
+          // Compute immutable delta before mutating anything
+          var deltaInfo = (window.FinancialCore && typeof window.FinancialCore.computeEditDelta === 'function')
+            ? window.FinancialCore.computeEditDelta(oldTx, payload, appData.wallets)
+            : { hasFinancialChange: false, isSameWallet: true, targetWalletId: payload.wallet_id, netDelta: 0 };
 
           // 1. Update transaction in database first
           var res = await db.from('transactions').update(payload).eq('id', numId);
           if (res.error) throw res.error;
 
-          // 2. Compute delta & update wallet atomically
-          var oldTarget = adjustWalletBalanceForTx(oldTx, true);
-          var newTarget = adjustWalletBalanceForTx(Object.assign({}, oldTx, payload), false);
-          
+          // 2. Adjust wallet balance using immutable delta if financial values changed
           try {
-            if (oldTarget && newTarget && oldTarget.id === newTarget.id) {
-              var netDelta = (newTarget.delta || 0) + (oldTarget.delta || 0);
-              if (netDelta !== 0) await adjustWalletBalanceOnBackend(newTarget.id, netDelta);
-            } else {
-              if (oldTarget) await adjustWalletBalanceOnBackend(oldTarget.id, oldTarget.delta);
-              if (newTarget) await adjustWalletBalanceOnBackend(newTarget.id, newTarget.delta);
+            if (deltaInfo.hasFinancialChange) {
+              if (deltaInfo.isSameWallet) {
+                if (deltaInfo.netDelta !== 0 && deltaInfo.targetWalletId) {
+                  await adjustWalletBalanceOnBackend(deltaInfo.targetWalletId, deltaInfo.netDelta);
+                }
+              } else {
+                if (deltaInfo.oldWalletId && deltaInfo.revertOldDelta !== 0) {
+                  await adjustWalletBalanceOnBackend(deltaInfo.oldWalletId, deltaInfo.revertOldDelta);
+                }
+                if (deltaInfo.newWalletId && deltaInfo.applyNewDelta !== 0) {
+                  await adjustWalletBalanceOnBackend(deltaInfo.newWalletId, deltaInfo.applyNewDelta);
+                }
+              }
             }
           } catch(syncErr) {
             // Rollback transaction update in DB if wallet balance adjustment failed
@@ -4866,10 +4963,14 @@
           var newTx = (res.data && res.data.length > 0) ? res.data[0] : Object.assign({ id: Date.now() }, payload);
           
           // 2. Adjust wallet balance
-          var createdTarget = adjustWalletBalanceForTx(newTx, false);
-          if (createdTarget) {
+          var isIncome = (newTx.type === 'รายรับ');
+          var amt = parseFloat(newTx.amount) || 0;
+          var delta = isIncome ? amt : -amt;
+          var walletId = newTx.wallet_id ? parseInt(newTx.wallet_id, 10) : null;
+
+          if (walletId && amt > 0) {
             try {
-              await adjustWalletBalanceOnBackend(createdTarget.id, createdTarget.delta);
+              await adjustWalletBalanceOnBackend(walletId, delta);
             } catch(syncErr) {
               // Rollback inserted transaction
               await db.from('transactions').delete().eq('id', newTx.id);
@@ -4905,6 +5006,16 @@
       if (tx.transfer_id) {
         if (!confirm('รายการนี้เกิดจากการโอนย้ายเงิน หากลบจะทำการยกเลิกรายการโอนทั้งชุด (ทั้งบัญชีต้นทางและปลายทาง) ยืนยันยกเลิกรายการโอนใช่หรือไม่?')) return;
         return cancelTransferByTx(tx);
+      }
+
+      // Guard: Bill payment and Debt payment transactions must be managed via parent
+      if (tx.bill_id) {
+        alert('รายการนี้เชื่อมโยงกับการชำระบิลประจำ กรุณายกเลิกการชำระผ่านแท็บบิลรายเดือน (Bills) เพื่อคืนยอดเงินและปรับสถานะบิลโดยอัตโนมัติ');
+        return;
+      }
+      if (tx.debt_id) {
+        alert('รายการนี้เชื่อมโยงกับการชำระค่างวดหนี้ กรุณาจัดการผ่านแท็บหนี้สิน (Debts) เพื่อรักษายอดเงินต้นและประวัติให้ถูกต้อง');
+        return;
       }
 
       if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่? ยอดเงินในบัญชีจะถูกปรับคืนโดยอัตโนมัติ')) return;
@@ -6005,10 +6116,18 @@
         var actual = parseFloat(document.getElementById('reconActualInput').value) || 0;
         var date = document.getElementById('reconDateInput').value || getTodayDateStr();
         var reason = document.getElementById('reconReasonInput').value.trim() || 'กระทบยอดประจำงวด';
-        var diff = actual - sysBal;
+        // Check stale balance using FinancialCore
+        var reconCalc = (window.FinancialCore && typeof window.FinancialCore.computeReconciliation === 'function')
+          ? window.FinancialCore.computeReconciliation(targetWallet.balance, sysBal, actual)
+          : { status: (Math.abs(actual - sysBal) < 0.005 ? 'NO_OP' : 'ADJUST'), diff: actual - sysBal, newBalance: actual };
 
-        // If balances already match within 0.005, do NOT alter balances or create adjustment transactions
-        if (Math.abs(diff) < 0.005) {
+        if (reconCalc.status === 'STALE') {
+          alert('ยอดเงินในระบบมีการเปลี่ยนแปลงระหว่างการตรวจสอบ กรุณาตรวจสอบยอดใหม่อีกครั้ง');
+          await loadAllData();
+          return;
+        }
+
+        if (reconCalc.status === 'NO_OP') {
           localStorage.setItem('natthawit_last_recon_date', date);
           showToast('ยอดเงินตรงกัน บันทึกการตรวจสอบเรียบร้อย 🎉');
           closeAllDrawers();
@@ -6016,9 +6135,40 @@
           return;
         }
 
-        // Apply delta update to backend
-        await adjustWalletBalanceOnBackend(targetWallet.id, diff);
-        targetWallet.balance = actual;
+        var diff = reconCalc.diff;
+
+        // Try atomic reconciliation RPC on backend
+        var rpcHandled = false;
+        try {
+          var rpcRecon = await db.rpc('execute_wallet_reconciliation', {
+            p_wallet_id: targetWallet.id,
+            p_expected_balance: sysBal,
+            p_actual_balance: actual,
+            p_note: reason
+          });
+          if (!rpcRecon.error && rpcRecon.data) {
+            rpcHandled = true;
+            targetWallet.balance = rpcRecon.data.new_balance;
+            if (rpcRecon.data.status === 'NO_OP') {
+              localStorage.setItem('natthawit_last_recon_date', date);
+              showToast('ยอดเงินตรงกัน บันทึกการตรวจสอบเรียบร้อย 🎉');
+              closeAllDrawers();
+              renderDashboard();
+              return;
+            }
+          }
+        } catch(rpcErr) {
+          if (rpcErr.message && rpcErr.message.includes('STALE_BALANCE')) {
+            alert('ยอดเงินในระบบมีการเปลี่ยนแปลงระหว่างการตรวจสอบ กรุณาตรวจสอบยอดใหม่อีกครั้ง');
+            await loadAllData();
+            return;
+          }
+        }
+
+        if (!rpcHandled) {
+          // Apply delta update to backend
+          await adjustWalletBalanceOnBackend(targetWallet.id, diff);
+        }
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
 
         // Build safe adjustment transaction for audit log (Excluded from periodInc / periodExp)
@@ -6044,7 +6194,6 @@
         } catch(txErr) {
           // Rollback wallet balance on backend
           await adjustWalletBalanceOnBackend(targetWallet.id, -diff);
-          targetWallet.balance = sysBal;
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           throw txErr;
         }
@@ -6099,7 +6248,6 @@
         if (targetWallet && billAmt > 0) {
           try {
             await adjustWalletBalanceOnBackend(targetWallet.id, -billAmt);
-            targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - billAmt;
             if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           } catch(wErr) {
             // Rollback transaction if wallet update failed
@@ -6424,7 +6572,6 @@
           // 2. Refund wallet balance
           if (targetWallet && billAmt > 0) {
             await adjustWalletBalanceOnBackend(targetWallet.id, billAmt);
-            targetWallet.balance = (parseFloat(targetWallet.balance) || 0) + billAmt;
             if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           }
 
@@ -6683,13 +6830,26 @@
           catAndTodoData.push({ 'ประเภทข้อมูล': 'หมวดหมู่', 'ชื่อ/รายการ': cat.name, 'รายละเอียด': cat.type || '' });
         });
         (appData.todos || []).forEach(function(td) {
-          catAndTodoData.push({ 'ประเภทข้อมูล': 'สิ่งที่ต้องทำ', 'ชื่อ/รายการ': td.text, 'รายละเอียด': td.completed ? 'เสร็จแล้ว' : 'รอดำเนินการ' });
+          catAndTodoData.push({ 'ประเภทข้อมูล': 'สิ่งที่ต้องทำ', 'ชื่อ/รายการ': td.title || '', 'รายละเอียด': td.is_complete ? 'เสร็จแล้ว' : 'รอดำเนินการ' });
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catAndTodoData), 'Categories_Todos');
 
+        // 9. Equipment Sheet
+        var eqData = (appData.equipment || []).map(function(eq) {
+          return {
+            'รหัส': eq.id,
+            'ชื่ออุปกรณ์': eq.name,
+            'ราคาทุน (บาท)': Number(eq.cost || 0),
+            'วันที่ซื้อ': eq.purchase_date || '',
+            'สถานะ': eq.status || 'active',
+            'หมายเหตุ': eq.notes || ''
+          };
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(eqData), 'Equipment');
+
         var nowStr = new Date().toISOString().substring(0, 10);
         XLSX.writeFile(wb, 'Natthawit_Studio_Export_' + nowStr + '.xlsx');
-        showToast('📥 ส่งออกไฟล์ Excel ครบทั้ง 8 แผ่นงานสำเร็จ');
+        showToast('📥 ส่งออกไฟล์ Excel ครบทุกแผ่นงานสำเร็จ');
       } catch(e) {
         console.error('Excel export error:', e);
         alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ' + (e.message || e));
@@ -6994,19 +7154,95 @@
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
 
+    // =========================================================
+    // MODAL & ACCESSIBILITY MANAGEMENT (WCAG 2.1 FOCUS TRAP)
+    // =========================================================
+    var _modalTriggerElement = null;
+
+    function openDrawer(drawerId, triggerEl) {
+      var el = typeof drawerId === 'string' ? document.getElementById(drawerId) : drawerId;
+      if (!el) return;
+      _modalTriggerElement = triggerEl || document.activeElement;
+      el.classList.add('active');
+      focusFirstInModal(el);
+    }
+
+    function focusFirstInModal(modalEl) {
+      if (!modalEl) return;
+      setTimeout(function() {
+        var focusable = modalEl.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        for (var i = 0; i < focusable.length; i++) {
+          if (focusable[i].offsetWidth > 0 || focusable[i].offsetHeight > 0 || focusable[i].getClientRects().length > 0) {
+            focusable[i].focus();
+            break;
+          }
+        }
+      }, 50);
+    }
+
     function closeAllDrawers() {
       document.querySelectorAll('.drawer-backdrop').forEach(function(d) {
         d.classList.remove('active');
       });
+      if (_modalTriggerElement && typeof _modalTriggerElement.focus === 'function') {
+        try {
+          _modalTriggerElement.focus();
+        } catch (err) {
+          console.warn('Could not restore focus:', err);
+        }
+        _modalTriggerElement = null;
+      }
     }
 
-    // Global Accessibility Keyboard Handler (WCAG 2.1 - R11)
+    // MutationObserver to automatically trap trigger & autofocus on any drawer opened via direct classList.add('active')
+    if (typeof MutationObserver !== 'undefined') {
+      var _modalObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          if (m.type === 'attributes' && m.attributeName === 'class') {
+            var target = m.target;
+            if (target && target.classList && target.classList.contains('drawer-backdrop') && target.classList.contains('active')) {
+              if (!_modalTriggerElement) {
+                _modalTriggerElement = document.activeElement;
+              }
+              focusFirstInModal(target);
+            }
+          }
+        });
+      });
+      _modalObserver.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+    }
+
+    // Global Accessibility Keyboard Handler (WCAG 2.1 - Trap Focus, Escape Close, Enter/Space Action)
     window.addEventListener('keydown', function(e) {
+      var activeDrawer = document.querySelector('.drawer-backdrop.active');
       if (e.key === 'Escape') {
-        var activeDrawer = document.querySelector('.drawer-backdrop.active');
         if (activeDrawer) {
           e.preventDefault();
           closeAllDrawers();
+        }
+        return;
+      }
+      if (e.key === 'Tab' && activeDrawer) {
+        var focusableNodes = Array.prototype.slice.call(
+          activeDrawer.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+        ).filter(function(node) {
+          return node.offsetWidth > 0 || node.offsetHeight > 0 || node.getClientRects().length > 0;
+        });
+
+        if (focusableNodes.length > 0) {
+          var firstNode = focusableNodes[0];
+          var lastNode = focusableNodes[focusableNodes.length - 1];
+          if (e.shiftKey) {
+            if (document.activeElement === firstNode || !activeDrawer.contains(document.activeElement)) {
+              e.preventDefault();
+              lastNode.focus();
+            }
+          } else {
+            if (document.activeElement === lastNode || !activeDrawer.contains(document.activeElement)) {
+              e.preventDefault();
+              firstNode.focus();
+            }
+          }
         }
         return;
       }
@@ -7020,7 +7256,185 @@
     });
 
     function openMoreDrawer() {
-      document.getElementById('moreDrawer').classList.add('active');
+      openDrawer('moreDrawer');
+    }
+
+    // =========================================================
+    // AUTHENTICATION & SESSION MANAGEMENT (SUPABASE AUTH)
+    // =========================================================
+    var currentUser = null;
+    var authMode = 'signin';
+
+    function openAuthModal(mode) {
+      if (mode) authMode = mode;
+      var titleEl = document.getElementById('authModalTitle');
+      var subEl = document.getElementById('authModalSubtitle');
+      var submitBtn = document.getElementById('authSubmitBtn');
+      var toggleBtn = document.getElementById('authToggleModeBtn');
+      var errEl = document.getElementById('authErrorMsg');
+
+      if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
+
+      if (authMode === 'signup') {
+        if (titleEl) titleEl.textContent = '📝 สมัครสมาชิก Natthawit Studio';
+        if (subEl) subEl.textContent = 'สร้างบัญชีผู้ใช้ใหม่สำหรับจัดการระบบบัญชีและการเงิน';
+        if (submitBtn) submitBtn.textContent = 'สมัครสมาชิกใหม่';
+        if (toggleBtn) toggleBtn.textContent = 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบที่นี่';
+      } else {
+        if (titleEl) titleEl.textContent = '🔐 เข้าสู่ระบบ Natthawit Studio';
+        if (subEl) subEl.textContent = 'ลงชื่อเข้าใช้เพื่อซิงค์ข้อมูลอย่างปลอดภัยตามมาตรฐาน Row Level Security (RLS)';
+        if (submitBtn) submitBtn.textContent = 'เข้าสู่ระบบ';
+        if (toggleBtn) toggleBtn.textContent = 'ยังไม่มีบัญชี? สมัครสมาชิกใหม่';
+      }
+
+      openDrawer('authModal');
+    }
+
+    function toggleAuthMode() {
+      authMode = authMode === 'signin' ? 'signup' : 'signin';
+      openAuthModal(authMode);
+    }
+
+    async function handleAuthSubmit() {
+      var email = document.getElementById('authEmail').value.trim();
+      var password = document.getElementById('authPassword').value;
+      var errEl = document.getElementById('authErrorMsg');
+      var submitBtn = document.getElementById('authSubmitBtn');
+
+      if (!email || !password) {
+        if (errEl) {
+          errEl.textContent = 'กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังดำเนินการ...';
+      if (errEl) errEl.style.display = 'none';
+
+      try {
+        if (authMode === 'signup') {
+          var res = await db.auth.signUp({ email: email, password: password });
+          if (res.error) throw res.error;
+          showToast('สมัครสมาชิกสำเร็จ 🎉 กรุณาตรวจสอบอีเมลหรือเข้าสู่ระบบ');
+          closeAllDrawers();
+        } else {
+          var res = await db.auth.signInWithPassword({ email: email, password: password });
+          if (res.error) throw res.error;
+          showToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ 👋');
+          closeAllDrawers();
+          loadAllData();
+        }
+      } catch (err) {
+        console.error('Auth error:', err);
+        if (errEl) {
+          errEl.textContent = err.message || 'เกิดข้อผิดพลาดในการยืนยันตัวตน';
+          errEl.style.display = 'block';
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = authMode === 'signup' ? 'สมัครสมาชิกใหม่' : 'เข้าสู่ระบบ';
+      }
+    }
+
+    async function handleSignOut() {
+      if (!confirm('ต้องการออกจากระบบใช่หรือไม่?')) return;
+      try {
+        await db.auth.signOut();
+        currentUser = null;
+        updateAuthUI();
+        showToast('ออกจากระบบเรียบร้อยแล้ว 👋');
+        loadAllData();
+      } catch (err) {
+        console.error('Sign out error:', err);
+        alert('เกิดข้อผิดพลาดในการออกจากระบบ: ' + err.message);
+      }
+    }
+
+    function updateAuthUI() {
+      var desktopAuthText = document.getElementById('desktopAuthText');
+      var desktopAuthBadge = document.getElementById('desktopAuthBadge');
+      var mobileAuthBtn = document.getElementById('mobileAuthBtn');
+      var settingsStatus = document.getElementById('settingsAuthStatus');
+      var settingsEmail = document.getElementById('settingsAuthEmail');
+      var settingsRole = document.getElementById('settingsAuthRole');
+      var btnSignIn = document.getElementById('settingsBtnSignIn');
+      var btnSignOut = document.getElementById('settingsBtnSignOut');
+
+      if (currentUser) {
+        var email = currentUser.email || 'ผู้ใช้ระบบ';
+        var shortEmail = email.length > 20 ? email.substring(0, 18) + '...' : email;
+        if (desktopAuthText) desktopAuthText.textContent = shortEmail;
+        if (desktopAuthBadge) {
+          desktopAuthBadge.title = 'เข้าสู่ระบบด้วย: ' + email;
+          desktopAuthBadge.style.color = 'var(--accent-primary)';
+          desktopAuthBadge.style.borderColor = 'rgba(77, 124, 255, 0.4)';
+        }
+        if (mobileAuthBtn) {
+          mobileAuthBtn.style.color = 'var(--accent-primary)';
+          mobileAuthBtn.title = 'ผู้ใช้: ' + email;
+        }
+        if (settingsStatus) {
+          settingsStatus.textContent = 'เข้าสู่ระบบแล้ว';
+          settingsStatus.style.color = 'var(--accent-primary)';
+        }
+        if (settingsEmail) settingsEmail.textContent = email;
+        if (settingsRole) {
+          settingsRole.textContent = 'Owner (Authenticated)';
+          settingsRole.style.background = 'rgba(16, 185, 129, 0.15)';
+          settingsRole.style.color = '#10B981';
+        }
+        if (btnSignIn) btnSignIn.style.display = 'none';
+        if (btnSignOut) btnSignOut.style.display = 'inline-flex';
+      } else {
+        if (desktopAuthText) desktopAuthText.textContent = 'เข้าสู่ระบบ';
+        if (desktopAuthBadge) {
+          desktopAuthBadge.title = 'คลิกเพื่อเข้าสู่ระบบ';
+          desktopAuthBadge.style.color = 'var(--text-secondary)';
+          desktopAuthBadge.style.borderColor = 'var(--border-color)';
+        }
+        if (mobileAuthBtn) {
+          mobileAuthBtn.style.color = 'var(--text-secondary)';
+          mobileAuthBtn.title = 'คลิกเพื่อเข้าสู่ระบบ';
+        }
+        if (settingsStatus) {
+          settingsStatus.textContent = 'ยังไม่ได้เข้าสู่ระบบ (Guest / Offline)';
+          settingsStatus.style.color = 'var(--text-muted)';
+        }
+        if (settingsEmail) settingsEmail.textContent = '-';
+        if (settingsRole) {
+          settingsRole.textContent = 'Anonymous / Guest';
+          settingsRole.style.background = 'rgba(245, 158, 11, 0.15)';
+          settingsRole.style.color = '#F59E0B';
+        }
+        if (btnSignIn) btnSignIn.style.display = 'inline-flex';
+        if (btnSignOut) btnSignOut.style.display = 'none';
+      }
+    }
+
+    async function initAuth() {
+      try {
+        var sessionRes = await db.auth.getSession();
+        if (sessionRes.data && sessionRes.data.session) {
+          currentUser = sessionRes.data.session.user;
+        }
+        updateAuthUI();
+
+        db.auth.onAuthStateChange(function(event, session) {
+          currentUser = session ? session.user : null;
+          updateAuthUI();
+          if (event === 'SIGNED_IN') {
+            loadAllData();
+          }
+        });
+      } catch (err) {
+        console.warn('Auth init notice:', err);
+        updateAuthUI();
+      }
     }
 
     // =========================================================
@@ -7044,10 +7458,13 @@
         }
       });
 
-      // 2. Load Data
+      // 2. Auth Session Check
+      initAuth();
+
+      // 3. Load Data
       loadAllData();
 
-      // 3. Supabase Realtime with Debounce
+      // 4. Supabase Realtime with Debounce
       var rtDebounce = null;
       db.channel('web-changes')
         .on('postgres_changes', { event: '*', schema: 'public' }, function() {
@@ -7512,14 +7929,16 @@
 
           var insRes = await db.from('transactions').insert(txPayloads).select();
           if (insRes.error) throw insRes.error;
-          if (insRes.data) {
-            insRes.data.forEach(function(item) { appData.transactions.unshift(item); });
-          }
         } else {
-          // If RPC succeeded, refresh transactions from database
+          // If RPC succeeded, prepend newly created transfer legs without truncating history
           try {
-            var refreshRes = await db.from('transactions').select('*').order('date', { ascending: false }).order('id', { ascending: false }).limit(200);
-            if (!refreshRes.error && refreshRes.data) appData.transactions = refreshRes.data;
+            var newTxRes = await db.from('transactions').select('*').eq('transfer_id', transferId).order('id', { ascending: true });
+            if (!newTxRes.error && newTxRes.data && newTxRes.data.length > 0) {
+              newTxRes.data.forEach(function(item) { appData.transactions.unshift(item); });
+            } else {
+              var refreshRes = await db.from('transactions').select('*').order('date', { ascending: false }).order('id', { ascending: false });
+              if (!refreshRes.error && refreshRes.data) appData.transactions = refreshRes.data;
+            }
           } catch(e) {}
         }
 
@@ -8017,6 +8436,16 @@
       } catch (e) {
         loadDebtsFromLocal();
       }
+
+      // Load debt payments history from server
+      try {
+        var payRes = await db.from('debt_payments').select('*').order('payment_date', { ascending: false });
+        if (payRes.data) {
+          appData.debt_payments = payRes.data;
+        }
+      } catch(e) {
+        console.error('Error loading debt payments:', e);
+      }
     }
 
     function loadDebtsFromLocal() {
@@ -8370,7 +8799,6 @@
         setSyncStatus('saving');
         // 1. Deduct from selected Wallet and sync to backend via delta
         await adjustWalletBalanceOnBackend(walletId, -total);
-        targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - total;
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
 
         // 2. Reduce Debt Remaining Principal and sync to Supabase
