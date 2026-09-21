@@ -28,6 +28,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Security check: Guard against NUL byte poisoning
+  if (decodedPath.includes('\0')) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('400 Bad Request: Invalid path characters');
+    return;
+  }
+
   // Normalize slashes and resolve path
   let normalized = decodedPath.replace(/\\/g, '/');
   if (normalized === '/' || normalized === '' || normalized === '/.') {
@@ -36,8 +43,10 @@ const server = http.createServer((req, res) => {
 
   const filePath = path.resolve(PUBLIC_DIR, '.' + normalized);
 
-  // Security check: Guard against Path Traversal attacks
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  // Security check: Guard against Path Traversal and Sibling Directory attacks
+  const relative = path.relative(PUBLIC_DIR, filePath);
+  const isSafe = !relative.startsWith('..') && !path.isAbsolute(relative);
+  if (!isSafe) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('403 Forbidden');
     return;
@@ -45,30 +54,35 @@ const server = http.createServer((req, res) => {
 
   const ext = path.extname(filePath).toLowerCase();
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, fallback) => {
-          if (e2) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end('404 Not Found');
-          } else {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(fallback);
-          }
-        });
+  try {
+    fs.readFile(filePath, (err, content) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (e2, fallback) => {
+            if (e2) {
+              res.writeHead(404, { 'Content-Type': 'text/plain' });
+              res.end('404 Not Found');
+            } else {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(fallback);
+            }
+          });
+        } else {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end(`Server Error: ${err.code}`);
+        }
       } else {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end(`Server Error: ${err.code}`);
+        res.writeHead(200, { 
+          'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(content);
       }
-    } else {
-      res.writeHead(200, { 
-        'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-        'Access-Control-Allow-Origin': '*'
-      });
-      res.end(content);
-    }
-  });
+    });
+  } catch (syncErr) {
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Server Internal Error');
+  }
 });
 
 server.listen(PORT, HOST, () => {

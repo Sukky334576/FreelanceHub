@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Freelance Hub">
@@ -2992,15 +2992,12 @@
           <div class="card-surface" style="padding: 20px;">
             <div style="font-size: 1.2rem; margin-bottom: 8px;">📊 ส่งออกข้อมูล Google Sheets / Excel (.xlsx)</div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-              ดาวน์โหลดข้อมูลหลังบ้านทั้งหมด 6 ชีต (ธุรกรรม, งาน, สิ่งที่ต้องทำ, บิล, อุปกรณ์, หมวดหมู่) ไปเปิดใน Google Sheets หรือ Microsoft Excel ได้ทันที
+              ดาวน์โหลดข้อมูลระบบทั้งหมด 8 ชีต (ธุรกรรม, งาน, บัญชี/กระเป๋าเงิน, หนี้สิน, ประวัติชำระหนี้, บัตรเครดิต, บิลรายเดือน, หมวดหมู่และสิ่งที่ต้องทำ) ไปเปิดใน Google Sheets หรือ Microsoft Excel ได้ทันที
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button class="btn-submit-main" onclick="exportAllDataToExcel()" style="width: auto; padding: 0 24px;">
                 <i class="fa-solid fa-file-excel"></i> ส่งออกข้อมูลทั้งหมด (.xlsx)
               </button>
-              <a href="./Natthawit_Studio_Data.xlsx" download class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; padding: 0 20px; height: 48px; border-radius: var(--radius-md); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-primary); text-decoration: none; font-weight: 700; font-size: 0.88rem;">
-                <i class="fa-solid fa-download"></i> ดาวน์โหลดไฟล์สำรอง
-              </a>
             </div>
           </div>
 
@@ -3083,7 +3080,7 @@
   <!-- =========================================================
        MODAL 1: ฟอร์มบันทึกเงิน (MATCHING SCREEN 03 MOCKUP)
        ========================================================= -->
-  <div id="txDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="txDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3194,7 +3191,7 @@
   <!-- =========================================================
        MODAL 2: ฟอร์มเพิ่ม/แก้ไขงาน (JOB DRAWER)
        ========================================================= -->
-  <div id="jobDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="jobDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3298,7 +3295,7 @@
   <!-- =========================================================
        MODAL 3: DRAWER เมนูเพิ่มเติม (MORE DRAWER)
        ========================================================= -->
-  <div id="moreDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="moreDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3365,7 +3362,7 @@
   <!-- =========================================================
        MODAL 4: ฟอร์มเพิ่ม/แก้ไขบิล (BILL DRAWER)
        ========================================================= -->
-  <div id="billDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="billDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3402,7 +3399,7 @@
   <!-- =========================================================
        MODAL 5: สิ่งที่ต้องทำ (TODO DRAWER)
        ========================================================= -->
-  <div id="todoDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="todoDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3439,7 +3436,7 @@
   <!-- =========================================================
        MODAL 6: อุปกรณ์ (EQUIPMENT DRAWER)
        ========================================================= -->
-  <div id="eqDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="eqDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3472,7 +3469,7 @@
   <!-- =========================================================
        MODAL 7: จัดการและลบหมวดหมู่ (CATEGORY MANAGER)
        ========================================================= -->
-  <div id="categoryManagerDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="categoryManagerDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3498,7 +3495,7 @@
   <!-- =========================================================
        MODAL 8: ออกเอกสาร PDF (PDF DRAWER)
        ========================================================= -->
-  <div id="pdfDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="pdfDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3535,15 +3532,15 @@
     <!-- =========================================================
        MODAL: ตรวจสอบและปรับยอดเงินจริง (RECONCILIATION)
        ========================================================= -->
-  <div id="reconDrawer" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="reconDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="reconDrawerTitle" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
-        <div class="sheet-title">
+        <div id="reconDrawerTitle" class="sheet-title">
           <i class="fa-solid fa-calculator" style="color: var(--color-primary);"></i>
           <span>ตรวจสอบและปรับยอดเงินจริง</span>
         </div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่างตรวจสอบยอด" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <div style="background: var(--color-surface-muted); border-radius: var(--radius-md); padding: 14px 18px; border: 1px solid var(--color-border);">
@@ -3553,10 +3550,10 @@
 
         <form id="reconForm" onsubmit="handleReconSubmit(event)">
           <div class="form-group">
-            <label class="form-label">เลือกบัญชีที่ต้องการตรวจสอบ:</label>
-            <select id="reconAccountSelect" class="form-select" onchange="updateReconSystemBalance()">
+            <label for="reconAccountSelect" class="form-label">เลือกบัญชีที่ต้องการตรวจสอบ:</label>
+            <select id="reconAccountSelect" class="form-select" onchange="updateReconSystemBalance()" required>
               <!-- Populated dynamically from appData.wallets -->
-              <option value="all">รวมทุกบัญชี (ภาพรวมทั้งหมด)</option>
+              <option value="">-- เลือกบัญชี/กระเป๋าเงิน --</option>
             </select>
           </div>
 
@@ -3597,7 +3594,7 @@
     <!-- =========================================================
        MODAL: สรุปรายรับตามงาน/โปรเจกต์ (INCOME BREAKDOWN)
        ========================================================= -->
-  <div id="incomeBreakdownModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="incomeBreakdownModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 680px;">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3646,7 +3643,7 @@
   <!-- =========================================================
        MODAL: สัดส่วนและอันดับรายจ่าย (EXPENSE BREAKDOWN)
        ========================================================= -->
-  <div id="expenseBreakdownModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="expenseBreakdownModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 680px;">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3693,7 +3690,7 @@
   <!-- =========================================================
        MODAL: สรุปส่วนต่างรับ-จ่าย (CASHFLOW NET SUMMARY)
        ========================================================= -->
-  <div id="cashflowNetModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="cashflowNetModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 520px;">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3745,7 +3742,7 @@
   <!-- =========================================================
        MODAL: เงินค้างรับจากลูกค้า (RECEIVABLES LIST)
        ========================================================= -->
-  <div id="receivablesModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="receivablesModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 650px;">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3777,7 +3774,7 @@
   <!-- =========================================================
        MODAL: จัดการกระเป๋าเงิน (WALLET MODAL)
        ========================================================= -->
-  <div id="walletModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="walletModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3848,7 +3845,7 @@
   <!-- =========================================================
        MODAL: โอนเงินระหว่างกระเป๋า (INTERNAL TRANSFER)
        ========================================================= -->
-  <div id="transferModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="transferModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -3923,7 +3920,7 @@
   <!-- =========================================================
        MODAL: เพิ่ม/แก้ไขสัญญาหนี้และรายการผ่อน (DEBT MODAL)
        ========================================================= -->
-  <div id="debtModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="debtModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -4017,7 +4014,7 @@
   <!-- =========================================================
        MODAL: บันทึกชำระค่างวดหนี้ (PAY DEBT MODAL)
        ========================================================= -->
-  <div id="payDebtModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="payDebtModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -4085,7 +4082,7 @@
   <!-- =========================================================
        MODAL: เพิ่ม/แก้ไขบัตรเครดิตและบัตรกดเงินสด (CARD MODAL)
        ========================================================= -->
-  <div id="cardModal" class="drawer-backdrop" onclick="closeAllDrawers()">
+  <div id="cardModal" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
@@ -4523,8 +4520,8 @@
 
       monthTxs.forEach(function(t) {
         var amt = parseFloat(t.amount) || 0;
-        if (t.type === 'รายรับ') totalIncome += amt;
-        else if (t.type === 'รายจ่าย') totalExpense += amt;
+        if (isOperatingIncome(t)) totalIncome += amt;
+        else if (isOperatingExpense(t)) totalExpense += amt;
       });
 
       // Update Summary Cards
@@ -4652,32 +4649,54 @@
     // =========================================================
     // SCREEN 03: ฟอร์มบันทึกเงิน (TRANSACTION MODAL & CRUD)
     // =========================================================
+    async function adjustWalletBalanceOnBackend(walletId, delta) {
+      if (!walletId || isNaN(delta) || delta === 0) return;
+      walletId = parseInt(walletId, 10);
+      try {
+        var rpcRes = await db.rpc('adjust_wallet_balance', { p_wallet_id: walletId, p_delta: delta });
+        if (!rpcRes.error && rpcRes.data !== undefined && rpcRes.data !== null) {
+          var targetW = (appData.wallets || []).find(function(w) { return w.id === walletId; });
+          if (targetW) targetW.balance = parseFloat(rpcRes.data);
+          return rpcRes.data;
+        }
+      } catch (e) {
+        // Fallback to direct update if RPC is missing
+      }
+      var target = (appData.wallets || []).find(function(w) { return w.id === walletId; });
+      if (!target) throw new Error('ไม่พบกระเป๋าเงิน ID ' + walletId);
+      var newBal = (parseFloat(target.balance) || 0);
+      var res = await db.from('wallets').update({ balance: newBal, updated_at: new Date().toISOString() }).eq('id', walletId);
+      if (res.error) throw res.error;
+      return newBal;
+    }
+
     async function syncWalletBalanceToBackend(walletId, newBalance) {
       if (!walletId || isNaN(newBalance)) return;
-      try {
-        var res = await db.from('wallets').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', walletId);
-        if (res.error) console.warn('Supabase wallet balance update notice:', res.error);
-      } catch (err) {
-        console.warn('Wallet balance sync fallback:', err);
-      }
+      walletId = parseInt(walletId, 10);
+      var res = await db.from('wallets').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', walletId);
+      if (res.error) throw res.error;
     }
 
     function adjustWalletBalanceForTx(tx, isRevert) {
       if (!tx || !appData.wallets || appData.wallets.length === 0) return null;
       var amt = parseFloat(tx.amount) || 0;
       if (amt === 0) return null;
-      var meta = (typeof parseTxMetadata === 'function') ? parseTxMetadata(tx.details) : { account: 'บัญชีสตูดิโอ' };
-      var accName = meta.account || 'บัญชีสตูดิโอ';
 
-      var target = appData.wallets.find(function(w) {
-        return (tx.wallet_id && parseInt(tx.wallet_id, 10) === w.id) ||
-               w.name === accName ||
-               accName.includes(w.name) ||
-               w.name.includes(accName);
-      });
-      if (!target && appData.wallets.length > 0) {
-        target = appData.wallets[0];
+      var target = null;
+      // 1. Strict wallet_id matching
+      if (tx.wallet_id) {
+        var targetId = parseInt(tx.wallet_id, 10);
+        target = appData.wallets.find(function(w) { return w.id === targetId; });
       }
+      // 2. Strict exact name matching (legacy)
+      if (!target) {
+        var meta = (typeof parseTxMetadata === 'function') ? parseTxMetadata(tx.details) : { account: '' };
+        var accName = (meta && meta.account) ? meta.account.trim() : '';
+        if (accName) {
+          target = appData.wallets.find(function(w) { return w.name === accName; });
+        }
+      }
+      // Strict rule: NEVER fallback to wallets[0] and NEVER substring match!
       if (!target) return null;
 
       var isIncome = (tx.type === 'รายรับ');
@@ -4685,12 +4704,15 @@
       if (isRevert) delta = -delta;
 
       target.balance = (parseFloat(target.balance) || 0) + delta;
+      target.delta = delta;
       return target;
     }
 
     function openAddTxModal() {
       if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       document.getElementById('txEditId').value = '';
+      var relJobEl = document.getElementById('txRelatedJob');
+      if (relJobEl) relJobEl.value = '';
       document.getElementById('txDrawerTitle').textContent = 'บันทึกรายการเงิน';
       document.getElementById('txAmount').value = '';
       setTxFormType('รายจ่าย');
@@ -4709,35 +4731,41 @@
       document.getElementById('txDrawer').classList.add('active');
     }
 
-    function openEditTx(id) {
-      var tx = appData.transactions.find(function(t) { return t.id === id; });
+    function openEditTxModal(id) {
+      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
+      var numId = parseInt(id, 10);
+      var tx = appData.transactions.find(function(t) { return t.id === numId; });
       if (!tx) return;
 
-      if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       document.getElementById('txEditId').value = tx.id;
       document.getElementById('txDrawerTitle').textContent = 'แก้ไขรายการเงิน';
-      document.getElementById('txAmount').value = tx.amount || '';
-      setTxFormType(tx.type || 'รายจ่าย');
+      document.getElementById('txAmount').value = tx.amount;
+      setTxFormType(tx.type);
 
       var meta = parseTxMetadata(tx.details);
       setTxFormScope(meta.scope === 'personal' ? 'ส่วนตัว' : 'สตูดิโอ');
-      var txAccEl = document.getElementById('txAccount');
-      if (txAccEl) {
-        txAccEl.value = meta.account || (appData.wallets[0] ? appData.wallets[0].name : 'บัญชีสตูดิโอ');
-      }
-      document.getElementById('txDetails').value = meta.details || '';
-      document.getElementById('txDate').value = tx.date || getTodayDateStr();
-      document.getElementById('txTime').value = new Date().toTimeString().substring(0, 5);
 
-      renderCategoryOptions(tx.category);
-      if (document.getElementById('txRelatedJob')) {
-        document.getElementById('txRelatedJob').value = tx.related_job || '';
-      }
+      document.getElementById('txDate').value = tx.date || getTodayDateStr();
+      document.getElementById('txTime').value = tx.time || '12:00';
+      document.getElementById('txDetails').value = meta.details || '';
+
+      var relJobEl = document.getElementById('txRelatedJob');
+      if (relJobEl) relJobEl.value = tx.related_job || '';
+
+      renderCategoryOptions();
+      document.getElementById('txCategory').value = tx.category;
+
+      var txAccEl = document.getElementById('txAccount');
+      if (txAccEl) txAccEl.value = meta.account;
 
       var delBtn = document.getElementById('btnDeleteTx');
-      if (delBtn) delBtn.style.display = 'flex';
+      if (delBtn) delBtn.style.display = 'block';
 
       document.getElementById('txDrawer').classList.add('active');
+    }
+
+    function openEditTx(id) {
+      openEditTxModal(id);
     }
 
     function setTxFormType(type) {
@@ -4756,28 +4784,35 @@
 
     async function handleSaveTx(e) {
       e.preventDefault();
-      var editId = document.getElementById('txEditId').value;
-      var amt = parseFloat(document.getElementById('txAmount').value);
-      if (!amt || amt <= 0) {
-        alert('กรุณาระบุจำนวนเงินให้ถูกต้อง');
+      var amountInput = document.getElementById('txAmount');
+      var amount = parseFloat(amountInput.value);
+      if (isNaN(amount) || amount <= 0) {
+        alert('กรุณาระบุจำนวนเงินที่ถูกต้อง');
         return;
       }
 
-      var scope = document.getElementById('txScope').value || 'สตูดิโอ';
-      var account = document.getElementById('txAccount').value || (appData.wallets[0] ? appData.wallets[0].name : 'บัญชีสตูดิโอ');
-      var detailsUser = document.getElementById('txDetails').value.trim();
-      var combinedDetails = '[' + scope + ' | ' + account + ']' + (detailsUser ? ' ' + detailsUser : '');
+      var type = document.getElementById('txType').value;
+      var category = document.getElementById('txCategory').value || 'ทั่วไป';
+      var scope = document.getElementById('txScope').value;
+      var account = document.getElementById('txAccount').value;
+      var date = document.getElementById('txDate').value;
+      var time = document.getElementById('txTime').value;
+      var relatedJob = document.getElementById('txRelatedJob')?.value || '';
+      var details = document.getElementById('txDetails').value;
+      var editId = document.getElementById('txEditId').value;
 
-      var targetWallet = (appData.wallets || []).find(function(w) { return w.name === account; }) || (appData.wallets && appData.wallets[0]);
+      var walletObj = (appData.wallets || []).find(function(w) { return w.name === account; });
+      var walletId = walletObj ? walletObj.id : null;
 
+      var fullDetails = buildTxDetails(scope, account, details);
       var payload = {
-        date: document.getElementById('txDate').value,
-        type: document.getElementById('txType').value,
-        category: document.getElementById('txCategory').value,
-        amount: amt,
-        details: combinedDetails,
-        related_job: document.getElementById('txRelatedJob')?.value || '',
-        wallet_id: targetWallet ? targetWallet.id : null
+        date: date,
+        type: type,
+        category: category,
+        amount: amount,
+        details: fullDetails,
+        related_job: relatedJob,
+        wallet_id: walletId
       };
 
       var btnSubmit = document.getElementById('btnTxSubmit');
@@ -4791,28 +4826,57 @@
         if (editId) {
           var numId = parseInt(editId, 10);
           var oldTx = appData.transactions.find(function(t) { return t.id === numId; });
-          if (oldTx) {
-            var oldTarget = adjustWalletBalanceForTx(oldTx, true);
-            if (oldTarget) await syncWalletBalanceToBackend(oldTarget.id, oldTarget.balance);
+          if (!oldTx) throw new Error('ไม่พบรายการที่ต้องการแก้ไข');
+
+          // Check if editing a transfer leg
+          if (oldTx.transfer_id) {
+            alert('รายการนี้เกิดจากการโอนเงิน ไม่สามารถแก้ไขโดยตรงได้ กรุณายกเลิกรายการโอนแล้วทำรายการใหม่');
+            return;
           }
 
+          // 1. Update transaction in database first
           var res = await db.from('transactions').update(payload).eq('id', numId);
           if (res.error) throw res.error;
 
-          if (oldTx) {
-            Object.assign(oldTx, payload);
-            var newTarget = adjustWalletBalanceForTx(oldTx, false);
-            if (newTarget) await syncWalletBalanceToBackend(newTarget.id, newTarget.balance);
+          // 2. Compute delta & update wallet atomically
+          var oldTarget = adjustWalletBalanceForTx(oldTx, true);
+          var newTarget = adjustWalletBalanceForTx(Object.assign({}, oldTx, payload), false);
+          
+          try {
+            if (oldTarget && newTarget && oldTarget.id === newTarget.id) {
+              var netDelta = (newTarget.delta || 0) + (oldTarget.delta || 0);
+              if (netDelta !== 0) await adjustWalletBalanceOnBackend(newTarget.id, netDelta);
+            } else {
+              if (oldTarget) await adjustWalletBalanceOnBackend(oldTarget.id, oldTarget.delta);
+              if (newTarget) await adjustWalletBalanceOnBackend(newTarget.id, newTarget.delta);
+            }
+          } catch(syncErr) {
+            // Rollback transaction update in DB if wallet balance adjustment failed
+            await db.from('transactions').update(oldTx).eq('id', numId);
+            throw new Error('ไม่สามารถปรับปรุงยอดเงินในบัญชีได้ ดำเนินการย้อนกลับรายการเดิม: ' + syncErr.message);
           }
+
+          Object.assign(oldTx, payload);
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('แก้ไขรายการเงินสำเร็จ 🎉');
         } else {
+          // 1. Insert transaction into database first
           var res = await db.from('transactions').insert([payload]).select();
           if (res.error) throw res.error;
           var newTx = (res.data && res.data.length > 0) ? res.data[0] : Object.assign({ id: Date.now() }, payload);
-          appData.transactions.unshift(newTx);
+          
+          // 2. Adjust wallet balance
           var createdTarget = adjustWalletBalanceForTx(newTx, false);
-          if (createdTarget) await syncWalletBalanceToBackend(createdTarget.id, createdTarget.balance);
+          if (createdTarget) {
+            try {
+              await adjustWalletBalanceOnBackend(createdTarget.id, createdTarget.delta);
+            } catch(syncErr) {
+              // Rollback inserted transaction
+              await db.from('transactions').delete().eq('id', newTx.id);
+              throw new Error('ไม่สามารถปรับปรุงยอดเงินในบัญชีได้ ดำเนินการยกเลิกรายการบันทึก: ' + syncErr.message);
+            }
+          }
+          appData.transactions.unshift(newTx);
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('บันทึกรายการเงินสำเร็จ 🎉');
         }
@@ -4833,19 +4897,38 @@
     }
 
     async function deleteTx(id) {
-      if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่? ยอดเงินในบัญชีจะถูกปรับคืนโดยอัตโนมัติ')) return;
       var numId = parseInt(id, 10);
+      var tx = appData.transactions.find(function(t) { return t.id === numId; });
+      if (!tx) return;
+
+      // Special check: Transfer Leg
+      if (tx.transfer_id) {
+        if (!confirm('รายการนี้เกิดจากการโอนย้ายเงิน หากลบจะทำการยกเลิกรายการโอนทั้งชุด (ทั้งบัญชีต้นทางและปลายทาง) ยืนยันยกเลิกรายการโอนใช่หรือไม่?')) return;
+        return cancelTransferByTx(tx);
+      }
+
+      if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่? ยอดเงินในบัญชีจะถูกปรับคืนโดยอัตโนมัติ')) return;
+
       try {
         setSyncStatus('saving');
-        var tx = appData.transactions.find(function(t) { return t.id === numId; });
-        if (tx) {
-          var target = adjustWalletBalanceForTx(tx, true);
-          if (target) await syncWalletBalanceToBackend(target.id, target.balance);
-          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-        }
-
+        // 1. Delete from database first
         var res = await db.from('transactions').delete().eq('id', numId);
         if (res.error) throw res.error;
+
+        // 2. Revert wallet balance after successful deletion
+        var target = adjustWalletBalanceForTx(tx, true);
+        if (target) {
+          try {
+            await adjustWalletBalanceOnBackend(target.id, target.delta);
+            if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+          } catch (walletErr) {
+            // Rollback: Re-insert transaction if wallet revert failed
+            console.error('Wallet revert failed, rolling back deleted transaction:', walletErr);
+            await db.from('transactions').insert([tx]);
+            adjustWalletBalanceForTx(tx, false);
+            throw new Error('ไม่สามารถปรับยอดเงินในกระเป๋าได้ ระบบได้ยกเลิกการลบรายการ: ' + walletErr.message);
+          }
+        }
 
         appData.transactions = appData.transactions.filter(function(t) { return t.id !== numId; });
 
@@ -5417,6 +5500,61 @@
     }
 
     // =========================================================
+    // SHARED ACCOUNTING DOMAIN SELECTORS & FINANCIAL FORMULAS
+    // =========================================================
+    function isTransferTx(t) {
+      if (!t) return false;
+      return t.category === 'โอนเงิน' || t.type === 'โอนเงิน' || !!t.transfer_id || !!t.transfer_target_wallet_id;
+    }
+
+    function isReconTx(t) {
+      if (!t) return false;
+      return t.category === 'ปรับยอดเงิน' || t.type === 'ปรับยอดเงิน';
+    }
+
+    function isDebtPrincipalTx(t) {
+      if (!t) return false;
+      return t.category === 'ชำระหนี้/ผ่อนสินค้า' || (t.category === 'ชำระหนี้' && !t.category.includes('ดอกเบี้ย'));
+    }
+
+    function isOperatingIncome(t) {
+      return !!(t && t.type === 'รายรับ' && !isTransferTx(t) && !isReconTx(t));
+    }
+
+    function isOperatingExpense(t) {
+      // Operating expense includes business costs and loan interest, but NOT internal transfers, reconciliation adjustments, or debt principal repayment
+      return !!(t && t.type === 'รายจ่าย' && !isTransferTx(t) && !isReconTx(t) && !isDebtPrincipalTx(t));
+    }
+
+    function isFinancingCashOut(t) {
+      return !!(t && t.type === 'รายจ่าย' && isDebtPrincipalTx(t));
+    }
+
+    function getJobFinancials(j) {
+      if (!j) return { budget: 0, received: 0, unpaid: 0, isOverdue: false };
+      var budget = parseFloat(j.budget) || 0;
+      var received = 0;
+      if (appData.transactions && appData.transactions.length > 0) {
+        appData.transactions.forEach(function(t) {
+          if (isOperatingIncome(t) && (t.job_id === j.id || String(t.job_id) === String(j.id) || t.related_job === j.title || t.related_job === String(j.id))) {
+            received += (parseFloat(t.amount) || 0);
+          }
+        });
+      }
+      if (j.paid_amount && parseFloat(j.paid_amount) > received) {
+        received = parseFloat(j.paid_amount);
+      }
+      var unpaid = Math.max(0, budget - received);
+      var todayStr = getTodayDateStr();
+      return {
+        budget: budget,
+        received: received,
+        unpaid: unpaid,
+        isOverdue: !!(j.date && j.date < todayStr && unpaid > 0)
+      };
+    }
+
+    // =========================================================
     // TAB 3: ภาพรวม (DASHBOARD)
     // =========================================================
     var dashPeriod = 'month'; // 'today' | 'month' | 'year'
@@ -5487,19 +5625,15 @@
           matchPeriod = (tDate.substring(0, 4) === curY);
         }
 
-        // Financial Isolation: Transfers and Reconciliation Adjustments are NOT business revenue or operating expense
-        var isTransfer = (t.category === 'โอนเงิน' || t.type === 'โอนเงิน');
-        var isRecon = (t.category === 'ปรับยอดเงิน' || t.type === 'ปรับยอดเงิน');
-
-        if (matchPeriod && !isTransfer && !isRecon) {
-          if (t.type === 'รายรับ') periodInc += amt;
-          else if (t.type === 'รายจ่าย') periodExp += amt;
+        if (matchPeriod) {
+          if (isOperatingIncome(t)) periodInc += amt;
+          else if (isOperatingExpense(t)) periodExp += amt;
         }
 
         // Prior Period comparison (Prior Month)
-        if (tDate.substring(0, 4) === priorY && tDate.substring(5, 7) === priorM && !isTransfer && !isRecon) {
-          if (t.type === 'รายรับ') priorInc += amt;
-          else if (t.type === 'รายจ่าย') priorExp += amt;
+        if (tDate.substring(0, 4) === priorY && tDate.substring(5, 7) === priorM) {
+          if (isOperatingIncome(t)) priorInc += amt;
+          else if (isOperatingExpense(t)) priorExp += amt;
         }
       });
 
@@ -5564,23 +5698,10 @@
       // Standardized Unpaid Client Receivables Calculation (budget - received)
       var totalUnpaidFromJobs = 0;
       var pendingJobsCount = 0;
-      appData.jobs.forEach(function(j) {
-        var budget = parseFloat(j.budget) || 0;
-        if (budget <= 0) return;
-
-        var received = 0;
-        appData.transactions.forEach(function(t) {
-          if (t.type === 'รายรับ' && (t.related_job === j.title || t.related_job === String(j.id))) {
-            received += (parseFloat(t.amount) || 0);
-          }
-        });
-        if (j.paid_amount && parseFloat(j.paid_amount) > received) {
-          received = parseFloat(j.paid_amount);
-        }
-
-        var unpaid = Math.max(0, budget - received);
-        if (unpaid > 0) {
-          totalUnpaidFromJobs += unpaid;
+      (appData.jobs || []).forEach(function(j) {
+        var fin = getJobFinancials(j);
+        if (fin.unpaid > 0) {
+          totalUnpaidFromJobs += fin.unpaid;
           pendingJobsCount++;
         }
       });
@@ -5704,8 +5825,8 @@
           var k = t.date.substring(0, 7);
           if (monthlyMap[k]) {
             var a = parseFloat(t.amount) || 0;
-            if (t.type === 'รายรับ') monthlyMap[k].inc += a;
-            else if (t.type === 'รายจ่าย') monthlyMap[k].exp += a;
+            if (isOperatingIncome(t)) monthlyMap[k].inc += a;
+            else if (isOperatingExpense(t)) monthlyMap[k].exp += a;
           }
         }
       });
@@ -5815,9 +5936,7 @@
     }
 
     function getSystemBalanceForAccount(account) {
-      if (account === 'all') {
-        return (appData.wallets || []).reduce(function(sum, w) { return sum + (parseFloat(w.balance) || 0); }, 0);
-      }
+      if (!account || account === 'all') return 0;
       var target = (appData.wallets || []).find(function(w) {
         return String(w.id) === String(account) || w.name === account;
       });
@@ -5826,7 +5945,7 @@
     }
 
     function updateReconSystemBalance() {
-      var acc = document.getElementById('reconAccountSelect')?.value || 'all';
+      var acc = document.getElementById('reconAccountSelect')?.value || '';
       var sysBal = getSystemBalanceForAccount(acc);
       var sysEl = document.getElementById('reconSystemBalance');
       if (sysEl) {
@@ -5869,14 +5988,16 @@
 
       try {
         var acc = document.getElementById('reconAccountSelect').value;
-        var targetWallet = (appData.wallets || []).find(function(w) {
-          return String(w.id) === String(acc) || w.name === acc;
-        });
-        if (!targetWallet && appData.wallets && appData.wallets.length > 0) {
-          targetWallet = appData.wallets[0];
+        if (!acc || acc === 'all') {
+          alert('กรุณาเลือกบัญชี/กระเป๋าเงินที่ต้องการตรวจสอบ (ไม่สามารถกระทบยอดรวมทุกบัญชีพร้อมกันได้)');
+          return;
         }
+
+        var targetWallet = (appData.wallets || []).find(function(w) {
+          return String(w.id) === String(acc);
+        });
         if (!targetWallet) {
-          alert('กรุณาเลือกกระเป๋าเงิน/บัญชีที่ต้องการตรวจสอบ');
+          alert('ไม่พบกระเป๋าเงินที่เลือก กรุณาเลือกใหม่');
           return;
         }
 
@@ -5886,10 +6007,7 @@
         var reason = document.getElementById('reconReasonInput').value.trim() || 'กระทบยอดประจำงวด';
         var diff = actual - sysBal;
 
-        targetWallet.balance = actual;
-        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-        await syncWalletBalanceToBackend(targetWallet.id, actual);
-
+        // If balances already match within 0.005, do NOT alter balances or create adjustment transactions
         if (Math.abs(diff) < 0.005) {
           localStorage.setItem('natthawit_last_recon_date', date);
           showToast('ยอดเงินตรงกัน บันทึกการตรวจสอบเรียบร้อย 🎉');
@@ -5897,6 +6015,11 @@
           renderDashboard();
           return;
         }
+
+        // Apply delta update to backend
+        await adjustWalletBalanceOnBackend(targetWallet.id, diff);
+        targetWallet.balance = actual;
+        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
 
         // Build safe adjustment transaction for audit log (Excluded from periodInc / periodExp)
         var walletName = targetWallet.name;
@@ -5912,10 +6035,18 @@
           wallet_id: targetWallet.id
         };
 
-        var res = await db.from('transactions').insert([payload]).select();
-        if (res.error) throw res.error;
-        if (res.data && res.data.length > 0) {
-          appData.transactions.unshift(res.data[0]);
+        try {
+          var res = await db.from('transactions').insert([payload]).select();
+          if (res.error) throw res.error;
+          if (res.data && res.data.length > 0) {
+            appData.transactions.unshift(res.data[0]);
+          }
+        } catch(txErr) {
+          // Rollback wallet balance on backend
+          await adjustWalletBalanceOnBackend(targetWallet.id, -diff);
+          targetWallet.balance = sysBal;
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+          throw txErr;
         }
 
         localStorage.setItem('natthawit_last_recon_date', date);
@@ -5936,46 +6067,73 @@
       var b = appData.bills.find(function(item) { return item.id === billId; });
       if (!b) return;
 
-      if (!confirm('ยืนยันบันทึกการชำระบิล "' + b.item + '" จำนวน ฿' + (parseFloat(b.amount)||0).toLocaleString() + ' บาท?')) {
+      if (b.is_paid) {
+        alert('บิลนี้ได้รับการบันทึกว่าชำระแล้ว');
+        return;
+      }
+
+      var billAmt = parseFloat(b.amount) || 0;
+      if (!confirm('ยืนยันบันทึกการชำระบิล "' + b.item + '" จำนวน ฿' + billAmt.toLocaleString() + ' บาท?')) {
         return;
       }
 
       try {
-        var res = await db.from('bills').update({ is_paid: true }).eq('id', billId).select();
-        if (res.error) throw res.error;
+        setSyncStatus('saving');
+        var targetWallet = b.linked_wallet_id ? (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) : (appData.wallets && appData.wallets[0]);
 
-        b.is_paid = true;
-
-        // Deduct from wallet and sync to backend
-        var targetWallet = (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) || (appData.wallets && appData.wallets[0]);
-        if (targetWallet) {
-          targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - (parseFloat(b.amount) || 0);
-          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-          await syncWalletBalanceToBackend(targetWallet.id, targetWallet.balance);
-        }
-
-        // Create matching expense transaction
+        // 1. Create matching expense transaction first
         var payload = {
           date: getTodayDateStr(),
           type: 'รายจ่าย',
           category: 'บิลประจำ',
-          amount: parseFloat(b.amount) || 0,
+          amount: billAmt,
           details: buildTxDetails('studio', (targetWallet ? targetWallet.name : 'บัญชีสตูดิโอ'), 'ชำระบิล ' + b.item + ' (ครบกำหนดวันที่ ' + b.due_date + ')'),
-          wallet_id: targetWallet ? targetWallet.id : null
+          wallet_id: targetWallet ? targetWallet.id : null,
+          bill_id: b.id
         };
         var txRes = await db.from('transactions').insert([payload]).select();
         if (txRes.error) throw txRes.error;
-        if (txRes.data && txRes.data.length > 0) {
-          appData.transactions.unshift(txRes.data[0]);
+        var createdTx = (txRes.data && txRes.data.length > 0) ? txRes.data[0] : null;
+
+        // 2. Deduct from wallet and sync to backend
+        if (targetWallet && billAmt > 0) {
+          try {
+            await adjustWalletBalanceOnBackend(targetWallet.id, -billAmt);
+            targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - billAmt;
+            if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+          } catch(wErr) {
+            // Rollback transaction if wallet update failed
+            if (createdTx) await db.from('transactions').delete().eq('id', createdTx.id);
+            throw new Error('ไม่สามารถหักเงินจากกระเป๋าได้: ' + wErr.message);
+          }
+        }
+
+        // 3. Update bill status
+        var billUpdate = {
+          is_paid: true,
+          last_paid_date: getTodayDateStr(),
+          last_paid_tx_id: createdTx ? createdTx.id : null
+        };
+        var res = await db.from('bills').update(billUpdate).eq('id', billId);
+        if (res.error) throw res.error;
+
+        b.is_paid = true;
+        b.last_paid_date = billUpdate.last_paid_date;
+        b.last_paid_tx_id = billUpdate.last_paid_tx_id;
+
+        if (createdTx) {
+          appData.transactions.unshift(createdTx);
         }
 
         showToast('ชำระบิล "' + b.item + '" สำเร็จ 🎉');
         renderDashboard();
         renderBills();
         renderTransactions();
+        setSyncStatus('synced');
       } catch(err) {
         console.error(err);
-        alert('เกิดข้อผิดพลาดในการชำระบิล: ' + err.message);
+        alert('เกิดข้อผิดพลาดในการชำระบิล: ' + (err.message || err));
+        setSyncStatus('error');
       }
     }
 
@@ -6233,12 +6391,58 @@
     }
 
     async function toggleBillPaid(id, nextState) {
+      id = parseInt(id, 10);
+      var b = appData.bills.find(function(item) { return item.id === id; });
+      if (!b) return;
+
       if (nextState) {
         await quickPayBill(id);
       } else {
-        await db.from('bills').update({ is_paid: false }).eq('id', id);
-        showToast('เปลี่ยนสถานะเป็นรอจ่าย');
-        await loadAllData();
+        if (!confirm('ต้องการเปลี่ยนสถานะบิล "' + b.item + '" กลับเป็น "รอชำระ" ใช่หรือไม่? ยอดเงินที่เคยหักจะถูกคืนเข้ากระเป๋าเงินโดยอัตโนมัติ')) return;
+        try {
+          setSyncStatus('saving');
+          var billAmt = parseFloat(b.amount) || 0;
+          var targetWallet = b.linked_wallet_id ? (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) : (appData.wallets && appData.wallets[0]);
+
+          // 1. Find linked transaction to delete
+          var txToDel = null;
+          if (b.last_paid_tx_id) {
+            txToDel = appData.transactions.find(function(t) { return t.id === b.last_paid_tx_id; });
+          }
+          if (!txToDel) {
+            txToDel = appData.transactions.find(function(t) {
+              return t.bill_id === b.id || (t.category === 'บิลประจำ' && (t.details || '').includes(b.item));
+            });
+          }
+
+          if (txToDel) {
+            var delRes = await db.from('transactions').delete().eq('id', txToDel.id);
+            if (delRes.error) throw delRes.error;
+            appData.transactions = appData.transactions.filter(function(t) { return t.id !== txToDel.id; });
+          }
+
+          // 2. Refund wallet balance
+          if (targetWallet && billAmt > 0) {
+            await adjustWalletBalanceOnBackend(targetWallet.id, billAmt);
+            targetWallet.balance = (parseFloat(targetWallet.balance) || 0) + billAmt;
+            if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+          }
+
+          // 3. Mark bill as unpaid
+          await db.from('bills').update({ is_paid: false, last_paid_tx_id: null }).eq('id', id);
+          b.is_paid = false;
+          b.last_paid_tx_id = null;
+
+          showToast('เปลี่ยนสถานะเป็นรอจ่าย และคืนยอด ฿' + billAmt.toLocaleString() + ' เข้ากระเป๋าแล้ว ↩️');
+          renderDashboard();
+          renderBills();
+          renderTransactions();
+          setSyncStatus('synced');
+        } catch(err) {
+          console.error('Error undoing bill payment:', err);
+          alert('เกิดข้อผิดพลาดในการยกเลิกสถานะบิล: ' + (err.message || err));
+          setSyncStatus('error');
+        }
       }
     }
 
@@ -6351,8 +6555,7 @@
         s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         s.onload = function() { generateAndDownloadExcel(); };
         s.onerror = function() {
-          showToast('กำลังดาวน์โหลดไฟล์ข้อมูลสำรอง...');
-          window.location.href = './Natthawit_Studio_Data.xlsx';
+          alert('ไม่สามารถโหลดโมดูลสร้างไฟล์ Excel ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
         };
         document.head.appendChild(s);
         return;
@@ -6376,20 +6579,27 @@
             'หมวดหมู่': t.category,
             'จำนวนเงิน (บาท)': Number(t.amount || 0),
             'รายละเอียด': meta.details,
-            'โปรเจกต์': t.related_job || ''
+            'โปรเจกต์': t.related_job || '',
+            'รหัสการโอน': t.transfer_id || '',
+            'รหัสบิล': t.bill_id || '',
+            'รหัสหนี้': t.debt_id || ''
           };
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txData), 'Transactions');
 
         // 2. Jobs Sheet
         var jobsData = (appData.jobs || []).map(function(j) {
+          var fin = getJobFinancials(j);
           return {
             'รหัส': j.id,
             'วันที่': j.date,
             'ชื่องาน': j.title,
             'ประเภท': j.job_type,
-            'งบประมาณ (บาท)': Number(j.budget || 0),
-            'สถานที่': j.location || ''
+            'งบประมาณ (บาท)': fin.budget,
+            'รับแล้ว (บาท)': fin.received,
+            'ค้างรับ (บาท)': fin.unpaid,
+            'สถานที่': j.location || '',
+            'สถานะ': j.is_complete ? 'เสร็จสิ้น' : 'รอดำเนินการ'
           };
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(jobsData), 'Jobs');
@@ -6424,7 +6634,21 @@
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(debtsData), 'Debts');
 
-        // 5. Cards Sheet
+        // 5. Debt Payments Sheet
+        var debtPaymentsData = (appData.debt_payments || []).map(function(p) {
+          return {
+            'รหัส': p.id,
+            'รหัสสัญญาหนี้': p.debt_id,
+            'วันที่ชำระ': p.payment_date,
+            'ยอดรวมที่จ่าย (บาท)': Number(p.amount || 0),
+            'เงินต้น (บาท)': Number(p.principal_paid || 0),
+            'ดอกเบี้ย (บาท)': Number(p.interest_paid || 0),
+            'หมายเหตุ': p.note || ''
+          };
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(debtPaymentsData), 'Debt_Payments');
+
+        // 6. Cards Sheet
         var cardsData = (appData.cards || []).map(function(c) {
           return {
             'รหัส': c.id,
@@ -6439,7 +6663,7 @@
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cardsData), 'Cards');
 
-        // 6. Bills Sheet
+        // 7. Bills Sheet
         var billsData = (appData.bills || []).map(function(b) {
           return {
             'รหัส': b.id,
@@ -6447,17 +6671,28 @@
             'จำนวนเงิน (บาท)': Number(b.amount || 0),
             'วันครบกำหนด': b.due_date,
             'สถานะชำระ': b.is_paid ? 'จ่ายแล้ว' : 'รอชำระ',
-            'หมายเหตุ': b.note || ''
+            'หมายเหตุ': b.note || '',
+            'วันที่จ่ายล่าสุด': b.last_paid_date || ''
           };
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(billsData), 'Bills');
 
+        // 8. Categories & Todos Sheet
+        var catAndTodoData = [];
+        (appData.categories || []).forEach(function(cat) {
+          catAndTodoData.push({ 'ประเภทข้อมูล': 'หมวดหมู่', 'ชื่อ/รายการ': cat.name, 'รายละเอียด': cat.type || '' });
+        });
+        (appData.todos || []).forEach(function(td) {
+          catAndTodoData.push({ 'ประเภทข้อมูล': 'สิ่งที่ต้องทำ', 'ชื่อ/รายการ': td.text, 'รายละเอียด': td.completed ? 'เสร็จแล้ว' : 'รอดำเนินการ' });
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catAndTodoData), 'Categories_Todos');
+
         var nowStr = new Date().toISOString().substring(0, 10);
-        XLSX.writeFile(wb, 'Natthawit_Studio_Data_' + nowStr + '.xlsx');
-        showToast('📥 ส่งออกไฟล์ Excel ครบทั้ง 6 แผ่นงานสำเร็จ');
+        XLSX.writeFile(wb, 'Natthawit_Studio_Export_' + nowStr + '.xlsx');
+        showToast('📥 ส่งออกไฟล์ Excel ครบทั้ง 8 แผ่นงานสำเร็จ');
       } catch(e) {
         console.error('Excel export error:', e);
-        window.location.href = './Natthawit_Studio_Data.xlsx';
+        alert('เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ' + (e.message || e));
       }
     }
 
@@ -6765,6 +7000,25 @@
       });
     }
 
+    // Global Accessibility Keyboard Handler (WCAG 2.1 - R11)
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var activeDrawer = document.querySelector('.drawer-backdrop.active');
+        if (activeDrawer) {
+          e.preventDefault();
+          closeAllDrawers();
+        }
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        var target = document.activeElement;
+        if (target && target.getAttribute('role') === 'button' && target.tagName !== 'BUTTON' && target.tagName !== 'INPUT') {
+          e.preventDefault();
+          target.click();
+        }
+      }
+    });
+
     function openMoreDrawer() {
       document.getElementById('moreDrawer').classList.add('active');
     }
@@ -6925,13 +7179,14 @@
       var reconAcc = document.getElementById('reconAccountSelect');
       if (reconAcc) {
         var curRecon = reconAcc.value;
-        var rOpts = '<option value="all">รวมทุกบัญชี (ภาพรวมทั้งหมด)</option>';
+        var rOpts = '<option value="">-- เลือกบัญชี/กระเป๋าเงิน --</option>';
         (appData.wallets || []).forEach(function(w) {
           var bal = parseFloat(w.balance) || 0;
           rOpts += '<option value="' + w.id + '">' + escapeHtml(w.name) + ' (฿' + bal.toLocaleString(undefined, {minimumFractionDigits: 2}) + ')</option>';
         });
         reconAcc.innerHTML = rOpts;
-        if (curRecon) reconAcc.value = curRecon;
+        if (curRecon && curRecon !== 'all') reconAcc.value = curRecon;
+        else if (appData.wallets && appData.wallets.length > 0) reconAcc.value = appData.wallets[0].id;
       }
 
       // 3. Other selects
@@ -7165,90 +7420,168 @@
       var fromWallet = appData.wallets.find(function(w) { return w.id === fromId; });
       var toWallet = appData.wallets.find(function(w) { return w.id === toId; });
 
-      // Record internal transfer locally
-      saveLocalTransfer({
-        id: Date.now(),
-        from_wallet_id: fromId,
-        from_wallet_name: fromWallet ? fromWallet.name : '',
-        to_wallet_id: toId,
-        to_wallet_name: toWallet ? toWallet.name : '',
-        amount: amount,
-        fee: fee,
-        date: dateStr,
-        note: note
-      });
+      var btnSubmit = document.querySelector('#transferModal .btn-submit-main');
+      if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = 'กำลังโอน...'; }
 
-      // Update wallet balances in memory and localStorage
-      if (fromWallet) fromWallet.balance = (parseFloat(fromWallet.balance) || 0) - (amount + fee);
-      if (toWallet) toWallet.balance = (parseFloat(toWallet.balance) || 0) + amount;
-      saveWalletsToLocal();
-
-      // Persist updated balances to Supabase wallets table
-      if (fromWallet) await syncWalletBalanceToBackend(fromId, fromWallet.balance);
-      if (toWallet) await syncWalletBalanceToBackend(toId, toWallet.balance);
-
-      // Persist transfer record to Supabase transfers table
       try {
-        await db.from('transfers').insert([{
-          from_wallet_id: fromId,
-          to_wallet_id: toId,
-          amount: amount,
-          fee: fee,
-          transfer_date: dateStr,
-          note: note
-        }]);
-      } catch (err) {
-        console.warn('Transfers table notice:', err);
-      }
+        setSyncStatus('saving');
+        var transferId = null;
+        var rpcSuccess = false;
 
-      // Record transfer transactions in ledger (Category: 'โอนเงิน')
-      try {
-        await db.from('transactions').insert([
-          {
-            date: dateStr,
-            type: 'รายจ่าย',
-            category: 'โอนเงิน',
-            amount: amount,
-            details: buildTxDetails('studio', (fromWallet ? fromWallet.name : ''), '[โอนย้ายเงิน] ไปยัง ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : '')),
-            wallet_id: fromId,
-            transfer_target_wallet_id: toId
-          },
-          {
-            date: dateStr,
-            type: 'รายรับ',
-            category: 'โอนเงิน',
-            amount: amount,
-            details: buildTxDetails('studio', (toWallet ? toWallet.name : ''), '[รับโอนย้ายเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + (note ? ' (' + note + ')' : '')),
-            wallet_id: toId
-          }
-        ]);
-      } catch(tErr) {
-        console.warn('Transfer tx record notice:', tErr);
-      }
-
-      // If fee > 0, record expense transaction for fee only
-      if (fee > 0) {
+        // 1. Attempt Atomic RPC
         try {
-          var feeRes = await db.from('transactions').insert([{
-            date: dateStr,
-            type: 'รายจ่าย',
-            category: 'ค่าธรรมเนียม',
-            amount: fee,
-            details: '[ค่าธรรมเนียมโอนเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + ' ไป ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : ''),
-            wallet_id: fromId
-          }]).select();
-          if (feeRes.data && feeRes.data.length > 0) {
-            appData.transactions.unshift(feeRes.data[0]);
+          var rpcRes = await db.rpc('execute_wallet_transfer', {
+            p_from_id: fromId,
+            p_to_id: toId,
+            p_amount: amount,
+            p_fee: fee,
+            p_date: dateStr,
+            p_note: note
+          });
+          if (!rpcRes.error && rpcRes.data) {
+            rpcSuccess = true;
+            transferId = rpcRes.data.transfer_id;
+            if (fromWallet) fromWallet.balance = parseFloat(rpcRes.data.from_balance);
+            if (toWallet) toWallet.balance = parseFloat(rpcRes.data.to_balance);
           }
-        } catch(err) {
-          console.warn('Fee transaction recording notice:', err);
+        } catch(rpcErr) {
+          console.warn('execute_wallet_transfer RPC notice, falling back:', rpcErr);
         }
-      }
 
-      closeAllDrawers();
-      showToast('โอนเงินสำเร็จ ฿' + amount.toLocaleString() + ' 💸');
-      renderDashboard();
-      renderTransactions();
+        // 2. Coordinated Fallback if RPC not available
+        if (!rpcSuccess) {
+          // Adjust wallets via delta
+          await adjustWalletBalanceOnBackend(fromId, -(amount + fee));
+          try {
+            await adjustWalletBalanceOnBackend(toId, amount);
+          } catch(toErr) {
+            // Rollback from wallet
+            await adjustWalletBalanceOnBackend(fromId, amount + fee);
+            throw toErr;
+          }
+
+          if (fromWallet) fromWallet.balance = (parseFloat(fromWallet.balance) || 0) - (amount + fee);
+          if (toWallet) toWallet.balance = (parseFloat(toWallet.balance) || 0) + amount;
+
+          // Record transfer
+          var tRes = await db.from('transfers').insert([{
+            from_wallet_id: fromId,
+            to_wallet_id: toId,
+            amount: amount,
+            fee: fee,
+            transfer_date: dateStr,
+            note: note
+          }]).select();
+          if (tRes.error) throw tRes.error;
+          transferId = (tRes.data && tRes.data[0]) ? tRes.data[0].id : Date.now();
+
+          // Record transfer ledger transactions linked by transfer_id
+          var txPayloads = [
+            {
+              date: dateStr,
+              type: 'รายจ่าย',
+              category: 'โอนเงิน',
+              amount: amount,
+              details: buildTxDetails('studio', (fromWallet ? fromWallet.name : ''), '[โอนย้ายเงิน] ไปยัง ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : '')),
+              wallet_id: fromId,
+              transfer_target_wallet_id: toId,
+              transfer_id: transferId
+            },
+            {
+              date: dateStr,
+              type: 'รายรับ',
+              category: 'โอนเงิน',
+              amount: amount,
+              details: buildTxDetails('studio', (toWallet ? toWallet.name : ''), '[รับโอนย้ายเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + (note ? ' (' + note + ')' : '')),
+              wallet_id: toId,
+              transfer_id: transferId
+            }
+          ];
+
+          if (fee > 0) {
+            txPayloads.push({
+              date: dateStr,
+              type: 'รายจ่าย',
+              category: 'ค่าธรรมเนียม',
+              amount: fee,
+              details: '[ค่าธรรมเนียมโอนเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + ' ไป ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : ''),
+              wallet_id: fromId,
+              transfer_id: transferId
+            });
+          }
+
+          var insRes = await db.from('transactions').insert(txPayloads).select();
+          if (insRes.error) throw insRes.error;
+          if (insRes.data) {
+            insRes.data.forEach(function(item) { appData.transactions.unshift(item); });
+          }
+        } else {
+          // If RPC succeeded, refresh transactions from database
+          try {
+            var refreshRes = await db.from('transactions').select('*').order('date', { ascending: false }).order('id', { ascending: false }).limit(200);
+            if (!refreshRes.error && refreshRes.data) appData.transactions = refreshRes.data;
+          } catch(e) {}
+        }
+
+        saveWalletsToLocal();
+        closeAllDrawers();
+        showToast('โอนเงินสำเร็จ ฿' + amount.toLocaleString() + ' 💸');
+        renderDashboard();
+        renderTransactions();
+        setSyncStatus('synced');
+      } catch(err) {
+        console.error('Transfer error:', err);
+        alert('เกิดข้อผิดพลาดในการโอนเงิน: ' + (err.message || err));
+        setSyncStatus('error');
+      } finally {
+        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = 'ยืนยันโอนเงิน'; }
+      }
+    }
+
+    async function cancelTransferByTx(tx) {
+      if (!tx || !tx.transfer_id) return;
+      var transferId = tx.transfer_id;
+      try {
+        setSyncStatus('saving');
+        var rpcDone = false;
+        try {
+          var res = await db.rpc('cancel_wallet_transfer', { p_transfer_id: transferId });
+          if (!res.error && res.data) {
+            rpcDone = true;
+            await loadWallets();
+            await loadTransactions();
+          }
+        } catch(e) {
+          console.warn('cancel_wallet_transfer RPC notice, falling back:', e);
+        }
+
+        if (!rpcDone) {
+          // Find all transactions linked to this transfer
+          var linkedTxs = (appData.transactions || []).filter(function(t) { return t.transfer_id === transferId; });
+
+          // Revert balances for each linked transaction
+          linkedTxs.forEach(function(lt) {
+            adjustWalletBalanceForTx(lt, true);
+          });
+          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+
+          // Delete from database
+          await db.from('transactions').delete().eq('transfer_id', transferId);
+          await db.from('transfers').delete().eq('id', transferId);
+
+          appData.transactions = (appData.transactions || []).filter(function(t) { return t.transfer_id !== transferId; });
+        }
+
+        showToast('ยกเลิกรายการโอนเงินทั้งชุดเรียบร้อย ↩️');
+        closeAllDrawers();
+        renderDashboard();
+        renderTransactions();
+        setSyncStatus('synced');
+      } catch(err) {
+        console.error('Cancel transfer error:', err);
+        alert('เกิดข้อผิดพลาดในการยกเลิกรายการโอน: ' + err.message);
+        setSyncStatus('error');
+      }
     }
 
     function openWalletReconModal(walletId) {
@@ -7316,8 +7649,8 @@
       var curM = String(now.getMonth() + 1).padStart(2, '0');
 
       // Filter income transactions by period & scope
-      var periodTxs = appData.transactions.filter(function(t) {
-        if (t.type !== 'รายรับ') return false;
+      var periodTxs = (appData.transactions || []).filter(function(t) {
+        if (!isOperatingIncome(t)) return false;
         var tDate = t.date || '';
         if (dashPeriod === 'today') return (tDate === todayStr);
         if (dashPeriod === 'month') return (tDate.substring(0, 4) === curY && tDate.substring(5, 7) === curM);
@@ -7465,8 +7798,8 @@
       var curY = String(now.getFullYear());
       var curM = String(now.getMonth() + 1).padStart(2, '0');
 
-      var periodTxs = appData.transactions.filter(function(t) {
-        if (t.type !== 'รายจ่าย') return false;
+      var periodTxs = (appData.transactions || []).filter(function(t) {
+        if (!isOperatingExpense(t)) return false;
         var tDate = t.date || '';
         if (dashPeriod === 'today') return (tDate === todayStr);
         if (dashPeriod === 'month') return (tDate.substring(0, 4) === curY && tDate.substring(5, 7) === curM);
@@ -7596,28 +7929,16 @@
       var receivables = [];
       var sumUnpaid = 0;
 
-      appData.jobs.forEach(function(j) {
-        var budget = parseFloat(j.budget) || 0;
-        if (budget <= 0) return;
-
-        // Calculate received
-        var received = 0;
-        appData.transactions.forEach(function(t) {
-          if (t.type === 'รายรับ' && (t.related_job === j.title || t.related_job === String(j.id))) {
-            received += (parseFloat(t.amount) || 0);
-          }
-        });
-
-        var outstanding = budget - received;
-        if (outstanding > 0) {
-          sumUnpaid += outstanding;
-          var isOverdue = j.date < todayStr;
+      (appData.jobs || []).forEach(function(j) {
+        var fin = getJobFinancials(j);
+        if (fin.unpaid > 0) {
+          sumUnpaid += fin.unpaid;
           receivables.push({
             job: j,
-            budget: budget,
-            received: received,
-            outstanding: outstanding,
-            isOverdue: isOverdue
+            budget: fin.budget,
+            received: fin.received,
+            outstanding: fin.unpaid,
+            isOverdue: fin.isOverdue
           });
         }
       });
@@ -8020,34 +8341,54 @@
       var d = (appData.debts || []).find(function(item) { return item.id === debtId; });
       if (!d) return;
 
-      // 1. Deduct from selected Wallet and sync to backend
-      var targetWallet = (appData.wallets || []).find(function(w){ return w.id === walletId; });
-      if (targetWallet) {
-        targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - total;
-        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-        await syncWalletBalanceToBackend(targetWallet.id, targetWallet.balance);
+      // Validation
+      if (total <= 0) {
+        alert('กรุณากรอกยอดชำระที่มากกว่า 0');
+        return;
+      }
+      if (principal < 0 || interest < 0) {
+        alert('ยอดเงินต้นและดอกเบี้ยต้องไม่ติดลบ');
+        return;
+      }
+      if (Math.abs(total - (principal + interest)) > 0.01) {
+        alert('ยอดรวมชำระ (฿' + total.toLocaleString() + ') ต้องเท่ากับ เงินต้น (฿' + principal.toLocaleString() + ') + ดอกเบี้ย (฿' + interest.toLocaleString() + ')');
+        return;
+      }
+      var remPrin = parseFloat(d.remaining_principal) || 0;
+      if (principal > remPrin + 0.01) {
+        alert('ยอดชำระเงินต้น (฿' + principal.toLocaleString() + ') ต้องไม่เกินหนี้เงินต้นคงเหลือ (฿' + remPrin.toLocaleString() + ')');
+        return;
       }
 
-      // 2. Reduce Debt Remaining Principal and sync to Supabase
-      d.remaining_principal = Math.max(0, (parseFloat(d.remaining_principal) || 0) - principal);
-      d.paid_months = (parseInt(d.paid_months, 10) || 0) + 1;
-      if (d.remaining_principal <= 0) d.status = 'paid_off';
-      saveDebtsToLocal();
+      var targetWallet = (appData.wallets || []).find(function(w){ return w.id === walletId; });
+      if (!targetWallet) {
+        alert('กรุณาเลือกกระเป๋าเงิน/บัญชีที่ใช้ชำระ');
+        return;
+      }
 
       try {
-        await db.from('debts').update({
+        setSyncStatus('saving');
+        // 1. Deduct from selected Wallet and sync to backend via delta
+        await adjustWalletBalanceOnBackend(walletId, -total);
+        targetWallet.balance = (parseFloat(targetWallet.balance) || 0) - total;
+        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+
+        // 2. Reduce Debt Remaining Principal and sync to Supabase
+        d.remaining_principal = Math.max(0, remPrin - principal);
+        d.paid_months = (parseInt(d.paid_months, 10) || 0) + 1;
+        if (d.remaining_principal <= 0) d.status = 'paid_off';
+        saveDebtsToLocal();
+
+        var debtRes = await db.from('debts').update({
           remaining_principal: d.remaining_principal,
           paid_months: d.paid_months,
           status: d.status,
           updated_at: new Date().toISOString()
         }).eq('id', debtId);
-      } catch(err) {
-        console.warn('Debts table update notice:', err);
-      }
+        if (debtRes.error) throw debtRes.error;
 
-      // 3. Insert record into debt_payments table
-      try {
-        await db.from('debt_payments').insert([{
+        // 3. Insert record into debt_payments table
+        var payRes = await db.from('debt_payments').insert([{
           debt_id: debtId,
           wallet_id: walletId,
           payment_date: dateStr,
@@ -8056,55 +8397,56 @@
           interest_paid: interest,
           fee_paid: 0,
           note: note
-        }]);
-      } catch(err) {
-        console.warn('Debt payments record notice:', err);
-      }
+        }]).select();
+        if (payRes.error) throw payRes.error;
+        if (payRes.data && payRes.data.length > 0) {
+          appData.debt_payments.unshift(payRes.data[0]);
+        }
 
-      // 4. Record ledger transaction: interest is operating expense
-      if (interest > 0) {
-        try {
+        // 4. Record ledger transaction: interest is operating expense
+        if (interest > 0) {
           var intRes = await db.from('transactions').insert([{
             date: dateStr,
             type: 'รายจ่าย',
             category: 'ดอกเบี้ย/ค่าธรรมเนียม',
             amount: interest,
-            details: buildTxDetails('studio', (targetWallet ? targetWallet.name : 'บัญชีสตูดิโอ'), '[ดอกเบี้ยงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
+            details: buildTxDetails('studio', targetWallet.name, '[ดอกเบี้ยงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
             wallet_id: walletId,
             debt_id: debtId
           }]).select();
+          if (intRes.error) throw intRes.error;
           if (intRes.data && intRes.data.length > 0) {
             appData.transactions.unshift(intRes.data[0]);
           }
-        } catch(err) {
-          console.warn('Debt interest transaction notice:', err);
         }
-      }
 
-      // 5. Record principal repayment as debt settlement transaction
-      if (principal > 0) {
-        try {
+        // 5. Record principal repayment as debt settlement transaction (Financing Cash Out)
+        if (principal > 0) {
           var prinRes = await db.from('transactions').insert([{
             date: dateStr,
             type: 'รายจ่าย',
             category: 'ชำระหนี้/ผ่อนสินค้า',
             amount: principal,
-            details: buildTxDetails('studio', (targetWallet ? targetWallet.name : 'บัญชีสตูดิโอ'), '[ชำระเงินต้นงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
+            details: buildTxDetails('studio', targetWallet.name, '[ชำระเงินต้นงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
             wallet_id: walletId,
             debt_id: debtId
           }]).select();
+          if (prinRes.error) throw prinRes.error;
           if (prinRes.data && prinRes.data.length > 0) {
             appData.transactions.unshift(prinRes.data[0]);
           }
-        } catch(err) {
-          console.warn('Debt principal transaction notice:', err);
         }
-      }
 
-      closeAllDrawers();
-      showToast('บันทึกชำระงวดสำเร็จ ฿' + total.toLocaleString() + ' 🎉');
-      renderDashboard();
-      renderTransactions();
+        closeAllDrawers();
+        showToast('บันทึกชำระงวดสำเร็จ ฿' + total.toLocaleString() + ' 🎉');
+        renderDashboard();
+        renderDebts();
+        renderTransactions();
+        setSyncStatus('synced');
+      } catch(err) {
+        console.error('Debt payment error:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึกชำระหนี้: ' + (err.message || err));
+      }
     }
 
     // =========================================================
