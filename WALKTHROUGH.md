@@ -112,6 +112,8 @@ The verdict **"Request changes — ยังไม่พร้อม Approve ใ
 | **RR04** | Session Security | Stale in-flight mutation responses (create, edit, delete, payments, transfers) leaking across logout / user switch | Implemented `isMutationSessionValid(mutationToken, mutationUserId)` helper checking monotonic `currentSessionGeneration` and user ID match. Bound to all mutation handlers: `handleSaveTx` (create & update), `deleteTx`, `handleReconSubmit`, `quickPayBill`, `toggleBillPaid`, `handleSaveBill`, `handleRecordDebtPayment`, `handleInternalTransfer`, `cancelTransferByTx`. Stale responses are discarded after `await` and in `catch`; no state, toast, or alerts leaked. | ✅ Verified in VM Harness |
 | **RR05** | Transaction Safety | Network drop after successful transaction creation causing double deductions on retry | Added `request_id TEXT` column to `transactions` with unique index `idx_transactions_user_request_id ON transactions(user_id, request_id) WHERE request_id IS NOT NULL`. `execute_create_transaction` takes `p_request_id`. Retry with identical payload returns existing transaction with status `'IDEMPOTENT_RETRY'` and current balance without re-deducting. Conflicting payload throws `IDEMPOTENCY_CONFLICT`. UI deduplicates retry responses without adding duplicates. | ✅ Verified in PostgreSQL |
 | **RR06** | Database Security | Anonymous access to sensitive data and procedures | Enforced `FORCE ROW LEVEL SECURITY` on all 11 tables and `REVOKE ALL ... FROM anon`. Granted `authenticated` table access governed strictly by RLS. Tested in real PostgreSQL with `SET ROLE anon;`: table queries and RPC invocations are blocked (`permission denied`). Confirmed local verification is 100% complete and documented manual execution instructions for live production Supabase (`pyxjwilhqixceehqkpcl`). | ✅ Verified in PostgreSQL |
+| **N01** | Security & Idempotency | Retry leaking other user's wallet balance (`SECURITY DEFINER` bypass) & loose payload check (only `amount`/`type`) | 1. Implemented strict null-safe comparison (`IS DISTINCT FROM`) across all 9 operation-defining fields (`amount`, `type`, `date`, `category`, `details`, `wallet_id`, `card_id`, `job_id`, `related_job`). Any difference raises `IDEMPOTENCY_CONFLICT`.<br>2. Balance lookup in retry path now strictly queries `v_existing_tx.wallet_id` (the wallet of the recorded operation) with `AND user_id = v_user_id`. Never queries or exposes caller-provided `p_wallet_id`.<br>3. Identical validation and balance resolution logic applied symmetrically in both fast pre-check and `unique_violation` exception handler. | ✅ Verified in PostgreSQL |
+| **N02** | Concurrency & Ledger Integrity | Concurrent retries double-deducting wallet balance because `UPDATE wallets` occurred outside `BEGIN ... EXCEPTION` subtransaction | 1. Scoped wallet row lock (`FOR UPDATE`), owner check, and balance calculation/update (`UPDATE public.wallets`) *inside* the `BEGIN ... EXCEPTION WHEN unique_violation THEN ... END` subtransaction block.<br>2. When two concurrent requests race on the same `request_id`, the second request hits `unique_violation` on `INSERT`, triggering subtransaction abort. PostgreSQL rolls back any speculative wallet modification to the block savepoint.<br>3. In the exception handler, the loser retrieves the committed winner's transaction, validates the payload, reads the correct wallet balance, and returns `IDEMPOTENT_RETRY`. Persistent balance remains unaffected. | ✅ Verified in PostgreSQL |
 
 ---
 
@@ -147,6 +149,8 @@ Output:
   ✅ [PASS] RR03: Canonical Job ID: handles Thai & numeric titles, preserves relation on note edit, rejects cross-tenant job ID
   ✅ [PASS] RR04: Session Generation Isolation: in-flight async responses from stale sessions are cleanly discarded across all mutations
   ✅ [PASS] RR05: Idempotent Create Transaction: retry with same request_id returns existing record without re-deducting balance
+  ✅ [PASS] N01: Idempotency Payload Validation & Cross-User Wallet Leak Prevention: rejects altered payload and never leaks third-party balance
+  ✅ [PASS] N02: Concurrent Retry & Subtransaction Rollback Isolation: speculative balance update rolled back on race collision without double deduction
      ℹ️ Remote Production Database (pyxjwilhqixceehqkpcl.supabase.co) Status:
         Automated writes to production are disabled per safety constraints.
         Verified locally via PGlite that anon is fully revoked and RLS enforced.
@@ -154,7 +158,7 @@ Output:
   ✅ [PASS] RR06: Real PostgreSQL Anonymous Access Blocked via RLS & Revocation; Live Supabase Execution Documented
 
 =======================================================
-🏁 Verification Results: 21 / 21 test suites PASSED
+🏁 Verification Results: 23 / 23 test suites PASSED
 =======================================================
 ```
 

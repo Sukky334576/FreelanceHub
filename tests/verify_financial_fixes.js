@@ -1177,6 +1177,288 @@ await test('RR05', 'Idempotent Create Transaction: retry with same request_id re
 });
 
 // ============================================================================
+// N01: Idempotency Payload Validation & Cross-User Wallet Leak Prevention
+// ============================================================================
+await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Prevention: rejects altered payload and never leaks third-party balance', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = '11111111-1111-1111-1111-111111111111';
+  const userB = '22222222-2222-2222-2222-222222222222';
+  await pg.exec(`
+    INSERT INTO auth.users (id, email) VALUES ('${userA}', 'userA@test.com'), ('${userB}', 'userB@test.com');
+  `);
+
+  // User A wallet: 1,000
+  const wARes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id) VALUES ('Wallet A', 1000.00, '${userA}') RETURNING id;
+  `);
+  const wA = wARes.rows[0].id;
+
+  // User B wallet: 98,765
+  const wBRes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id) VALUES ('Wallet B', 98765.00, '${userB}') RETURNING id;
+  `);
+  const wB = wBRes.rows[0].id;
+
+  // Jobs for User A
+  const job1Res = await pg.query(`INSERT INTO public.jobs (title, user_id) VALUES ('Job 1', '${userA}') RETURNING id;`);
+  const j1 = job1Res.rows[0].id;
+  const job2Res = await pg.query(`INSERT INTO public.jobs (title, user_id) VALUES ('Job 2', '${userA}') RETURNING id;`);
+  const j2 = job2Res.rows[0].id;
+
+  // Cards for User A
+  const card1Res = await pg.query(`INSERT INTO public.cards (name, issuer, user_id) VALUES ('Card 1', 'KBANK', '${userA}') RETURNING id;`);
+  const c1 = card1Res.rows[0].id;
+  const card2Res = await pg.query(`INSERT INTO public.cards (name, issuer, user_id) VALUES ('Card 2', 'SCB', '${userA}') RETURNING id;`);
+  const c2 = card2Res.rows[0].id;
+
+  // Authenticate as User A
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // 1. Initial create under User A
+  const res1 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 100.00,
+      p_details := 'อาหารกลางวัน',
+      p_related_job := NULL,
+      p_wallet_id := ${wA},
+      p_card_id := ${c1},
+      p_job_id := ${j1},
+      p_request_id := 'req-n01'
+    ) AS res;
+  `);
+  assert.strictEqual(res1.rows[0].res.status, 'CREATED');
+  assert.strictEqual(Number(res1.rows[0].res.new_balance), 900.00);
+
+  // 2. Retry with same request_id but specifying User B's wallet
+  let leakCaught = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายจ่าย',
+        p_category := 'อาหาร',
+        p_amount := 100.00,
+        p_details := 'อาหารกลางวัน',
+        p_related_job := NULL,
+        p_wallet_id := ${wB},
+        p_card_id := ${c1},
+        p_job_id := ${j1},
+        p_request_id := 'req-n01'
+      );
+    `);
+  } catch (err) {
+    leakCaught = true;
+    assert(err.message.includes('IDEMPOTENCY_CONFLICT'), 'Expected IDEMPOTENCY_CONFLICT, got: ' + err.message);
+  }
+  assert(leakCaught, 'Cross-user wallet swap on retry must throw IDEMPOTENCY_CONFLICT');
+
+  // Verify User B wallet was never touched or read
+  const balB = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wB};`);
+  assert.strictEqual(Number(balB.rows[0].balance), 98765.00, 'User B wallet balance must remain completely untouched');
+
+  // 3. Test every individual payload field modification triggers IDEMPOTENCY_CONFLICT
+  const variations = [
+    { field: 'details', sql: `p_details := 'อาหารค่ำ'` },
+    { field: 'category', sql: `p_category := 'เดินทาง'` },
+    { field: 'date', sql: `p_date := '2026-09-23'::date` },
+    { field: 'amount', sql: `p_amount := 200.00` },
+    { field: 'type', sql: `p_type := 'รายรับ'` },
+    { field: 'card_id', sql: `p_card_id := ${c2}` },
+    { field: 'job_id', sql: `p_job_id := ${j2}` },
+    { field: 'wallet_id', sql: `p_wallet_id := NULL` }
+  ];
+
+  for (const v of variations) {
+    let errCaught = false;
+    try {
+      await pg.query(`
+        SELECT public.execute_create_transaction(
+          p_date := ${v.field === 'date' ? "'2026-09-23'::date" : "'2026-09-22'::date"},
+          p_type := ${v.field === 'type' ? "'รายรับ'" : "'รายจ่าย'"},
+          p_category := ${v.field === 'category' ? "'เดินทาง'" : "'อาหาร'"},
+          p_amount := ${v.field === 'amount' ? '200.00' : '100.00'},
+          p_details := ${v.field === 'details' ? "'อาหารค่ำ'" : "'อาหารกลางวัน'"},
+          p_related_job := NULL,
+          p_wallet_id := ${v.field === 'wallet_id' ? 'NULL' : wA},
+          p_card_id := ${v.field === 'card_id' ? c2 : c1},
+          p_job_id := ${v.field === 'job_id' ? j2 : j1},
+          p_request_id := 'req-n01'
+        );
+      `);
+    } catch (err) {
+      errCaught = true;
+      assert(err.message.includes('IDEMPOTENCY_CONFLICT'), `Field ${v.field} modification must throw IDEMPOTENCY_CONFLICT, got: ${err.message}`);
+    }
+    assert(errCaught, `Altered field ${v.field} must be rejected with IDEMPOTENCY_CONFLICT`);
+  }
+
+  // 4. Exact retry must succeed and return wallet_id from operation (wA), NOT caller's param
+  const resRetry = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 100.00,
+      p_details := 'อาหารกลางวัน',
+      p_related_job := NULL,
+      p_wallet_id := ${wA},
+      p_card_id := ${c1},
+      p_job_id := ${j1},
+      p_request_id := 'req-n01'
+    ) AS res;
+  `);
+  assert.strictEqual(resRetry.rows[0].res.status, 'IDEMPOTENT_RETRY');
+  assert.strictEqual(Number(resRetry.rows[0].res.wallet_id), Number(wA));
+  assert.strictEqual(Number(resRetry.rows[0].res.new_balance), 900.00);
+
+  await pg.close();
+});
+
+// ============================================================================
+// N02: Concurrent Retry & Subtransaction Rollback Isolation
+// ============================================================================
+await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: speculative balance update rolled back on race collision without double deduction', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = '11111111-1111-1111-1111-111111111111';
+  const userB = '22222222-2222-2222-2222-222222222222';
+  await pg.exec(`
+    INSERT INTO auth.users (id, email) VALUES ('${userA}', 'userA@test.com'), ('${userB}', 'userB@test.com');
+  `);
+
+  const wARes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id) VALUES ('Wallet A', 1000.00, '${userA}') RETURNING id;
+  `);
+  const wA = wARes.rows[0].id;
+
+  const wBRes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id) VALUES ('Wallet B', 5000.00, '${userB}') RETURNING id;
+  `);
+  const wB = wBRes.rows[0].id;
+
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // 1. Initial transaction creates ledger row and deducts wallet (1000 -> 900)
+  const res1 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 100.00,
+      p_details := 'มื้อเที่ยง',
+      p_related_job := NULL,
+      p_wallet_id := ${wA},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-race-1'
+    ) AS res;
+  `);
+  assert.strictEqual(res1.rows[0].res.status, 'CREATED');
+  assert.strictEqual(Number(res1.rows[0].res.new_balance), 900.00);
+
+  // 2. Simulate concurrent race: force Request 2 to skip pre-check (passing pre-check before Request 1 committed)
+  // Request 2 enters the atomic BEGIN block, updates wallet balance speculatively, and attempts INSERT,
+  // triggering unique_violation. PostgreSQL automatically aborts the subtransaction to the savepoint at BEGIN,
+  // rolling back the speculative wallet update!
+  await pg.exec("SET test.simulate_concurrent_race = 'true';");
+  const resRace = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 100.00,
+      p_details := 'มื้อเที่ยง',
+      p_related_job := NULL,
+      p_wallet_id := ${wA},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-race-1'
+    ) AS res;
+  `);
+  await pg.exec("SET test.simulate_concurrent_race = 'false';");
+
+  assert.strictEqual(resRace.rows[0].res.status, 'IDEMPOTENT_RETRY', 'Concurrent loser must return IDEMPOTENT_RETRY');
+  assert.strictEqual(Number(resRace.rows[0].res.new_balance), 900.00, 'Returned balance must be 900.00');
+
+  // Verify wallet balance in database: MUST be 900.00 (NOT double-deducted to 800.00!)
+  const balCheck = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wA};`);
+  assert.strictEqual(Number(balCheck.rows[0].balance), 900.00, 'Persistent wallet balance must remain exactly 900.00');
+
+  // Verify transaction count in ledger: MUST be exactly 1
+  const countCheck = await pg.query(`SELECT COUNT(*) FROM public.transactions WHERE request_id = 'req-race-1';`);
+  assert.strictEqual(Number(countCheck.rows[0].count), 1, 'Ledger must contain exactly 1 transaction');
+
+  // 3. Concurrent race with conflicting payload (e.g. amount changed to 500)
+  await pg.exec("SET test.simulate_concurrent_race = 'true';");
+  let raceConflictCaught = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายจ่าย',
+        p_category := 'อาหาร',
+        p_amount := 500.00,
+        p_details := 'มื้อเที่ยง',
+        p_related_job := NULL,
+        p_wallet_id := ${wA},
+        p_card_id := NULL,
+        p_job_id := NULL,
+        p_request_id := 'req-race-1'
+      );
+    `);
+  } catch (err) {
+    raceConflictCaught = true;
+    assert(err.message.includes('IDEMPOTENCY_CONFLICT'), 'Expected IDEMPOTENCY_CONFLICT on conflicting race payload');
+  } finally {
+    await pg.exec("SET test.simulate_concurrent_race = 'false';");
+  }
+  assert(raceConflictCaught, 'Conflicting race payload must throw IDEMPOTENCY_CONFLICT');
+
+  // Balance must still be 900.00
+  const balCheck2 = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wA};`);
+  assert.strictEqual(Number(balCheck2.rows[0].balance), 900.00, 'Balance must remain 900.00 after rejected conflict race');
+
+  // 4. Cross-user isolation: User B creates transaction using identical request_id 'req-race-1'
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userB}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+  const resUserB = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'เซิร์ฟเวอร์',
+      p_amount := 250.00,
+      p_details := 'Cloudflare Pages',
+      p_related_job := NULL,
+      p_wallet_id := ${wB},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-race-1'
+    ) AS res;
+  `);
+  assert.strictEqual(resUserB.rows[0].res.status, 'CREATED', 'User B must create independent transaction with same request_id');
+  assert.strictEqual(Number(resUserB.rows[0].res.new_balance), 4750.00);
+
+  const balBCheck = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wB};`);
+  assert.strictEqual(Number(balBCheck.rows[0].balance), 4750.00, 'User B wallet balance must be 4750.00');
+
+  await pg.close();
+});
+
+// ============================================================================
 // RR06: Real PostgreSQL Security & Anonymous Access Blocked via RLS & Revocation
 // ============================================================================
 await test('RR06', 'Real PostgreSQL Anonymous Access Blocked via RLS & Revocation; Live Supabase Execution Documented', async () => {

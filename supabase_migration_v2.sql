@@ -1209,7 +1209,7 @@ BEGIN
 END;
 $$;
 
--- Procedure 8: Atomic Transaction Creation with Wallet Balance Sync
+-- Procedure 8: Atomic Transaction Creation with Idempotency Key (RR05, RR03, N01, N02)
 DROP FUNCTION IF EXISTS public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT);
 DROP FUNCTION IF EXISTS public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT);
 
@@ -1239,43 +1239,26 @@ DECLARE
   v_existing_tx RECORD;
   v_job_title TEXT := NULL;
   v_resolved_job RECORD;
+  v_req_id TEXT := NULL;
+  v_skip_precheck BOOLEAN := FALSE;
 BEGIN
+  -- 1. Session authorization
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
   v_user_id := auth.uid();
 
+  -- 2. Validate amount
   IF p_amount <= 0 THEN
     RAISE EXCEPTION 'Invalid amount: must be greater than zero';
   END IF;
 
-  -- RR05: Idempotency check before modifying any state
+  -- Canonicalize request_id
   IF p_request_id IS NOT NULL AND trim(p_request_id) <> '' THEN
-    SELECT * INTO v_existing_tx 
-    FROM public.transactions 
-    WHERE user_id = v_user_id AND request_id = p_request_id;
-
-    IF FOUND THEN
-      -- Validate payload consistency (amount and type)
-      IF v_existing_tx.amount <> p_amount OR v_existing_tx.type <> p_type THEN
-        RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', p_request_id;
-      END IF;
-
-      IF p_wallet_id IS NOT NULL THEN
-        SELECT balance INTO v_new_balance FROM public.wallets WHERE id = p_wallet_id;
-      END IF;
-
-      RETURN jsonb_build_object(
-        'success', true,
-        'status', 'IDEMPOTENT_RETRY',
-        'transaction', to_jsonb(v_existing_tx),
-        'wallet_id', p_wallet_id,
-        'new_balance', v_new_balance
-      );
-    END IF;
+    v_req_id := trim(p_request_id);
   END IF;
 
-  -- RR03: Validate and resolve job ownership
+  -- 3. Resolve and validate job ownership (RR03) before idempotency check
   IF p_job_id IS NOT NULL THEN
     SELECT title INTO v_job_title FROM public.jobs WHERE id = p_job_id AND user_id = v_user_id;
     IF NOT FOUND THEN
@@ -1292,69 +1275,130 @@ BEGIN
     END IF;
   END IF;
 
-  IF p_wallet_id IS NOT NULL THEN
-    SELECT * INTO v_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
-    END IF;
-    IF v_wallet.user_id IS NULL OR v_wallet.user_id <> v_user_id THEN
-      RAISE EXCEPTION 'Forbidden: wallet not owned by user';
-    END IF;
+  -- Check test simulation flag for multi-connection concurrency
+  v_skip_precheck := (COALESCE(current_setting('test.simulate_concurrent_race', true), 'false') = 'true');
 
-    IF p_type = 'รายรับ' THEN
-      v_delta := p_amount;
-    ELSE
-      v_delta := -p_amount;
-    END IF;
+  -- 4. Fast pre-check for idempotency (RR05, N01)
+  IF v_req_id IS NOT NULL AND NOT v_skip_precheck THEN
+    SELECT * INTO v_existing_tx 
+    FROM public.transactions 
+    WHERE user_id = v_user_id AND request_id = v_req_id;
 
-    UPDATE public.wallets
-    SET balance = ROUND((balance + v_delta)::NUMERIC, 2),
-        updated_at = NOW()
-    WHERE id = p_wallet_id
-    RETURNING balance INTO v_new_balance;
+    IF FOUND THEN
+      -- Strict null-safe payload comparison across all operation-defining fields (N01)
+      IF v_existing_tx.amount IS DISTINCT FROM ROUND(p_amount, 2) OR
+         v_existing_tx.type IS DISTINCT FROM p_type OR
+         v_existing_tx.date IS DISTINCT FROM p_date OR
+         v_existing_tx.category IS DISTINCT FROM p_category OR
+         v_existing_tx.details IS DISTINCT FROM p_details OR
+         v_existing_tx.wallet_id IS DISTINCT FROM p_wallet_id OR
+         v_existing_tx.card_id IS DISTINCT FROM p_card_id OR
+         v_existing_tx.job_id IS DISTINCT FROM p_job_id OR
+         v_existing_tx.related_job IS DISTINCT FROM p_related_job THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', v_req_id;
+      END IF;
+
+      -- Read balance ONLY from recorded operation's wallet, verifying owner (N01)
+      IF v_existing_tx.wallet_id IS NOT NULL THEN
+        SELECT balance INTO v_new_balance 
+        FROM public.wallets 
+        WHERE id = v_existing_tx.wallet_id AND user_id = v_user_id;
+      ELSE
+        v_new_balance := NULL;
+      END IF;
+
+      RETURN jsonb_build_object(
+        'success', true,
+        'status', 'IDEMPOTENT_RETRY',
+        'transaction', to_jsonb(v_existing_tx),
+        'wallet_id', v_existing_tx.wallet_id,
+        'new_balance', v_new_balance
+      );
+    END IF;
   END IF;
 
+  -- 5. Atomic state modification inside rollback-protected subtransaction block (N02)
   BEGIN
+    -- If wallet specified, lock row and update balance INSIDE this block
+    IF p_wallet_id IS NOT NULL THEN
+      SELECT * INTO v_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
+      END IF;
+      IF v_wallet.user_id IS NULL OR v_wallet.user_id <> v_user_id THEN
+        RAISE EXCEPTION 'Forbidden: wallet not owned by user';
+      END IF;
+
+      IF p_type = 'รายรับ' THEN
+        v_delta := p_amount;
+      ELSE
+        v_delta := -p_amount;
+      END IF;
+
+      UPDATE public.wallets
+      SET balance = ROUND((balance + v_delta)::NUMERIC, 2),
+          updated_at = NOW()
+      WHERE id = p_wallet_id
+      RETURNING balance INTO v_new_balance;
+    END IF;
+
+    -- Insert transaction
     INSERT INTO public.transactions (
       user_id, date, type, category, amount, details, related_job, wallet_id, card_id, job_id, request_id, created_at, updated_at
     ) VALUES (
-      v_user_id, p_date, p_type, p_category, p_amount, p_details, p_related_job, p_wallet_id, p_card_id, p_job_id, p_request_id, NOW(), NOW()
+      v_user_id, p_date, p_type, p_category, ROUND(p_amount, 2), p_details, p_related_job, p_wallet_id, p_card_id, p_job_id, v_req_id, NOW(), NOW()
     )
     RETURNING * INTO v_tx;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'status', 'CREATED',
+      'transaction', to_jsonb(v_tx),
+      'wallet_id', p_wallet_id,
+      'new_balance', v_new_balance
+    );
+
   EXCEPTION WHEN unique_violation THEN
-    IF p_request_id IS NOT NULL THEN
+    -- Any wallet UPDATE made above within this BEGIN block is automatically rolled back by PostgreSQL! (N02)
+    IF v_req_id IS NOT NULL THEN
       SELECT * INTO v_existing_tx 
       FROM public.transactions 
-      WHERE user_id = v_user_id AND request_id = p_request_id;
+      WHERE user_id = v_user_id AND request_id = v_req_id;
 
       IF FOUND THEN
-        IF v_existing_tx.amount <> p_amount OR v_existing_tx.type <> p_type THEN
-          RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', p_request_id;
+        -- Strict null-safe payload comparison across all operation-defining fields (N01)
+        IF v_existing_tx.amount IS DISTINCT FROM ROUND(p_amount, 2) OR
+           v_existing_tx.type IS DISTINCT FROM p_type OR
+           v_existing_tx.date IS DISTINCT FROM p_date OR
+           v_existing_tx.category IS DISTINCT FROM p_category OR
+           v_existing_tx.details IS DISTINCT FROM p_details OR
+           v_existing_tx.wallet_id IS DISTINCT FROM p_wallet_id OR
+           v_existing_tx.card_id IS DISTINCT FROM p_card_id OR
+           v_existing_tx.job_id IS DISTINCT FROM p_job_id OR
+           v_existing_tx.related_job IS DISTINCT FROM p_related_job THEN
+          RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', v_req_id;
         END IF;
 
-        IF p_wallet_id IS NOT NULL THEN
-          SELECT balance INTO v_new_balance FROM public.wallets WHERE id = p_wallet_id;
+        -- Return balance from recorded operation's wallet, verifying owner (N01)
+        IF v_existing_tx.wallet_id IS NOT NULL THEN
+          SELECT balance INTO v_new_balance 
+          FROM public.wallets 
+          WHERE id = v_existing_tx.wallet_id AND user_id = v_user_id;
+        ELSE
+          v_new_balance := NULL;
         END IF;
 
         RETURN jsonb_build_object(
           'success', true,
           'status', 'IDEMPOTENT_RETRY',
           'transaction', to_jsonb(v_existing_tx),
-          'wallet_id', p_wallet_id,
+          'wallet_id', v_existing_tx.wallet_id,
           'new_balance', v_new_balance
         );
       END IF;
     END IF;
     RAISE;
   END;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'status', 'CREATED',
-    'transaction', to_jsonb(v_tx),
-    'wallet_id', p_wallet_id,
-    'new_balance', v_new_balance
-  );
 END;
 $$;
 
