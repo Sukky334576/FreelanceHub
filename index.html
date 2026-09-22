@@ -4351,21 +4351,46 @@
     }
 
     // =========================================================
-    // DATA LOADER (SUPABASE)
+    // DATA LOADER (SUPABASE) WITH PAGINATED BATCH FETCHING
     // =========================================================
+    async function fetchAllTransactions() {
+      var allTxs = [];
+      var pageSize = 1000;
+      var from = 0;
+      while (true) {
+        var res = await db.from('transactions')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (res.error) throw res.error;
+        var batch = res.data || [];
+        allTxs = allTxs.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+      return allTxs;
+    }
+
     async function loadAllData() {
       try {
         setSyncStatus('saving');
+        var txPromise = fetchAllTransactions();
         var results = await Promise.all([
           db.from('categories').select('*').order('id', { ascending: true }),
-          db.from('transactions').select('*').order('date', { ascending: false }),
+          txPromise,
           db.from('jobs').select('*').order('date', { ascending: true }),
           db.from('bills').select('*').order('due_date', { ascending: true }),
           db.from('equipment').select('*').order('created_at', { ascending: false })
         ]);
 
+        if (results[0].error) throw results[0].error;
+        if (results[2].error) throw results[2].error;
+        if (results[3].error) throw results[3].error;
+        if (results[4].error) throw results[4].error;
+
         if (results[0].data) appData.categories = results[0].data;
-        if (results[1].data) appData.transactions = results[1].data;
+        appData.transactions = results[1] || [];
         if (results[2].data) {
           var allJobs = results[2].data;
           appData.jobs = allJobs.filter(function(j) { return j.job_type !== 'สิ่งที่ต้องทำ'; });
@@ -4804,6 +4829,10 @@
       var tx = appData.transactions.find(function(t) { return t.id === numId; });
       if (!tx) return;
 
+      if (tx.category === 'ปรับยอดเงิน' || (window.FinancialCore && window.FinancialCore.isReconTx && window.FinancialCore.isReconTx(tx))) {
+        alert('รายการนี้เป็นรายการปรับยอดกระทบยอดเงิน ไม่สามารถแก้ไขโดยตรงได้ กรุณาใช้ฟังก์ชันกระทบยอดเพื่อปรับยอดใหม่');
+        return;
+      }
       if (tx.transfer_id) {
         alert('รายการนี้เป็นรายการโอนเงินระหว่างกระเป๋า ไม่สามารถแก้ไขโดยตรงได้ กรุณายกเลิกการโอนแล้วทำรายการใหม่');
         return;
@@ -4908,7 +4937,11 @@
           var oldTx = appData.transactions.find(function(t) { return t.id === numId; });
           if (!oldTx) throw new Error('ไม่พบรายการที่ต้องการแก้ไข');
 
-          // Check if editing a transfer, bill, or debt leg
+          // Check if editing a transfer, bill, debt leg, or reconciliation
+          if (oldTx.category === 'ปรับยอดเงิน' || (window.FinancialCore && window.FinancialCore.isReconTx && window.FinancialCore.isReconTx(oldTx))) {
+            alert('รายการนี้เป็นรายการปรับยอดกระทบยอดเงิน ไม่สามารถแก้ไขโดยตรงได้ กรุณาใช้ฟังก์ชันกระทบยอดเพื่อปรับยอดใหม่');
+            return;
+          }
           if (oldTx.transfer_id) {
             alert('รายการนี้เกิดจากการโอนเงิน ไม่สามารถแก้ไขโดยตรงได้ กรุณายกเลิกรายการโอนแล้วทำรายการใหม่');
             return;
@@ -5001,6 +5034,12 @@
       var numId = parseInt(id, 10);
       var tx = appData.transactions.find(function(t) { return t.id === numId; });
       if (!tx) return;
+
+      // Special check: Reconciliation Transaction
+      if (tx.category === 'ปรับยอดเงิน' || (window.FinancialCore && window.FinancialCore.isReconTx && window.FinancialCore.isReconTx(tx))) {
+        alert('รายการนี้เป็นรายการปรับยอดกระทบยอดเงิน หากต้องการแก้ไขยอดเงิน กรุณาใช้ฟังก์ชันกระทบยอดเพื่อปรับยอดใหม่');
+        return;
+      }
 
       // Special check: Transfer Leg
       if (tx.transfer_id) {
@@ -5562,10 +5601,12 @@
       try {
         setSyncStatus('saving');
         if (editId) {
-          await db.from('jobs').update(payload).eq('id', editId);
+          var res = await db.from('jobs').update(payload).eq('id', editId);
+          if (res.error) throw res.error;
           showToast('แก้ไขคิวงานสำเร็จ 🎉');
         } else {
-          await db.from('jobs').insert([Object.assign({}, payload, { is_complete: false })]);
+          var res = await db.from('jobs').insert([Object.assign({}, payload, { is_complete: false })]);
+          if (res.error) throw res.error;
           showToast('บันทึกคิวงานใหม่สำเร็จ 🎬');
         }
         closeAllDrawers();
@@ -5611,34 +5652,40 @@
     }
 
     // =========================================================
-    // SHARED ACCOUNTING DOMAIN SELECTORS & FINANCIAL FORMULAS
+    // SHARED ACCOUNTING DOMAIN SELECTORS (DELEGATED TO FINANCIAL CORE)
     // =========================================================
     function isTransferTx(t) {
-      if (!t) return false;
-      return t.category === 'โอนเงิน' || t.type === 'โอนเงิน' || !!t.transfer_id || !!t.transfer_target_wallet_id;
+      return (window.FinancialCore && window.FinancialCore.isTransferTx)
+        ? window.FinancialCore.isTransferTx(t)
+        : !!(t && (t.category === 'โอนเงิน' || t.type === 'โอนเงิน' || (t.transfer_id && t.category !== 'ค่าธรรมเนียม' && t.type !== 'รายจ่าย')));
     }
 
     function isReconTx(t) {
-      if (!t) return false;
-      return t.category === 'ปรับยอดเงิน' || t.type === 'ปรับยอดเงิน';
+      return (window.FinancialCore && window.FinancialCore.isReconTx)
+        ? window.FinancialCore.isReconTx(t)
+        : !!(t && (t.category === 'ปรับยอดเงิน' || t.type === 'ปรับยอดเงิน'));
     }
 
     function isDebtPrincipalTx(t) {
-      if (!t) return false;
-      return t.category === 'ชำระหนี้/ผ่อนสินค้า' || (t.category === 'ชำระหนี้' && !t.category.includes('ดอกเบี้ย'));
+      return (window.FinancialCore && window.FinancialCore.isDebtPrincipalTx)
+        ? window.FinancialCore.isDebtPrincipalTx(t)
+        : !!(t && (t.category === 'ชำระหนี้/ผ่อนสินค้า' || t.type === 'ชำระหนี้/ผ่อนสินค้า'));
     }
 
     function isOperatingIncome(t) {
-      return !!(t && t.type === 'รายรับ' && !isTransferTx(t) && !isReconTx(t));
+      return (window.FinancialCore && window.FinancialCore.isOperatingIncome)
+        ? window.FinancialCore.isOperatingIncome(t)
+        : !!(t && t.type === 'รายรับ' && !isTransferTx(t) && !isReconTx(t) && t.category !== 'ยกยอดมา');
     }
 
     function isOperatingExpense(t) {
-      // Operating expense includes business costs and loan interest, but NOT internal transfers, reconciliation adjustments, or debt principal repayment
-      return !!(t && t.type === 'รายจ่าย' && !isTransferTx(t) && !isReconTx(t) && !isDebtPrincipalTx(t));
+      return (window.FinancialCore && window.FinancialCore.isOperatingExpense)
+        ? window.FinancialCore.isOperatingExpense(t)
+        : !!(t && t.type === 'รายจ่าย' && !isTransferTx(t) && !isReconTx(t) && !isDebtPrincipalTx(t));
     }
 
     function isFinancingCashOut(t) {
-      return !!(t && t.type === 'รายจ่าย' && isDebtPrincipalTx(t));
+      return isDebtPrincipalTx(t);
     }
 
     function getJobFinancials(j) {
@@ -6116,7 +6163,8 @@
         var actual = parseFloat(document.getElementById('reconActualInput').value) || 0;
         var date = document.getElementById('reconDateInput').value || getTodayDateStr();
         var reason = document.getElementById('reconReasonInput').value.trim() || 'กระทบยอดประจำงวด';
-        // Check stale balance using FinancialCore
+
+        // Check stale balance using FinancialCore client check first
         var reconCalc = (window.FinancialCore && typeof window.FinancialCore.computeReconciliation === 'function')
           ? window.FinancialCore.computeReconciliation(targetWallet.balance, sysBal, actual)
           : { status: (Math.abs(actual - sysBal) < 0.005 ? 'NO_OP' : 'ADJUST'), diff: actual - sysBal, newBalance: actual };
@@ -6135,71 +6183,42 @@
           return;
         }
 
-        var diff = reconCalc.diff;
+        // Authoritative atomic reconciliation RPC on backend (MR02)
+        var rpcRecon = await db.rpc('execute_wallet_reconciliation', {
+          p_wallet_id: targetWallet.id,
+          p_expected_balance: sysBal,
+          p_actual_balance: actual,
+          p_note: reason,
+          p_date: date
+        });
 
-        // Try atomic reconciliation RPC on backend
-        var rpcHandled = false;
-        try {
-          var rpcRecon = await db.rpc('execute_wallet_reconciliation', {
-            p_wallet_id: targetWallet.id,
-            p_expected_balance: sysBal,
-            p_actual_balance: actual,
-            p_note: reason
-          });
-          if (!rpcRecon.error && rpcRecon.data) {
-            rpcHandled = true;
-            targetWallet.balance = rpcRecon.data.new_balance;
-            if (rpcRecon.data.status === 'NO_OP') {
-              localStorage.setItem('natthawit_last_recon_date', date);
-              showToast('ยอดเงินตรงกัน บันทึกการตรวจสอบเรียบร้อย 🎉');
-              closeAllDrawers();
-              renderDashboard();
-              return;
-            }
-          }
-        } catch(rpcErr) {
-          if (rpcErr.message && rpcErr.message.includes('STALE_BALANCE')) {
+        // Supabase returns { data: null, error: {...} } on SQL exception
+        if (rpcRecon.error) {
+          var errMsg = rpcRecon.error.message || String(rpcRecon.error);
+          if (errMsg.includes('STALE_BALANCE')) {
             alert('ยอดเงินในระบบมีการเปลี่ยนแปลงระหว่างการตรวจสอบ กรุณาตรวจสอบยอดใหม่อีกครั้ง');
-            await loadAllData();
-            return;
+          } else {
+            alert('เกิดข้อผิดพลาดในการกระทบยอด: ' + errMsg);
           }
+          await loadAllData();
+          return;
         }
 
-        if (!rpcHandled) {
-          // Apply delta update to backend
-          await adjustWalletBalanceOnBackend(targetWallet.id, diff);
-        }
-        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-
-        // Build safe adjustment transaction for audit log (Excluded from periodInc / periodExp)
-        var walletName = targetWallet.name;
-        var metaScope = walletName.includes('ส่วนตัว') ? 'personal' : 'studio';
-        var detailsEncoded = buildTxDetails(metaScope, walletName, '[ปรับยอดเงินจริง] ' + (diff > 0 ? 'เงินเพิ่ม +' : 'เงินลด -') + Math.abs(diff).toFixed(2) + ' บาท (' + reason + ')');
-
-        var payload = {
-          date: date,
-          type: (diff > 0 ? 'รายรับ' : 'รายจ่าย'),
-          category: 'ปรับยอดเงิน',
-          amount: Math.abs(diff),
-          details: detailsEncoded,
-          wallet_id: targetWallet.id
-        };
-
-        try {
-          var res = await db.from('transactions').insert([payload]).select();
-          if (res.error) throw res.error;
-          if (res.data && res.data.length > 0) {
-            appData.transactions.unshift(res.data[0]);
-          }
-        } catch(txErr) {
-          // Rollback wallet balance on backend
-          await adjustWalletBalanceOnBackend(targetWallet.id, -diff);
+        var resData = rpcRecon.data;
+        if (resData) {
+          targetWallet.balance = resData.new_balance;
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-          throw txErr;
         }
+
+        // Reload data so the backend-generated audit log row is pulled cleanly without duplicate
+        await loadAllData();
 
         localStorage.setItem('natthawit_last_recon_date', date);
-        showToast('ปรับยอดเงิน ' + walletName + ' เป็น ฿' + actual.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' เรียบร้อยแล้ว ✨');
+        if (resData && resData.status === 'NO_OP') {
+          showToast('ยอดเงินตรงกัน บันทึกการตรวจสอบเรียบร้อย 🎉');
+        } else {
+          showToast('ปรับยอดเงิน ' + targetWallet.name + ' เป็น ฿' + actual.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' เรียบร้อยแล้ว ✨');
+        }
         closeAllDrawers();
         renderDashboard();
         renderTransactions();
@@ -6229,49 +6248,21 @@
       try {
         setSyncStatus('saving');
         var targetWallet = b.linked_wallet_id ? (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) : (appData.wallets && appData.wallets[0]);
-
-        // 1. Create matching expense transaction first
-        var payload = {
-          date: getTodayDateStr(),
-          type: 'รายจ่าย',
-          category: 'บิลประจำ',
-          amount: billAmt,
-          details: buildTxDetails('studio', (targetWallet ? targetWallet.name : 'บัญชีสตูดิโอ'), 'ชำระบิล ' + b.item + ' (ครบกำหนดวันที่ ' + b.due_date + ')'),
-          wallet_id: targetWallet ? targetWallet.id : null,
-          bill_id: b.id
-        };
-        var txRes = await db.from('transactions').insert([payload]).select();
-        if (txRes.error) throw txRes.error;
-        var createdTx = (txRes.data && txRes.data.length > 0) ? txRes.data[0] : null;
-
-        // 2. Deduct from wallet and sync to backend
-        if (targetWallet && billAmt > 0) {
-          try {
-            await adjustWalletBalanceOnBackend(targetWallet.id, -billAmt);
-            if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-          } catch(wErr) {
-            // Rollback transaction if wallet update failed
-            if (createdTx) await db.from('transactions').delete().eq('id', createdTx.id);
-            throw new Error('ไม่สามารถหักเงินจากกระเป๋าได้: ' + wErr.message);
-          }
+        if (!targetWallet) {
+          throw new Error('ไม่พบกระเป๋าเงินสำหรับชำระบิล กรุณาสร้างกระเป๋าเงินก่อน');
         }
 
-        // 3. Update bill status
-        var billUpdate = {
-          is_paid: true,
-          last_paid_date: getTodayDateStr(),
-          last_paid_tx_id: createdTx ? createdTx.id : null
-        };
-        var res = await db.from('bills').update(billUpdate).eq('id', billId);
-        if (res.error) throw res.error;
+        var rpcRes = await db.rpc('execute_bill_payment', {
+          p_bill_id: b.id,
+          p_wallet_id: targetWallet.id,
+          p_payment_date: getTodayDateStr()
+        });
 
-        b.is_paid = true;
-        b.last_paid_date = billUpdate.last_paid_date;
-        b.last_paid_tx_id = billUpdate.last_paid_tx_id;
-
-        if (createdTx) {
-          appData.transactions.unshift(createdTx);
+        if (rpcRes.error) {
+          throw new Error(rpcRes.error.message || String(rpcRes.error));
         }
+
+        await loadAllData();
 
         showToast('ชำระบิล "' + b.item + '" สำเร็จ 🎉');
         renderDashboard();
@@ -6437,18 +6428,31 @@
 
       var projects = {};
       appData.jobs.forEach(function(j) {
-        if (!projects[j.title]) {
-          projects[j.title] = { title: j.title, jobs: [], totalBudget: 0, received: 0, expenses: 0 };
+        var key = j.title || 'ไม่มีชื่อโปรเจกต์';
+        if (!projects[key]) {
+          projects[key] = { title: key, jobs: [], totalBudget: 0, received: 0, expenses: 0 };
         }
-        projects[j.title].jobs.push(j);
-        projects[j.title].totalBudget += (parseFloat(j.budget) || 0);
+        projects[key].jobs.push(j);
+        var fin = getJobFinancials(j);
+        projects[key].totalBudget += fin.budget;
+        projects[key].received += fin.received;
       });
 
+      // Calculate any expenses related to these jobs/projects
       appData.transactions.forEach(function(t) {
-        if (t.related_job && projects[t.related_job]) {
-          var amt = parseFloat(t.amount) || 0;
-          if (t.type === 'รายรับ') projects[t.related_job].received += amt;
-          else if (t.type === 'รายจ่าย') projects[t.related_job].expenses += amt;
+        if (isOperatingExpense(t)) {
+          var matchedProject = null;
+          if (t.related_job && projects[t.related_job]) {
+            matchedProject = projects[t.related_job];
+          } else if (t.job_id) {
+            var matchedJob = appData.jobs.find(function(j) { return j.id === t.job_id || String(j.id) === String(t.job_id); });
+            if (matchedJob && projects[matchedJob.title]) {
+              matchedProject = projects[matchedJob.title];
+            }
+          }
+          if (matchedProject) {
+            matchedProject.expenses += (parseFloat(t.amount) || 0);
+          }
         }
       });
 
@@ -6460,7 +6464,7 @@
 
       box.innerHTML = pKeys.map(function(k) {
         var p = projects[k];
-        var remaining = p.totalBudget - p.received;
+        var remaining = Math.max(0, p.totalBudget - p.received);
         return '<div class="card-surface">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">' +
             '<h3 style="font-size:1rem; font-weight:800;">' + escapeHtml(p.title) + '</h3>' +
@@ -6471,7 +6475,7 @@
             '<div class="summary-col"><span class="summary-label">รับเงินแล้ว</span><strong class="income" style="font-size:1rem;">฿' + p.received.toLocaleString() + '</strong></div>' +
           '</div>' +
           '<div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--text-muted);">' +
-            '<span>ค้างชำระ: <strong style="color:var(--accent-warning);">฿' + (remaining > 0 ? remaining.toLocaleString() : '0') + '</strong></span>' +
+            '<span>ค้างชำระ: <strong style="color:var(--accent-warning);">฿' + remaining.toLocaleString() + '</strong></span>' +
             '<span>ค่าใช้จ่าย: <strong style="color:var(--accent-expense);">฿' + p.expenses.toLocaleString() + '</strong></span>' +
           '</div>' +
         '</div>';
@@ -6549,38 +6553,14 @@
         if (!confirm('ต้องการเปลี่ยนสถานะบิล "' + b.item + '" กลับเป็น "รอชำระ" ใช่หรือไม่? ยอดเงินที่เคยหักจะถูกคืนเข้ากระเป๋าเงินโดยอัตโนมัติ')) return;
         try {
           setSyncStatus('saving');
-          var billAmt = parseFloat(b.amount) || 0;
-          var targetWallet = b.linked_wallet_id ? (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) : (appData.wallets && appData.wallets[0]);
-
-          // 1. Find linked transaction to delete
-          var txToDel = null;
-          if (b.last_paid_tx_id) {
-            txToDel = appData.transactions.find(function(t) { return t.id === b.last_paid_tx_id; });
-          }
-          if (!txToDel) {
-            txToDel = appData.transactions.find(function(t) {
-              return t.bill_id === b.id || (t.category === 'บิลประจำ' && (t.details || '').includes(b.item));
-            });
+          var rpcRes = await db.rpc('cancel_bill_payment', { p_bill_id: b.id });
+          if (rpcRes.error) {
+            throw new Error(rpcRes.error.message || String(rpcRes.error));
           }
 
-          if (txToDel) {
-            var delRes = await db.from('transactions').delete().eq('id', txToDel.id);
-            if (delRes.error) throw delRes.error;
-            appData.transactions = appData.transactions.filter(function(t) { return t.id !== txToDel.id; });
-          }
+          await loadAllData();
 
-          // 2. Refund wallet balance
-          if (targetWallet && billAmt > 0) {
-            await adjustWalletBalanceOnBackend(targetWallet.id, billAmt);
-            if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-          }
-
-          // 3. Mark bill as unpaid
-          await db.from('bills').update({ is_paid: false, last_paid_tx_id: null }).eq('id', id);
-          b.is_paid = false;
-          b.last_paid_tx_id = null;
-
-          showToast('เปลี่ยนสถานะเป็นรอจ่าย และคืนยอด ฿' + billAmt.toLocaleString() + ' เข้ากระเป๋าแล้ว ↩️');
+          showToast('เปลี่ยนสถานะเป็นรอจ่าย และคืนยอดเข้ากระเป๋าแล้ว ↩️');
           renderDashboard();
           renderBills();
           renderTransactions();
@@ -6605,21 +6585,25 @@
 
     async function handleSaveBill(e) {
       e.preventDefault();
+      var noteVal = document.getElementById('billNote').value.trim();
       var payload = {
         item: document.getElementById('billItem').value.trim(),
         due_date: parseInt(document.getElementById('billDueDate').value, 10) || 1,
         amount: parseFloat(document.getElementById('billAmount').value) || 0,
-        note: document.getElementById('billNote').value.trim(),
+        note: noteVal,
+        notes: noteVal,
         is_paid: false
       };
 
       try {
-        await db.from('bills').insert([payload]);
+        var res = await db.from('bills').insert([payload]);
+        if (res.error) throw res.error;
         showToast('เพิ่มบิลประจำแล้ว 🎉');
         closeAllDrawers();
         await loadAllData();
       } catch(e) {
-        console.error(e);
+        console.error('Error saving bill:', e);
+        alert('เกิดข้อผิดพลาดในการบันทึกบิล: ' + (e.message || e));
       }
     }
 
@@ -7341,14 +7325,38 @@
       }
     }
 
+    function getUserStorageKey(key) {
+      var uid = (currentUser && currentUser.id) ? currentUser.id : 'anon';
+      return key + '_' + uid;
+    }
+
     async function handleSignOut() {
       if (!confirm('ต้องการออกจากระบบใช่หรือไม่?')) return;
       try {
         await db.auth.signOut();
         currentUser = null;
+        appData = {
+          categories: [],
+          jobs: [],
+          todos: [],
+          bills: [],
+          equipment: [],
+          transactions: [],
+          wallets: [],
+          debts: [],
+          debt_payments: [],
+          cards: []
+        };
         updateAuthUI();
         showToast('ออกจากระบบเรียบร้อยแล้ว 👋');
-        loadAllData();
+        renderDashboard();
+        renderTransactions();
+        renderJobs();
+        renderBills();
+        renderEquipment();
+        renderDebts();
+        renderCards();
+        setSyncStatus('idle');
       } catch (err) {
         console.error('Sign out error:', err);
         alert('เกิดข้อผิดพลาดในการออกจากระบบ: ' + err.message);
@@ -7490,8 +7498,10 @@
     async function loadWallets() {
       try {
         var res = await db.from('wallets').select('*').order('id', { ascending: true });
-        if (res.data && res.data.length > 0) {
+        if (res.error) throw res.error;
+        if (res.data) {
           appData.wallets = res.data;
+          saveWalletsToLocal();
         } else {
           loadWalletsFromLocal();
         }
@@ -7503,17 +7513,20 @@
     }
 
     function loadWalletsFromLocal() {
-      var saved = localStorage.getItem('natthawit_studio_wallets');
+      var key = getUserStorageKey('natthawit_studio_wallets');
+      var saved = localStorage.getItem(key);
       if (saved) {
-        try { appData.wallets = JSON.parse(saved); } catch(e) { appData.wallets = defaultWallets.slice(); }
+        try { appData.wallets = JSON.parse(saved); } catch(e) { appData.wallets = []; }
       } else {
-        appData.wallets = defaultWallets.slice();
-        saveWalletsToLocal();
+        // Prevent loading other users' or default wallets if authenticated
+        appData.wallets = currentUser ? [] : defaultWallets.slice();
+        if (!currentUser) saveWalletsToLocal();
       }
     }
 
     function saveWalletsToLocal() {
-      localStorage.setItem('natthawit_studio_wallets', JSON.stringify(appData.wallets));
+      var key = getUserStorageKey('natthawit_studio_wallets');
+      localStorage.setItem(key, JSON.stringify(appData.wallets || []));
     }
 
     function calculateWalletBalances() {
@@ -7842,107 +7855,22 @@
 
       try {
         setSyncStatus('saving');
-        var transferId = null;
-        var rpcSuccess = false;
+        var rpcRes = await db.rpc('execute_wallet_transfer', {
+          p_from_id: fromId,
+          p_to_id: toId,
+          p_amount: amount,
+          p_fee: fee,
+          p_date: dateStr,
+          p_note: note
+        });
 
-        // 1. Attempt Atomic RPC
-        try {
-          var rpcRes = await db.rpc('execute_wallet_transfer', {
-            p_from_id: fromId,
-            p_to_id: toId,
-            p_amount: amount,
-            p_fee: fee,
-            p_date: dateStr,
-            p_note: note
-          });
-          if (!rpcRes.error && rpcRes.data) {
-            rpcSuccess = true;
-            transferId = rpcRes.data.transfer_id;
-            if (fromWallet) fromWallet.balance = parseFloat(rpcRes.data.from_balance);
-            if (toWallet) toWallet.balance = parseFloat(rpcRes.data.to_balance);
-          }
-        } catch(rpcErr) {
-          console.warn('execute_wallet_transfer RPC notice, falling back:', rpcErr);
+        if (rpcRes.error) {
+          throw new Error(rpcRes.error.message || String(rpcRes.error));
         }
 
-        // 2. Coordinated Fallback if RPC not available
-        if (!rpcSuccess) {
-          // Adjust wallets via delta
-          await adjustWalletBalanceOnBackend(fromId, -(amount + fee));
-          try {
-            await adjustWalletBalanceOnBackend(toId, amount);
-          } catch(toErr) {
-            // Rollback from wallet
-            await adjustWalletBalanceOnBackend(fromId, amount + fee);
-            throw toErr;
-          }
+        await loadAllData();
 
-          if (fromWallet) fromWallet.balance = (parseFloat(fromWallet.balance) || 0) - (amount + fee);
-          if (toWallet) toWallet.balance = (parseFloat(toWallet.balance) || 0) + amount;
-
-          // Record transfer
-          var tRes = await db.from('transfers').insert([{
-            from_wallet_id: fromId,
-            to_wallet_id: toId,
-            amount: amount,
-            fee: fee,
-            transfer_date: dateStr,
-            note: note
-          }]).select();
-          if (tRes.error) throw tRes.error;
-          transferId = (tRes.data && tRes.data[0]) ? tRes.data[0].id : Date.now();
-
-          // Record transfer ledger transactions linked by transfer_id
-          var txPayloads = [
-            {
-              date: dateStr,
-              type: 'รายจ่าย',
-              category: 'โอนเงิน',
-              amount: amount,
-              details: buildTxDetails('studio', (fromWallet ? fromWallet.name : ''), '[โอนย้ายเงิน] ไปยัง ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : '')),
-              wallet_id: fromId,
-              transfer_target_wallet_id: toId,
-              transfer_id: transferId
-            },
-            {
-              date: dateStr,
-              type: 'รายรับ',
-              category: 'โอนเงิน',
-              amount: amount,
-              details: buildTxDetails('studio', (toWallet ? toWallet.name : ''), '[รับโอนย้ายเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + (note ? ' (' + note + ')' : '')),
-              wallet_id: toId,
-              transfer_id: transferId
-            }
-          ];
-
-          if (fee > 0) {
-            txPayloads.push({
-              date: dateStr,
-              type: 'รายจ่าย',
-              category: 'ค่าธรรมเนียม',
-              amount: fee,
-              details: '[ค่าธรรมเนียมโอนเงิน] จาก ' + (fromWallet ? fromWallet.name : '') + ' ไป ' + (toWallet ? toWallet.name : '') + (note ? ' (' + note + ')' : ''),
-              wallet_id: fromId,
-              transfer_id: transferId
-            });
-          }
-
-          var insRes = await db.from('transactions').insert(txPayloads).select();
-          if (insRes.error) throw insRes.error;
-        } else {
-          // If RPC succeeded, prepend newly created transfer legs without truncating history
-          try {
-            var newTxRes = await db.from('transactions').select('*').eq('transfer_id', transferId).order('id', { ascending: true });
-            if (!newTxRes.error && newTxRes.data && newTxRes.data.length > 0) {
-              newTxRes.data.forEach(function(item) { appData.transactions.unshift(item); });
-            } else {
-              var refreshRes = await db.from('transactions').select('*').order('date', { ascending: false }).order('id', { ascending: false });
-              if (!refreshRes.error && refreshRes.data) appData.transactions = refreshRes.data;
-            }
-          } catch(e) {}
-        }
-
-        saveWalletsToLocal();
+        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         closeAllDrawers();
         showToast('โอนเงินสำเร็จ ฿' + amount.toLocaleString() + ' 💸');
         renderDashboard();
@@ -7962,35 +7890,14 @@
       var transferId = tx.transfer_id;
       try {
         setSyncStatus('saving');
-        var rpcDone = false;
-        try {
-          var res = await db.rpc('cancel_wallet_transfer', { p_transfer_id: transferId });
-          if (!res.error && res.data) {
-            rpcDone = true;
-            await loadWallets();
-            await loadTransactions();
-          }
-        } catch(e) {
-          console.warn('cancel_wallet_transfer RPC notice, falling back:', e);
+        var res = await db.rpc('cancel_wallet_transfer', { p_transfer_id: transferId });
+        if (res.error) {
+          throw new Error(res.error.message || String(res.error));
         }
 
-        if (!rpcDone) {
-          // Find all transactions linked to this transfer
-          var linkedTxs = (appData.transactions || []).filter(function(t) { return t.transfer_id === transferId; });
+        await loadAllData();
 
-          // Revert balances for each linked transaction
-          linkedTxs.forEach(function(lt) {
-            adjustWalletBalanceForTx(lt, true);
-          });
-          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-
-          // Delete from database
-          await db.from('transactions').delete().eq('transfer_id', transferId);
-          await db.from('transfers').delete().eq('id', transferId);
-
-          appData.transactions = (appData.transactions || []).filter(function(t) { return t.transfer_id !== transferId; });
-        }
-
+        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         showToast('ยกเลิกรายการโอนเงินทั้งชุดเรียบร้อย ↩️');
         closeAllDrawers();
         renderDashboard();
@@ -8797,74 +8704,23 @@
 
       try {
         setSyncStatus('saving');
-        // 1. Deduct from selected Wallet and sync to backend via delta
-        await adjustWalletBalanceOnBackend(walletId, -total);
+        var rpcRes = await db.rpc('execute_debt_payment', {
+          p_debt_id: debtId,
+          p_wallet_id: walletId,
+          p_total_amount: total,
+          p_principal_amount: principal,
+          p_interest_amount: interest,
+          p_payment_date: dateStr,
+          p_note: note
+        });
+
+        if (rpcRes.error) {
+          throw new Error(rpcRes.error.message || String(rpcRes.error));
+        }
+
+        await loadAllData();
+
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-
-        // 2. Reduce Debt Remaining Principal and sync to Supabase
-        d.remaining_principal = Math.max(0, remPrin - principal);
-        d.paid_months = (parseInt(d.paid_months, 10) || 0) + 1;
-        if (d.remaining_principal <= 0) d.status = 'paid_off';
-        saveDebtsToLocal();
-
-        var debtRes = await db.from('debts').update({
-          remaining_principal: d.remaining_principal,
-          paid_months: d.paid_months,
-          status: d.status,
-          updated_at: new Date().toISOString()
-        }).eq('id', debtId);
-        if (debtRes.error) throw debtRes.error;
-
-        // 3. Insert record into debt_payments table
-        var payRes = await db.from('debt_payments').insert([{
-          debt_id: debtId,
-          wallet_id: walletId,
-          payment_date: dateStr,
-          amount: total,
-          principal_paid: principal,
-          interest_paid: interest,
-          fee_paid: 0,
-          note: note
-        }]).select();
-        if (payRes.error) throw payRes.error;
-        if (payRes.data && payRes.data.length > 0) {
-          appData.debt_payments.unshift(payRes.data[0]);
-        }
-
-        // 4. Record ledger transaction: interest is operating expense
-        if (interest > 0) {
-          var intRes = await db.from('transactions').insert([{
-            date: dateStr,
-            type: 'รายจ่าย',
-            category: 'ดอกเบี้ย/ค่าธรรมเนียม',
-            amount: interest,
-            details: buildTxDetails('studio', targetWallet.name, '[ดอกเบี้ยงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
-            wallet_id: walletId,
-            debt_id: debtId
-          }]).select();
-          if (intRes.error) throw intRes.error;
-          if (intRes.data && intRes.data.length > 0) {
-            appData.transactions.unshift(intRes.data[0]);
-          }
-        }
-
-        // 5. Record principal repayment as debt settlement transaction (Financing Cash Out)
-        if (principal > 0) {
-          var prinRes = await db.from('transactions').insert([{
-            date: dateStr,
-            type: 'รายจ่าย',
-            category: 'ชำระหนี้/ผ่อนสินค้า',
-            amount: principal,
-            details: buildTxDetails('studio', targetWallet.name, '[ชำระเงินต้นงวด] ' + d.name + (note ? ' (' + note + ')' : '')),
-            wallet_id: walletId,
-            debt_id: debtId
-          }]).select();
-          if (prinRes.error) throw prinRes.error;
-          if (prinRes.data && prinRes.data.length > 0) {
-            appData.transactions.unshift(prinRes.data[0]);
-          }
-        }
-
         closeAllDrawers();
         showToast('บันทึกชำระงวดสำเร็จ ฿' + total.toLocaleString() + ' 🎉');
         renderDashboard();
@@ -8872,8 +8728,9 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(err) {
-        console.error('Debt payment error:', err);
+        console.error('Record debt payment error:', err);
         alert('เกิดข้อผิดพลาดในการบันทึกชำระหนี้: ' + (err.message || err));
+        setSyncStatus('error');
       }
     }
 

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS public.bills (
   amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
   due_date INTEGER DEFAULT 1,
   is_paid BOOLEAN DEFAULT FALSE,
+  note TEXT,
   notes TEXT,
   last_paid_date DATE,
   last_paid_tx_id BIGINT,
@@ -132,9 +133,13 @@ CREATE TABLE IF NOT EXISTS public.debt_payments (
   wallet_id BIGINT,
   payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
   amount NUMERIC(14, 2) NOT NULL,
+  total_amount NUMERIC(14, 2),
   principal_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  principal_amount NUMERIC(14, 2),
   interest_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  interest_amount NUMERIC(14, 2),
   fee_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  transaction_id BIGINT,
   note TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -167,6 +172,7 @@ CREATE TABLE IF NOT EXISTS public.transfers (
   amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
   fee NUMERIC(14, 2) NOT NULL DEFAULT 0.00 CHECK (fee >= 0),
   transfer_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  note TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -187,6 +193,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   card_id BIGINT,
   transfer_id BIGINT,
   bill_id BIGINT,
+  related_job TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -231,8 +238,33 @@ BEGIN
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS card_id BIGINT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS transfer_id BIGINT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS bill_id BIGINT;
+  ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS related_job TEXT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS time TIME DEFAULT CURRENT_TIME;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS slip_url TEXT;
+
+  -- Categories styling
+  ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#168EA1';
+
+  -- Bills note/notes compatibility
+  ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS notes TEXT;
+  ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS note TEXT;
+  UPDATE public.bills SET notes = note WHERE notes IS NULL AND note IS NOT NULL;
+  UPDATE public.bills SET note = notes WHERE note IS NULL AND notes IS NOT NULL;
+
+  -- Transfers note/notes compatibility
+  ALTER TABLE public.transfers ADD COLUMN IF NOT EXISTS notes TEXT;
+  ALTER TABLE public.transfers ADD COLUMN IF NOT EXISTS note TEXT;
+  UPDATE public.transfers SET notes = note WHERE notes IS NULL AND note IS NOT NULL;
+  UPDATE public.transfers SET note = notes WHERE note IS NULL AND notes IS NOT NULL;
+
+  -- Debt payments schema alignment
+  ALTER TABLE public.debt_payments ADD COLUMN IF NOT EXISTS total_amount NUMERIC(14, 2);
+  ALTER TABLE public.debt_payments ADD COLUMN IF NOT EXISTS principal_amount NUMERIC(14, 2);
+  ALTER TABLE public.debt_payments ADD COLUMN IF NOT EXISTS interest_amount NUMERIC(14, 2);
+  ALTER TABLE public.debt_payments ADD COLUMN IF NOT EXISTS transaction_id BIGINT;
+  UPDATE public.debt_payments SET total_amount = amount WHERE total_amount IS NULL AND amount IS NOT NULL;
+  UPDATE public.debt_payments SET principal_amount = principal_paid WHERE principal_amount IS NULL AND principal_paid IS NOT NULL;
+  UPDATE public.debt_payments SET interest_amount = interest_paid WHERE interest_amount IS NULL AND interest_paid IS NOT NULL;
 END $$;
 
 -- ------------------------------------------------------------------------------
@@ -268,7 +300,7 @@ BEGIN
   -- fk_transactions_transfer
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transactions_transfer') THEN
     UPDATE public.transactions SET transfer_id = NULL WHERE transfer_id IS NOT NULL AND transfer_id NOT IN (SELECT id FROM public.transfers);
-    ALTER TABLE public.transactions ADD CONSTRAINT fk_transactions_transfer FOREIGN KEY (transfer_id) REFERENCES public.transfers(id) ON DELETE CASCADE;
+    ALTER TABLE public.transactions ADD CONSTRAINT fk_transactions_transfer FOREIGN KEY (transfer_id) REFERENCES public.transfers(id) ON DELETE SET NULL;
   END IF;
 
   -- fk_transactions_bill
@@ -295,10 +327,9 @@ BEGIN
     ALTER TABLE public.debts ADD CONSTRAINT fk_debts_wallet FOREIGN KEY (default_wallet_id) REFERENCES public.wallets(id) ON DELETE SET NULL;
   END IF;
 
-  -- fk_debt_payments_debt
+  -- fk_debt_payments_debt (Safe non-destructive: NOT VALID prevents failing on legacy orphans without deleting history)
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_debt_payments_debt') THEN
-    DELETE FROM public.debt_payments WHERE debt_id NOT IN (SELECT id FROM public.debts);
-    ALTER TABLE public.debt_payments ADD CONSTRAINT fk_debt_payments_debt FOREIGN KEY (debt_id) REFERENCES public.debts(id) ON DELETE CASCADE;
+    ALTER TABLE public.debt_payments ADD CONSTRAINT fk_debt_payments_debt FOREIGN KEY (debt_id) REFERENCES public.debts(id) ON DELETE CASCADE NOT VALID;
   END IF;
 
   -- fk_debt_payments_wallet
@@ -313,28 +344,40 @@ BEGIN
     ALTER TABLE public.cards ADD CONSTRAINT fk_cards_wallet FOREIGN KEY (default_wallet_id) REFERENCES public.wallets(id) ON DELETE SET NULL;
   END IF;
 
-  -- fk_transfers_from_wallet
+  -- fk_transfers_from_wallet (Safe non-destructive: NOT VALID without deleting history)
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transfers_from_wallet') THEN
-    DELETE FROM public.transfers WHERE from_wallet_id NOT IN (SELECT id FROM public.wallets);
-    ALTER TABLE public.transfers ADD CONSTRAINT fk_transfers_from_wallet FOREIGN KEY (from_wallet_id) REFERENCES public.wallets(id) ON DELETE RESTRICT;
+    ALTER TABLE public.transfers ADD CONSTRAINT fk_transfers_from_wallet FOREIGN KEY (from_wallet_id) REFERENCES public.wallets(id) ON DELETE RESTRICT NOT VALID;
   END IF;
 
-  -- fk_transfers_to_wallet
+  -- fk_transfers_to_wallet (Safe non-destructive: NOT VALID without deleting history)
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_transfers_to_wallet') THEN
-    DELETE FROM public.transfers WHERE to_wallet_id NOT IN (SELECT id FROM public.wallets);
-    ALTER TABLE public.transfers ADD CONSTRAINT fk_transfers_to_wallet FOREIGN KEY (to_wallet_id) REFERENCES public.wallets(id) ON DELETE RESTRICT;
+    ALTER TABLE public.transfers ADD CONSTRAINT fk_transfers_to_wallet FOREIGN KEY (to_wallet_id) REFERENCES public.wallets(id) ON DELETE RESTRICT NOT VALID;
   END IF;
 END $$;
 
 -- ------------------------------------------------------------------------------
--- 4. LEGACY DATA OWNER ASSIGNMENT CONFIGURATION
+-- 4. DEFAULT INITIAL WALLETS & LEGACY DATA OWNER ASSIGNMENT
 -- ------------------------------------------------------------------------------
 -- Set v_legacy_owner_id to your production user UUID before running to assign
--- existing rows to your authenticated user account.
+-- existing rows and seeded wallets to your authenticated user account.
 DO $$
 DECLARE
   v_legacy_owner_id UUID := NULL; -- Set e.g. '00000000-0000-0000-0000-000000000000'::UUID
 BEGIN
+  -- 4A. Seed initial default wallets if not present
+  INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes, user_id)
+  SELECT 'บัญชีสตูดิโอ (ไทยพาณิชย์)', 'bank', '#168EA1', 'fa-building-columns', 0.00, 0.00, 'บัญชีหลักสำหรับรับเงินงานสตูดิโอ', v_legacy_owner_id
+  WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'บัญชีสตูดิโอ (ไทยพาณิชย์)');
+
+  INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes, user_id)
+  SELECT 'บัญชีส่วนตัว (กสิกรไทย)', 'bank', '#0B9D83', 'fa-building-columns', 0.00, 0.00, 'บัญชีส่วนตัว', v_legacy_owner_id
+  WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'บัญชีส่วนตัว (กสิกรไทย)');
+
+  INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes, user_id)
+  SELECT 'เงินสดสตูดิโอ', 'cash', '#D97706', 'fa-money-bill-wave', 0.00, 0.00, 'เงินสดหมุนเวียนกองถ่าย', v_legacy_owner_id
+  WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'เงินสดสตูดิโอ');
+
+  -- 4B. Assign legacy rows to owner if specified
   IF v_legacy_owner_id IS NOT NULL THEN
     UPDATE public.categories SET user_id = v_legacy_owner_id WHERE user_id IS NULL;
     UPDATE public.jobs SET user_id = v_legacy_owner_id WHERE user_id IS NULL;
@@ -347,7 +390,9 @@ BEGIN
     UPDATE public.cards SET user_id = v_legacy_owner_id WHERE user_id IS NULL;
     UPDATE public.transfers SET user_id = v_legacy_owner_id WHERE user_id IS NULL;
     UPDATE public.transactions SET user_id = v_legacy_owner_id WHERE user_id IS NULL;
-    RAISE NOTICE 'Legacy rows assigned to owner %', v_legacy_owner_id;
+    RAISE NOTICE 'Legacy rows and initial wallets assigned to owner %', v_legacy_owner_id;
+  ELSE
+    RAISE NOTICE 'NOTICE: v_legacy_owner_id is NULL. Legacy rows and initial wallets have user_id = NULL. Set v_legacy_owner_id to your auth.users UUID to claim ownership.';
   END IF;
 END $$;
 
@@ -488,8 +533,8 @@ BEGIN
   END IF;
 
   -- Ownership verification
-  IF v_owner IS NOT NULL AND v_owner <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: wallet belongs to another user';
+  IF v_owner IS NULL OR v_owner <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: wallet not owned by authenticated user';
   END IF;
 
   UPDATE public.wallets
@@ -553,11 +598,11 @@ BEGIN
   SELECT user_id, balance, name INTO v_from_owner, v_from_bal, v_from_name FROM public.wallets WHERE id = p_from_id;
   SELECT user_id, balance, name INTO v_to_owner, v_to_bal, v_to_name FROM public.wallets WHERE id = p_to_id;
 
-  IF v_from_owner IS NOT NULL AND v_from_owner <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: source wallet belongs to another user';
+  IF v_from_owner IS NULL OR v_from_owner <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: source wallet not owned by authenticated user';
   END IF;
-  IF v_to_owner IS NOT NULL AND v_to_owner <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: target wallet belongs to another user';
+  IF v_to_owner IS NULL OR v_to_owner <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: target wallet not owned by authenticated user';
   END IF;
 
   -- Deduct from source
@@ -654,8 +699,8 @@ BEGIN
     RAISE EXCEPTION 'Transfer with ID % not found', p_transfer_id;
   END IF;
 
-  IF v_tr.user_id IS NOT NULL AND v_tr.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: transfer belongs to another user';
+  IF v_tr.user_id IS NULL OR v_tr.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: transfer not owned by authenticated user';
   END IF;
 
   -- Lock wallets in ascending ID order
@@ -699,12 +744,13 @@ BEGIN
 END;
 $$;
 
--- Procedure 4: Atomic Reconciliation with Stale State Detection
+-- Procedure 4: Atomic Reconciliation with Stale State Detection & Custom Date
 CREATE OR REPLACE FUNCTION public.execute_wallet_reconciliation(
   p_wallet_id BIGINT,
   p_expected_balance NUMERIC,
   p_actual_balance NUMERIC,
-  p_note TEXT DEFAULT NULL
+  p_note TEXT DEFAULT NULL,
+  p_date DATE DEFAULT CURRENT_DATE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -725,8 +771,8 @@ BEGIN
     RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
   END IF;
 
-  IF v_wallet.user_id IS NOT NULL AND v_wallet.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: wallet belongs to another user';
+  IF v_wallet.user_id IS NULL OR v_wallet.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: wallet not owned by authenticated user';
   END IF;
 
   -- Stale state protection
@@ -757,7 +803,7 @@ BEGIN
     user_id, date, type, category, amount, details, wallet_id
   ) VALUES (
     auth.uid(),
-    CURRENT_DATE,
+    COALESCE(p_date, CURRENT_DATE),
     'ปรับยอดเงิน',
     'ปรับยอดเงิน',
     ABS(v_diff),
@@ -806,8 +852,8 @@ BEGIN
     RAISE EXCEPTION 'Bill with ID % not found', p_bill_id;
   END IF;
 
-  IF v_bill.user_id IS NOT NULL AND v_bill.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: bill belongs to another user';
+  IF v_bill.user_id IS NULL OR v_bill.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: bill not owned by authenticated user';
   END IF;
 
   IF v_bill.is_paid THEN
@@ -819,8 +865,8 @@ BEGIN
     RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
   END IF;
 
-  IF v_wallet.user_id IS NOT NULL AND v_wallet.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: wallet belongs to another user';
+  IF v_wallet.user_id IS NULL OR v_wallet.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: wallet not owned by authenticated user';
   END IF;
 
   IF v_wallet.balance < v_bill.amount THEN
@@ -885,8 +931,8 @@ BEGIN
     RAISE EXCEPTION 'Bill with ID % not found', p_bill_id;
   END IF;
 
-  IF v_bill.user_id IS NOT NULL AND v_bill.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: bill belongs to another user';
+  IF v_bill.user_id IS NULL OR v_bill.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: bill not owned by authenticated user';
   END IF;
 
   IF NOT v_bill.is_paid THEN
@@ -920,7 +966,7 @@ BEGIN
 END;
 $$;
 
--- Procedure 7: Atomic Debt Payment
+-- Procedure 7: Atomic Debt Payment with Principal/Interest Ledger Split
 CREATE OR REPLACE FUNCTION public.execute_debt_payment(
   p_debt_id BIGINT,
   p_wallet_id BIGINT,
@@ -938,7 +984,8 @@ AS $$
 DECLARE
   v_debt RECORD;
   v_wallet RECORD;
-  v_tx_id BIGINT;
+  v_tx_id BIGINT := NULL;
+  v_interest_tx_id BIGINT := NULL;
   v_payment_id BIGINT;
 BEGIN
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
@@ -950,8 +997,8 @@ BEGIN
     RAISE EXCEPTION 'Debt with ID % not found', p_debt_id;
   END IF;
 
-  IF v_debt.user_id IS NOT NULL AND v_debt.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: debt belongs to another user';
+  IF v_debt.user_id IS NULL OR v_debt.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: debt not owned by authenticated user';
   END IF;
 
   SELECT * INTO v_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
@@ -959,8 +1006,8 @@ BEGIN
     RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
   END IF;
 
-  IF v_wallet.user_id IS NOT NULL AND v_wallet.user_id <> auth.uid() THEN
-    RAISE EXCEPTION 'Forbidden: wallet belongs to another user';
+  IF v_wallet.user_id IS NULL OR v_wallet.user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: wallet not owned by authenticated user';
   END IF;
 
   -- Validate amounts
@@ -984,30 +1031,57 @@ BEGIN
       updated_at = NOW()
   WHERE id = p_wallet_id;
 
-  -- 2. Insert transaction
-  INSERT INTO public.transactions (
-    user_id, date, type, category, amount, details, wallet_id, debt_id
-  ) VALUES (
-    auth.uid(),
-    COALESCE(p_payment_date, CURRENT_DATE),
-    'รายจ่าย',
-    'ชำระหนี้/ผ่อนสินค้า',
-    p_total_amount,
-    format('{"scope":"studio","account":"%s","note":"ชำระหนี้ %s (เงินต้น: %s, ดอกเบี้ย: %s) %s"}',
-      v_wallet.name, v_debt.name, p_principal_amount, p_interest_amount, COALESCE(p_note, '')),
-    p_wallet_id,
-    p_debt_id
-  ) RETURNING id INTO v_tx_id;
+  -- 2. Insert split transactions into ledger
+  -- Leg A: Principal repayment (Financing Cash Outflow)
+  IF COALESCE(p_principal_amount, 0) > 0 THEN
+    INSERT INTO public.transactions (
+      user_id, date, type, category, amount, details, wallet_id, debt_id
+    ) VALUES (
+      auth.uid(),
+      COALESCE(p_payment_date, CURRENT_DATE),
+      'รายจ่าย',
+      'ชำระหนี้/ผ่อนสินค้า',
+      p_principal_amount,
+      format('{"scope":"studio","account":"%s","note":"ชำระหนี้ %s (เงินต้น) %s"}',
+        v_wallet.name, v_debt.name, COALESCE(p_note, '')),
+      p_wallet_id,
+      p_debt_id
+    ) RETURNING id INTO v_tx_id;
+  END IF;
 
-  -- 3. Record debt_payments history
+  -- Leg B: Interest repayment (Studio Operating Expense)
+  IF COALESCE(p_interest_amount, 0) > 0 THEN
+    INSERT INTO public.transactions (
+      user_id, date, type, category, amount, details, wallet_id, debt_id
+    ) VALUES (
+      auth.uid(),
+      COALESCE(p_payment_date, CURRENT_DATE),
+      'รายจ่าย',
+      'ดอกเบี้ยจ่าย',
+      p_interest_amount,
+      format('{"scope":"studio","account":"%s","note":"ดอกเบี้ยเงินกู้ %s %s"}',
+        v_wallet.name, v_debt.name, COALESCE(p_note, '')),
+      p_wallet_id,
+      p_debt_id
+    ) RETURNING id INTO v_interest_tx_id;
+
+    IF v_tx_id IS NULL THEN
+      v_tx_id := v_interest_tx_id;
+    END IF;
+  END IF;
+
+  -- 3. Record debt_payments history (dual column compatibility)
   INSERT INTO public.debt_payments (
-    user_id, debt_id, payment_date, total_amount, principal_amount, interest_amount, wallet_id, transaction_id, note
+    user_id, debt_id, payment_date, amount, total_amount, principal_paid, principal_amount, interest_paid, interest_amount, wallet_id, transaction_id, note
   ) VALUES (
     auth.uid(),
     p_debt_id,
     COALESCE(p_payment_date, CURRENT_DATE),
     p_total_amount,
+    p_total_amount,
     p_principal_amount,
+    p_principal_amount,
+    p_interest_amount,
     p_interest_amount,
     p_wallet_id,
     v_tx_id,
@@ -1026,6 +1100,7 @@ BEGIN
     'debt_id', p_debt_id,
     'payment_id', v_payment_id,
     'tx_id', v_tx_id,
+    'interest_tx_id', v_interest_tx_id,
     'wallet_id', p_wallet_id,
     'total_amount', p_total_amount,
     'principal_amount', p_principal_amount,
@@ -1046,8 +1121,8 @@ GRANT EXECUTE ON FUNCTION public.execute_wallet_transfer(BIGINT, BIGINT, NUMERIC
 REVOKE ALL ON FUNCTION public.cancel_wallet_transfer(BIGINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cancel_wallet_transfer(BIGINT) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT, DATE) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT, DATE) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.execute_bill_payment(BIGINT, BIGINT, DATE) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.execute_bill_payment(BIGINT, BIGINT, DATE) TO authenticated;
@@ -1057,18 +1132,3 @@ GRANT EXECUTE ON FUNCTION public.cancel_bill_payment(BIGINT) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) TO authenticated;
-
--- ------------------------------------------------------------------------------
--- 8. DEFAULT INITIAL WALLETS
--- ------------------------------------------------------------------------------
-INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes)
-SELECT 'บัญชีสตูดิโอ (ไทยพาณิชย์)', 'bank', '#168EA1', 'fa-building-columns', 0.00, 0.00, 'บัญชีหลักสำหรับรับเงินงานสตูดิโอ'
-WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'บัญชีสตูดิโอ (ไทยพาณิชย์)');
-
-INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes)
-SELECT 'บัญชีส่วนตัว (กสิกรไทย)', 'bank', '#0B9D83', 'fa-building-columns', 0.00, 0.00, 'บัญชีส่วนตัว'
-WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'บัญชีส่วนตัว (กสิกรไทย)');
-
-INSERT INTO public.wallets (name, type, color, icon, balance, opening_balance, notes)
-SELECT 'เงินสดสตูดิโอ', 'cash', '#D97706', 'fa-money-bill-wave', 0.00, 0.00, 'เงินสดหมุนเวียนกองถ่าย'
-WHERE NOT EXISTS (SELECT 1 FROM public.wallets WHERE name = 'เงินสดสตูดิโอ');

@@ -17,7 +17,7 @@ const MIME_TYPES = {
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 };
 
-const server = http.createServer((req, res) => {
+function handleRequest(req, res) {
   let reqPath = req.url.split('?')[0];
   let decodedPath = '';
   try {
@@ -83,8 +83,14 @@ const server = http.createServer((req, res) => {
     res.writeHead(500, { 'Content-Type': 'text/plain' });
     res.end('Server Internal Error');
   }
-});
+}
 
-server.listen(PORT, HOST, () => {
-  console.log(`🚀 Natthawit Studio Web Server running at http://${HOST}:${PORT}`);
-});
+const server = http.createServer(handleRequest);
+
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    console.log(`🚀 Natthawit Studio Web Server running at http://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = { server, handleRequest, PUBLIC_DIR };

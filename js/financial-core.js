@@ -76,12 +76,84 @@
   };
 
   // ==========================================================================
-  // 2. IMMUTABLE EDIT DELTA COMPUTATION (PREVENTS ALIASING & UNWANTED WRITES)
+  // 2. IMMUTABLE EDIT DELTA COMPUTATION & CANONICAL WALLET RESOLVER
   // ==========================================================================
+
+  /**
+   * Resolves the canonical wallet ID for a transaction record.
+   * If tx.wallet_id is missing or null, attempts to resolve from tx.details
+   * (parsing bracket format [scope | account] or JSON {"account":"..."}).
+   * Matches strictly against available wallets.
+   *
+   * @param {Object} tx - Transaction or form payload
+   * @param {Array} wallets - Available wallet records
+   * @returns {number|null} Resolved wallet ID or null if unresolvable
+   */
+  exports.resolveWalletId = function(tx, wallets) {
+    if (!tx) return null;
+    wallets = wallets || [];
+
+    // 1. Direct wallet_id
+    if (tx.wallet_id !== undefined && tx.wallet_id !== null && tx.wallet_id !== '') {
+      var wid = parseInt(tx.wallet_id, 10);
+      if (!isNaN(wid)) {
+        var found = wallets.find(function(w) { return w.id === wid; });
+        if (found) return found.id;
+        return wid;
+      }
+    }
+
+    // 2. Parse from details string
+    var details = tx.details;
+    if (typeof details !== 'string' || !details.trim()) return null;
+    details = details.trim();
+
+    var accName = '';
+
+    // Check JSON format: e.g. {"account":"บัญชี A", ...}
+    if (details.charAt(0) === '{') {
+      try {
+        var parsed = JSON.parse(details);
+        if (parsed && parsed.account) {
+          accName = String(parsed.account).trim();
+        }
+      } catch (e) {
+        // Not valid JSON, continue to bracket check
+      }
+    }
+
+    // Check Bracket format: e.g. [สตูดิโอ | บัญชี A] ...
+    if (!accName && details.charAt(0) === '[') {
+      var closeBracket = details.indexOf(']');
+      if (closeBracket > 1) {
+        var tagContent = details.substring(1, closeBracket);
+        var parts = tagContent.split('|');
+        if (parts.length >= 2) {
+          accName = parts[1].trim();
+        } else if (parts.length === 1) {
+          accName = parts[0].trim();
+        }
+      }
+    }
+
+    if (!accName) return null;
+
+    // Strict exact name matching against wallets (never fuzzy/substring!)
+    var matches = wallets.filter(function(w) {
+      return w && w.name && w.name.trim() === accName;
+    });
+
+    if (matches.length === 1) {
+      return matches[0].id;
+    }
+
+    return null;
+  };
 
   /**
    * Computes the exact balance adjustments required when editing a transaction,
    * without mutating the original transaction, payload, or wallet objects.
+   * Resolves canonical wallet identities for both legacy and ID-backed records.
    *
    * @param {Object} oldTx - Original transaction record before edit
    * @param {Object} newPayload - Form values being applied
@@ -99,10 +171,14 @@
     var oldType = oldTx.type || 'รายจ่าย';
     var newType = newPayload.type || oldType;
 
-    var oldWalletId = oldTx.wallet_id ? parseInt(oldTx.wallet_id, 10) : null;
-    var newWalletId = (newPayload.wallet_id !== undefined && newPayload.wallet_id !== null && newPayload.wallet_id !== '')
-      ? parseInt(newPayload.wallet_id, 10)
-      : oldWalletId;
+    // Canonical resolution of wallet identities (MR01)
+    var oldWalletId = exports.resolveWalletId(oldTx, wallets);
+    var newWalletId = exports.resolveWalletId(newPayload, wallets);
+    if (newWalletId === null && (newPayload.wallet_id === undefined || newPayload.wallet_id === null || newPayload.wallet_id === '')) {
+      newWalletId = oldWalletId;
+    }
+
+    var isSameWallet = (oldWalletId !== null && newWalletId !== null && oldWalletId === newWalletId);
 
     // Signed effect of old transaction: Income increases wallet (+), Expense decreases wallet (-)
     var oldSigned = (oldType === 'รายรับ') ? oldAmt : -oldAmt;
@@ -111,8 +187,6 @@
 
     // Signed effect of new transaction:
     var newSigned = (newType === 'รายรับ') ? newAmt : -newAmt;
-
-    var isSameWallet = (oldWalletId === newWalletId);
 
     if (isSameWallet) {
       var netDelta = Math.round((revertOld + newSigned) * 100) / 100;
@@ -132,8 +206,8 @@
         isSameWallet: false,
         oldWalletId: oldWalletId,
         newWalletId: newWalletId,
-        revertOldDelta: Math.round(revertOld * 100) / 100,
-        applyNewDelta: Math.round(newSigned * 100) / 100,
+        revertOldDelta: oldWalletId !== null ? Math.round(revertOld * 100) / 100 : 0,
+        applyNewDelta: newWalletId !== null ? Math.round(newSigned * 100) / 100 : 0,
         netDelta: 0,
         hasFinancialChange: true
       };
