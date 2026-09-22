@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/verify_financial_fixes.js",
+    "test": "node tests/verify_financial_fixes.js && node tests/test_barrier_predicate.js",
+    "test:predicate": "node tests/test_barrier_predicate.js",
     "test:concurrency": "node tests/test_concurrency_multiconn.js"
   },
   "devDependencies": {

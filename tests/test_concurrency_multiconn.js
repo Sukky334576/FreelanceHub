@@ -58,55 +58,7 @@ try {
   process.exit(1);
 }
 
-// ------------------------------------------------------------------------------
-// H02 Helper: Deterministic Lock Barrier Waiter with Timeout
-// ------------------------------------------------------------------------------
-async function waitForWorkersBlocked(monitorClient, workerPids, controllerPid, timeoutMs = 6000) {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeoutMs) {
-    const res = await monitorClient.query(`
-      SELECT 
-        pid,
-        wait_event_type,
-        wait_event,
-        state,
-        pg_blocking_pids(pid) AS blocking_pids,
-        query
-      FROM pg_stat_activity
-      WHERE pid = ANY($1::int[])
-    `, [workerPids]);
-
-    const blockedWorkers = res.rows.filter(r => {
-      const isLockWait = r.wait_event_type === 'Lock' || r.wait_event === 'advisory' || r.wait_event === 'transactionid' || r.wait_event === 'tuple';
-      const hasBlockingPid = Array.isArray(r.blocking_pids) && (
-        r.blocking_pids.includes(controllerPid) || r.blocking_pids.length > 0
-      );
-      return isLockWait || hasBlockingPid;
-    });
-
-    if (blockedWorkers.length === workerPids.length) {
-      return {
-        success: true,
-        blockedWorkers,
-        elapsedMs: Date.now() - startTime
-      };
-    }
-    await new Promise(r => setTimeout(r, 30));
-  }
-
-  // Timeout reached: fetch diagnostic snapshot
-  const diag = await monitorClient.query(`
-    SELECT pid, state, wait_event_type, wait_event, pg_blocking_pids(pid) AS blocking_pids, query
-    FROM pg_stat_activity
-    WHERE pid = ANY($1::int[])
-  `, [workerPids]);
-
-  throw new Error(
-    `[H02] Barrier Timeout: Workers failed to enter lock wait state within ${timeoutMs}ms.\n` +
-    `Expected PIDs: [${workerPids.join(', ')}], Controller PID: ${controllerPid}\n` +
-    `Diagnostic snapshot:\n${JSON.stringify(diag.rows, null, 2)}`
-  );
-}
+const { waitForWorkersBlocked, evaluateBarrierPredicate } = require('./barrier_helper');
 
 // ------------------------------------------------------------------------------
 // Main Test Runner
@@ -219,6 +171,7 @@ async function main() {
     await conn1A.query('SET statement_timeout = 15000;');
     await conn1B.query('SET statement_timeout = 15000;');
 
+    let pendingPromises1 = [];
     try {
       const c1Pid = (await controller1.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
       const w1Pid = (await conn1A.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
@@ -266,7 +219,8 @@ async function main() {
         ) AS res;
       `, [w1, reqId1]);
 
-      const allPromises1 = Promise.allSettled([p1, p2]);
+      pendingPromises1 = [p1, p2];
+      const allPromises1 = Promise.allSettled(pendingPromises1);
 
       // 3. H02: Poll and prove BOTH workers are blocked by controller before releasing
       console.log('   3. [H02] Polling pg_stat_activity & pg_blocking_pids until BOTH workers are blocked...');
@@ -298,6 +252,9 @@ async function main() {
       console.log('   ✅ [PASS] Scenario 1 Succeeded.\n');
     } finally {
       await controller1.query('ROLLBACK;').catch(() => {});
+      if (pendingPromises1.length > 0) {
+        await Promise.allSettled(pendingPromises1);
+      }
       controller1.release();
       conn1A.release();
       conn1B.release();
@@ -314,6 +271,7 @@ async function main() {
     await conn2A.query('SET statement_timeout = 15000;');
     await conn2B.query('SET statement_timeout = 15000;');
 
+    let pendingPromises2 = [];
     try {
       const c2Pid = (await controller2.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
       const w1Pid = (await conn2A.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
@@ -365,7 +323,8 @@ async function main() {
       `, [w1, reqId2]);
 
       // Attach Promise.allSettled immediately before releasing barrier (H03)
-      const allPromises2 = Promise.allSettled([pWinner, pConflict]);
+      pendingPromises2 = [pWinner, pConflict];
+      const allPromises2 = Promise.allSettled(pendingPromises2);
 
       // 3. H02 Barrier wait
       console.log('   3. [H02] Polling until both workers are confirmed blocked by controller...');
@@ -406,6 +365,9 @@ async function main() {
       console.log('   ✅ [PASS] Scenario 2 Succeeded.\n');
     } finally {
       await controller2.query('ROLLBACK;').catch(() => {});
+      if (pendingPromises2.length > 0) {
+        await Promise.allSettled(pendingPromises2);
+      }
       controller2.release();
       conn2A.release();
       conn2B.release();
@@ -424,6 +386,7 @@ async function main() {
 
     const reqId3 = 'req-multi-null-wallet-' + Date.now();
     const lockKey = 888888;
+    let pendingPromises3 = [];
 
     try {
       const c3Pid = (await barrierClient.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
@@ -490,7 +453,8 @@ async function main() {
         ) AS res;
       `, [reqId3]);
 
-      const allPromises3 = Promise.allSettled([p3A, p3B]);
+      pendingPromises3 = [p3A, p3B];
+      const allPromises3 = Promise.allSettled(pendingPromises3);
 
       // 4. Poll until both workers are blocked on advisory lock (H02)
       console.log('   4. [H02] Polling until both workers are blocked on advisory lock...');
@@ -517,6 +481,9 @@ async function main() {
     } finally {
       // Guaranteed cleanup in finally
       await barrierClient.query('ROLLBACK;').catch(() => {});
+      if (pendingPromises3.length > 0) {
+        await Promise.allSettled(pendingPromises3);
+      }
       await barrierClient.query(`
         DROP TRIGGER IF EXISTS trg_test_null_wallet_barrier ON public.transactions;
         DROP FUNCTION IF EXISTS public._test_null_wallet_barrier();
@@ -535,6 +502,7 @@ async function main() {
     await conn4A.query('SET statement_timeout = 15000;');
     await conn4B.query('SET statement_timeout = 15000;');
 
+    let pendingPromises4 = [];
     try {
       await conn4A.query(`SET request.jwt.claim.sub = '${userA}'; SET request.jwt.claim.role = 'authenticated';`);
       await conn4B.query(`SET request.jwt.claim.sub = '${userB}'; SET request.jwt.claim.role = 'authenticated';`);
@@ -549,36 +517,38 @@ async function main() {
       const balABefore = Number((await pool.query('SELECT balance FROM public.wallets WHERE id = $1', [w1])).rows[0].balance);
       const sharedReqId = 'shared-uuid-' + Date.now();
 
-      const [r4A, r4B] = await Promise.all([
-        conn4A.query(`
-          SELECT public.execute_create_transaction(
-            p_date := '2026-09-22'::date,
-            p_type := 'รายจ่าย',
-            p_category := 'อาหาร',
-            p_amount := 50.00,
-            p_details := 'มื้อเย็น User A',
-            p_related_job := NULL,
-            p_wallet_id := $1,
-            p_card_id := NULL,
-            p_job_id := NULL,
-            p_request_id := $2
-          ) AS res;
-        `, [w1, sharedReqId]),
-        conn4B.query(`
-          SELECT public.execute_create_transaction(
-            p_date := '2026-09-22'::date,
-            p_type := 'รายจ่าย',
-            p_category := 'อุปกรณ์',
-            p_amount := 200.00,
-            p_details := 'อุปกรณ์ User B',
-            p_related_job := NULL,
-            p_wallet_id := $1,
-            p_card_id := NULL,
-            p_job_id := NULL,
-            p_request_id := $2
-          ) AS res;
-        `, [wB, sharedReqId])
-      ]);
+      const p4A = conn4A.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อาหาร',
+          p_amount := 50.00,
+          p_details := 'มื้อเย็น User A',
+          p_related_job := NULL,
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [w1, sharedReqId]);
+
+      const p4B = conn4B.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อุปกรณ์',
+          p_amount := 200.00,
+          p_details := 'อุปกรณ์ User B',
+          p_related_job := NULL,
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [wB, sharedReqId]);
+
+      pendingPromises4 = [p4A, p4B];
+      const [r4A, r4B] = await Promise.all(pendingPromises4);
 
       assert.strictEqual(r4A.rows[0].res.status, 'CREATED');
       assert.strictEqual(r4B.rows[0].res.status, 'CREATED');
@@ -594,6 +564,9 @@ async function main() {
       assert.strictEqual(Number(countCheck4.rows[0].count), 2, 'Ledger must store 2 independent records under shared request_id');
       console.log('   ✅ [PASS] Scenario 4 Succeeded.\n');
     } finally {
+      if (pendingPromises4.length > 0) {
+        await Promise.allSettled(pendingPromises4);
+      }
       conn4A.release();
       conn4B.release();
     }
@@ -787,6 +760,218 @@ async function main() {
       console.log('   ✅ [PASS] Scenario 6 Succeeded.\n');
     } finally {
       client6.release();
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENARIO 7: Same Key / Differing related_job Race (unique_violation Exception Path)
+    // ----------------------------------------------------------------------------
+    console.log('🧪 Scenario 7: Same Key / Differing related_job Race (unique_violation Exception Path)');
+    const controller7 = await pool.connect();
+    const conn7A = await pool.connect();
+    const conn7B = await pool.connect();
+    await controller7.query('SET statement_timeout = 15000;');
+    await conn7A.query('SET statement_timeout = 15000;');
+    await conn7B.query('SET statement_timeout = 15000;');
+
+    let pendingPromises7 = [];
+    try {
+      const c7Pid = (await controller7.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      const w1Pid = (await conn7A.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      const w2Pid = (await conn7B.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      console.log(`   Controller PID: ${c7Pid} | Worker 1 PID: ${w1Pid} | Worker 2 PID: ${w2Pid}`);
+
+      await conn7A.query(`SET request.jwt.claim.sub = '${userA}'; SET request.jwt.claim.role = 'authenticated';`);
+      await conn7B.query(`SET request.jwt.claim.sub = '${userA}'; SET request.jwt.claim.role = 'authenticated';`);
+
+      const balBeforeRes7 = await pool.query('SELECT balance FROM public.wallets WHERE id = $1;', [w1]);
+      const initialBal7 = Number(balBeforeRes7.rows[0].balance);
+      const reqId7 = 'req-multi-reljob-diff-' + Date.now();
+
+      // 1. Controller locks wallet row
+      console.log(`   1. Controller acquiring row lock (Current balance: ${initialBal7.toFixed(2)} THB)...`);
+      await controller7.query('BEGIN;');
+      await controller7.query('SELECT * FROM public.wallets WHERE id = $1 FOR UPDATE;', [w1]);
+
+      // 2. Launch conflicting requests differing ONLY by related_job
+      console.log('   2. Launching Worker 1 (Project Alpha) vs Worker 2 (Project Beta)...');
+      const p7A = conn7A.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อุปกรณ์',
+          p_amount := 120.00,
+          p_details := 'ไฟต่อเนื่อง',
+          p_related_job := 'Project Alpha',
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [w1, reqId7]);
+
+      const p7B = conn7B.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อุปกรณ์',
+          p_amount := 120.00,
+          p_details := 'ไฟต่อเนื่อง',
+          p_related_job := 'Project Beta',
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [w1, reqId7]);
+
+      pendingPromises7 = [p7A, p7B];
+      const allPromises7 = Promise.allSettled(pendingPromises7);
+
+      // 3. Prove both workers are blocked behind controller lock barrier (H02)
+      console.log('   3. [H02] Polling until both workers are confirmed blocked by controller...');
+      const barrierProof7 = await waitForWorkersBlocked(monitorClient, [w1Pid, w2Pid], c7Pid);
+      console.log(`   ✅ [H02 PROVEN] Both workers confirmed blocked after ${barrierProof7.elapsedMs}ms!`);
+
+      // 4. Release lock to allow workers to race through subtransaction & unique_violation
+      console.log('   4. Releasing controller lock (COMMIT)...');
+      await controller7.query('COMMIT;');
+
+      const results7 = await allPromises7;
+      const fulfilled7 = results7.filter(r => r.status === 'fulfilled');
+      const rejected7 = results7.filter(r => r.status === 'rejected');
+
+      console.log(`   5. [H03] Fulfilled requests: ${fulfilled7.length}, Rejected requests: ${rejected7.length}`);
+      assert.strictEqual(fulfilled7.length, 1, 'Exactly one request must succeed with CREATED');
+      assert.strictEqual(rejected7.length, 1, 'Exactly one request must fail with IDEMPOTENCY_CONFLICT on related_job mismatch');
+
+      const winnerRes7 = fulfilled7[0].value.rows[0].res;
+      assert.strictEqual(winnerRes7.status, 'CREATED');
+      const winnerJob = winnerRes7.transaction.related_job;
+      assert(['Project Alpha', 'Project Beta'].includes(winnerJob), 'Winner related_job must be either Project Alpha or Project Beta');
+
+      const conflictErr7 = rejected7[0].reason;
+      assert(conflictErr7.message.includes('IDEMPOTENCY_CONFLICT'), 'Loser request must throw IDEMPOTENCY_CONFLICT');
+
+      // 6. Balance verification: exactly 1 deduction (initial - 120.00)
+      const expectedBal7 = initialBal7 - 120.00;
+      const balCheck7 = await pool.query('SELECT balance FROM public.wallets WHERE id = $1;', [w1]);
+      const finalBal7 = Number(balCheck7.rows[0].balance);
+      console.log(`   6. Final Wallet Balance: ${finalBal7.toFixed(2)} THB (Expected: ${expectedBal7.toFixed(2)} THB)`);
+      assert.strictEqual(finalBal7, expectedBal7, 'Balance must reflect exactly 1 deduction; loser subtransaction rolled back cleanly');
+
+      // 7. Ledger count and row accuracy
+      const countCheck7 = await pool.query('SELECT COUNT(*), MAX(related_job) as rjob FROM public.transactions WHERE request_id = $1;', [reqId7]);
+      assert.strictEqual(Number(countCheck7.rows[0].count), 1, 'Ledger must contain exactly 1 transaction');
+      assert.strictEqual(countCheck7.rows[0].rjob, winnerJob, 'Ledger related_job must match winner transaction');
+      console.log('   ✅ [PASS] Scenario 7 Succeeded.\n');
+    } finally {
+      await controller7.query('ROLLBACK;').catch(() => {});
+      if (pendingPromises7.length > 0) {
+        await Promise.allSettled(pendingPromises7);
+      }
+      controller7.release();
+      conn7A.release();
+      conn7B.release();
+    }
+
+    // ----------------------------------------------------------------------------
+    // SCENARIO 7b: Same Key / Identical related_job Race (unique_violation Exception Path -> IDEMPOTENT_RETRY)
+    // ----------------------------------------------------------------------------
+    console.log('🧪 Scenario 7b: Same Key / Identical related_job Race (unique_violation Exception Path -> IDEMPOTENT_RETRY)');
+    const controller7b = await pool.connect();
+    const conn7bA = await pool.connect();
+    const conn7bB = await pool.connect();
+    await controller7b.query('SET statement_timeout = 15000;');
+    await conn7bA.query('SET statement_timeout = 15000;');
+    await conn7bB.query('SET statement_timeout = 15000;');
+
+    let pendingPromises7b = [];
+    try {
+      const c7bPid = (await controller7b.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      const w1Pid = (await conn7bA.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      const w2Pid = (await conn7bB.query('SELECT pg_backend_pid() AS pid;')).rows[0].pid;
+      console.log(`   Controller PID: ${c7bPid} | Worker 1 PID: ${w1Pid} | Worker 2 PID: ${w2Pid}`);
+
+      await conn7bA.query(`SET request.jwt.claim.sub = '${userA}'; SET request.jwt.claim.role = 'authenticated';`);
+      await conn7bB.query(`SET request.jwt.claim.sub = '${userA}'; SET request.jwt.claim.role = 'authenticated';`);
+
+      const balBeforeRes7b = await pool.query('SELECT balance FROM public.wallets WHERE id = $1;', [w1]);
+      const initialBal7b = Number(balBeforeRes7b.rows[0].balance);
+      const reqId7b = 'req-multi-reljob-same-' + Date.now();
+
+      // 1. Controller locks wallet row
+      await controller7b.query('BEGIN;');
+      await controller7b.query('SELECT * FROM public.wallets WHERE id = $1 FOR UPDATE;', [w1]);
+
+      // 2. Launch concurrent requests with identical related_job = 'Project Gamma'
+      console.log('   2. Launching Worker 1 & Worker 2 concurrently (both related_job: Project Gamma)...');
+      const p7bA = conn7bA.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อุปกรณ์',
+          p_amount := 85.00,
+          p_details := 'ขาตั้งกล้อง',
+          p_related_job := 'Project Gamma',
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [w1, reqId7b]);
+
+      const p7bB = conn7bB.query(`
+        SELECT public.execute_create_transaction(
+          p_date := '2026-09-22'::date,
+          p_type := 'รายจ่าย',
+          p_category := 'อุปกรณ์',
+          p_amount := 85.00,
+          p_details := 'ขาตั้งกล้อง',
+          p_related_job := 'Project Gamma',
+          p_wallet_id := $1,
+          p_card_id := NULL,
+          p_job_id := NULL,
+          p_request_id := $2
+        ) AS res;
+      `, [w1, reqId7b]);
+
+      pendingPromises7b = [p7bA, p7bB];
+      const allPromises7b = Promise.allSettled(pendingPromises7b);
+
+      // 3. Barrier wait
+      const barrierProof7b = await waitForWorkersBlocked(monitorClient, [w1Pid, w2Pid], c7bPid);
+      console.log(`   ✅ [H02 PROVEN] Both workers confirmed blocked after ${barrierProof7b.elapsedMs}ms!`);
+
+      // 4. Release lock
+      await controller7b.query('COMMIT;');
+
+      const results7b = await allPromises7b;
+      const res7bA = results7b[0].value.rows[0].res;
+      const res7bB = results7b[1].value.rows[0].res;
+      const statuses7b = [res7bA.status, res7bB.status].sort();
+      console.log(`   5. Execution Outcomes: [${res7bA.status}, ${res7bB.status}]`);
+      assert.deepStrictEqual(statuses7b, ['CREATED', 'IDEMPOTENT_RETRY'], 'One worker must return CREATED and the other IDEMPOTENT_RETRY');
+
+      // 6. Balance verification: exactly 1 deduction (initial - 85.00)
+      const expectedBal7b = initialBal7b - 85.00;
+      const balCheck7b = await pool.query('SELECT balance FROM public.wallets WHERE id = $1;', [w1]);
+      const finalBal7b = Number(balCheck7b.rows[0].balance);
+      console.log(`   6. Final Wallet Balance: ${finalBal7b.toFixed(2)} THB (Expected: ${expectedBal7b.toFixed(2)} THB)`);
+      assert.strictEqual(finalBal7b, expectedBal7b, 'Balance must reflect exactly 1 deduction');
+
+      // 7. Ledger count and row accuracy
+      const countCheck7b = await pool.query('SELECT COUNT(*), MAX(related_job) as rjob FROM public.transactions WHERE request_id = $1;', [reqId7b]);
+      assert.strictEqual(Number(countCheck7b.rows[0].count), 1, 'Ledger must contain exactly 1 transaction');
+      assert.strictEqual(countCheck7b.rows[0].rjob, 'Project Gamma', 'Ledger related_job must match Project Gamma');
+      console.log('   ✅ [PASS] Scenario 7b Succeeded.\n');
+    } finally {
+      await controller7b.query('ROLLBACK;').catch(() => {});
+      if (pendingPromises7b.length > 0) {
+        await Promise.allSettled(pendingPromises7b);
+      }
+      controller7b.release();
+      conn7bA.release();
+      conn7bB.release();
     }
 
     console.log('================================================================================');
