@@ -57,7 +57,7 @@
     if (!t) return false;
     if (exports.isTransferTx(t)) return false;
     if (exports.isReconTx(t)) return false;
-    if (t.category === 'ยกยอดมา') return false;
+    if (t.category === 'ยกยอดมา' || t.category === 'ยอดยกมา') return false;
     return t.type === 'รายรับ';
   };
 

@@ -4271,6 +4271,43 @@
       debt_payments: []
     };
 
+    var currentSessionGeneration = 0;
+
+    function clearAppDataAndScreens() {
+      currentSessionGeneration++;
+      appData = {
+        categories: [],
+        jobs: [],
+        todos: [],
+        bills: [],
+        equipment: [],
+        transactions: [],
+        wallets: [],
+        debts: [],
+        debt_payments: [],
+        cards: []
+      };
+      if (typeof updateAuthUI === 'function') updateAuthUI();
+      var renderers = [
+        renderDashboard,
+        renderTransactions,
+        renderCalendar,
+        renderTodos,
+        renderProjectsHub,
+        renderBills,
+        renderEquipment,
+        renderDebts,
+        renderCards,
+        updateSettingsCounts
+      ];
+      renderers.forEach(function(fn) {
+        if (typeof fn === 'function') {
+          try { fn(); } catch(e) { console.warn('Renderer cleanup notice:', e); }
+        }
+      });
+      if (typeof setSyncStatus === 'function') setSyncStatus('idle');
+    }
+
     var currentTab = 'transactions';
     var currentScope = 'studio'; // 'studio', 'personal', 'all'
     var currentTxTypeFilter = ''; // '' for all, 'รายรับ', 'รายจ่าย'
@@ -4353,7 +4390,7 @@
     // =========================================================
     // DATA LOADER (SUPABASE) WITH PAGINATED BATCH FETCHING
     // =========================================================
-    async function fetchAllTransactions() {
+    async function fetchAllTransactions(expectedGeneration, expectedUserId) {
       var allTxs = [];
       var pageSize = 1000;
       var from = 0;
@@ -4363,6 +4400,9 @@
           .order('date', { ascending: false })
           .order('id', { ascending: false })
           .range(from, from + pageSize - 1);
+        if (expectedGeneration !== undefined && (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId)) {
+          return null;
+        }
         if (res.error) throw res.error;
         var batch = res.data || [];
         allTxs = allTxs.concat(batch);
@@ -4373,9 +4413,11 @@
     }
 
     async function loadAllData() {
+      var expectedGeneration = currentSessionGeneration;
+      var expectedUserId = currentUser ? currentUser.id : null;
       try {
         setSyncStatus('saving');
-        var txPromise = fetchAllTransactions();
+        var txPromise = fetchAllTransactions(expectedGeneration, expectedUserId);
         var results = await Promise.all([
           db.from('categories').select('*').order('id', { ascending: true }),
           txPromise,
@@ -4383,6 +4425,8 @@
           db.from('bills').select('*').order('due_date', { ascending: true }),
           db.from('equipment').select('*').order('created_at', { ascending: false })
         ]);
+
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
 
         if (results[0].error) throw results[0].error;
         if (results[2].error) throw results[2].error;
@@ -4400,13 +4444,18 @@
         if (results[4].data) appData.equipment = results[4].data;
 
         await loadWallets();
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         await loadDebts();
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         await loadCards();
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
+
         setSyncStatus('synced');
         renderCategoryOptions();
         populateJobDropdowns();
         renderAll();
       } catch (e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         console.error('Error loading data:', e);
         setSyncStatus('error');
       }
@@ -4955,61 +5004,70 @@
             return;
           }
 
-          // Compute immutable delta before mutating anything
+          // Compute immutable delta using FinancialCore
           var deltaInfo = (window.FinancialCore && typeof window.FinancialCore.computeEditDelta === 'function')
             ? window.FinancialCore.computeEditDelta(oldTx, payload, appData.wallets)
             : { hasFinancialChange: false, isSameWallet: true, targetWalletId: payload.wallet_id, netDelta: 0 };
 
-          // 1. Update transaction in database first
-          var res = await db.from('transactions').update(payload).eq('id', numId);
-          if (res.error) throw res.error;
+          // Atomic Update RPC
+          var rpcParams = {
+            p_tx_id: numId,
+            p_date: payload.date,
+            p_type: payload.type,
+            p_category: payload.category,
+            p_amount: payload.amount,
+            p_details: payload.details || null,
+            p_related_job: payload.related_job ? parseInt(payload.related_job, 10) : null,
+            p_wallet_id: payload.wallet_id ? parseInt(payload.wallet_id, 10) : null,
+            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null
+          };
 
-          // 2. Adjust wallet balance using immutable delta if financial values changed
-          try {
-            if (deltaInfo.hasFinancialChange) {
-              if (deltaInfo.isSameWallet) {
-                if (deltaInfo.netDelta !== 0 && deltaInfo.targetWalletId) {
-                  await adjustWalletBalanceOnBackend(deltaInfo.targetWalletId, deltaInfo.netDelta);
-                }
-              } else {
-                if (deltaInfo.oldWalletId && deltaInfo.revertOldDelta !== 0) {
-                  await adjustWalletBalanceOnBackend(deltaInfo.oldWalletId, deltaInfo.revertOldDelta);
-                }
-                if (deltaInfo.newWalletId && deltaInfo.applyNewDelta !== 0) {
-                  await adjustWalletBalanceOnBackend(deltaInfo.newWalletId, deltaInfo.applyNewDelta);
-                }
-              }
+          var rpcRes = await db.rpc('execute_update_transaction', rpcParams);
+          if (rpcRes.error) throw rpcRes.error;
+
+          var resultData = rpcRes.data;
+          var updatedTx = (resultData && resultData.transaction) ? resultData.transaction : Object.assign({}, oldTx, payload);
+          Object.assign(oldTx, updatedTx);
+
+          // Update wallet balances locally from atomic backend response
+          if (resultData) {
+            if (resultData.old_wallet_id && resultData.old_wallet_balance !== null && typeof resultData.old_wallet_balance !== 'undefined') {
+              var oldW = appData.wallets.find(function(w) { return w.id === parseInt(resultData.old_wallet_id, 10); });
+              if (oldW) oldW.balance = parseFloat(resultData.old_wallet_balance);
             }
-          } catch(syncErr) {
-            // Rollback transaction update in DB if wallet balance adjustment failed
-            await db.from('transactions').update(oldTx).eq('id', numId);
-            throw new Error('ไม่สามารถปรับปรุงยอดเงินในบัญชีได้ ดำเนินการย้อนกลับรายการเดิม: ' + syncErr.message);
+            if (resultData.new_wallet_id && resultData.new_wallet_balance !== null && typeof resultData.new_wallet_balance !== 'undefined') {
+              var newW = appData.wallets.find(function(w) { return w.id === parseInt(resultData.new_wallet_id, 10); });
+              if (newW) newW.balance = parseFloat(resultData.new_wallet_balance);
+            }
           }
 
-          Object.assign(oldTx, payload);
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('แก้ไขรายการเงินสำเร็จ 🎉');
         } else {
-          // 1. Insert transaction into database first
-          var res = await db.from('transactions').insert([payload]).select();
-          if (res.error) throw res.error;
-          var newTx = (res.data && res.data.length > 0) ? res.data[0] : Object.assign({ id: Date.now() }, payload);
-          
-          // 2. Adjust wallet balance
-          var isIncome = (newTx.type === 'รายรับ');
-          var amt = parseFloat(newTx.amount) || 0;
-          var delta = isIncome ? amt : -amt;
-          var walletId = newTx.wallet_id ? parseInt(newTx.wallet_id, 10) : null;
+          // Atomic Create RPC
+          var rpcParams = {
+            p_date: payload.date,
+            p_type: payload.type,
+            p_category: payload.category,
+            p_amount: payload.amount,
+            p_details: payload.details || null,
+            p_related_job: payload.related_job ? parseInt(payload.related_job, 10) : null,
+            p_wallet_id: payload.wallet_id ? parseInt(payload.wallet_id, 10) : null,
+            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null
+          };
 
-          if (walletId && amt > 0) {
-            try {
-              await adjustWalletBalanceOnBackend(walletId, delta);
-            } catch(syncErr) {
-              // Rollback inserted transaction
-              await db.from('transactions').delete().eq('id', newTx.id);
-              throw new Error('ไม่สามารถปรับปรุงยอดเงินในบัญชีได้ ดำเนินการยกเลิกรายการบันทึก: ' + syncErr.message);
-            }
+          var rpcRes = await db.rpc('execute_create_transaction', rpcParams);
+          if (rpcRes.error) throw rpcRes.error;
+
+          var resultData = rpcRes.data;
+          var newTx = (resultData && resultData.transaction) ? resultData.transaction : Object.assign({ id: Date.now() }, payload);
+
+          // Update wallet balance locally from atomic backend response
+          if (resultData && resultData.wallet_id && resultData.new_balance !== null && typeof resultData.new_balance !== 'undefined') {
+            var targetW = appData.wallets.find(function(w) { return w.id === parseInt(resultData.wallet_id, 10); });
+            if (targetW) targetW.balance = parseFloat(resultData.new_balance);
           }
+
           appData.transactions.unshift(newTx);
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('บันทึกรายการเงินสำเร็จ 🎉');
@@ -5061,22 +5119,27 @@
 
       try {
         setSyncStatus('saving');
-        // 1. Delete from database first
-        var res = await db.from('transactions').delete().eq('id', numId);
+        // Atomic Delete RPC
+        var res = await db.rpc('execute_delete_transaction', { p_tx_id: numId });
         if (res.error) throw res.error;
 
-        // 2. Revert wallet balance after successful deletion
-        var target = adjustWalletBalanceForTx(tx, true);
-        if (target) {
-          try {
-            await adjustWalletBalanceOnBackend(target.id, target.delta);
+        var resultData = res.data;
+        if (resultData && resultData.status === 'ALREADY_DELETED') {
+          // Idempotent: already removed on backend, just filter locally without altering balance
+          appData.transactions = appData.transactions.filter(function(t) { return t.id !== numId; });
+          closeAllDrawers();
+          renderDashboard();
+          renderTransactions();
+          setSyncStatus('synced');
+          return;
+        }
+
+        // Apply updated wallet balance from atomic backend response
+        if (resultData && resultData.wallet_id && resultData.new_balance !== null && typeof resultData.new_balance !== 'undefined') {
+          var targetW = appData.wallets.find(function(w) { return w.id === parseInt(resultData.wallet_id, 10); });
+          if (targetW) {
+            targetW.balance = parseFloat(resultData.new_balance);
             if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
-          } catch (walletErr) {
-            // Rollback: Re-insert transaction if wallet revert failed
-            console.error('Wallet revert failed, rolling back deleted transaction:', walletErr);
-            await db.from('transactions').insert([tx]);
-            adjustWalletBalanceForTx(tx, false);
-            throw new Error('ไม่สามารถปรับยอดเงินในกระเป๋าได้ ระบบได้ยกเลิกการลบรายการ: ' + walletErr.message);
           }
         }
 
@@ -7335,28 +7398,8 @@
       try {
         await db.auth.signOut();
         currentUser = null;
-        appData = {
-          categories: [],
-          jobs: [],
-          todos: [],
-          bills: [],
-          equipment: [],
-          transactions: [],
-          wallets: [],
-          debts: [],
-          debt_payments: [],
-          cards: []
-        };
-        updateAuthUI();
+        clearAppDataAndScreens();
         showToast('ออกจากระบบเรียบร้อยแล้ว 👋');
-        renderDashboard();
-        renderTransactions();
-        renderJobs();
-        renderBills();
-        renderEquipment();
-        renderDebts();
-        renderCards();
-        setSyncStatus('idle');
       } catch (err) {
         console.error('Sign out error:', err);
         alert('เกิดข้อผิดพลาดในการออกจากระบบ: ' + err.message);
@@ -7427,16 +7470,22 @@
     async function initAuth() {
       try {
         var sessionRes = await db.auth.getSession();
+        currentSessionGeneration++;
         if (sessionRes.data && sessionRes.data.session) {
           currentUser = sessionRes.data.session.user;
+        } else {
+          currentUser = null;
         }
         updateAuthUI();
 
         db.auth.onAuthStateChange(function(event, session) {
+          currentSessionGeneration++;
           currentUser = session ? session.user : null;
           updateAuthUI();
           if (event === 'SIGNED_IN') {
             loadAllData();
+          } else if (event === 'SIGNED_OUT') {
+            clearAppDataAndScreens();
           }
         });
       } catch (err) {
@@ -7496,8 +7545,11 @@
     ];
 
     async function loadWallets() {
+      var expectedGeneration = currentSessionGeneration;
+      var expectedUserId = currentUser ? currentUser.id : null;
       try {
         var res = await db.from('wallets').select('*').order('id', { ascending: true });
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         if (res.error) throw res.error;
         if (res.data) {
           appData.wallets = res.data;
@@ -7506,8 +7558,10 @@
           loadWalletsFromLocal();
         }
       } catch (e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         loadWalletsFromLocal();
       }
+      if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
       calculateWalletBalances();
       populateAllWalletSelects();
     }
@@ -8333,30 +8387,38 @@
     var defaultDebts = [];
 
     async function loadDebts() {
+      var expectedGeneration = currentSessionGeneration;
+      var expectedUserId = currentUser ? currentUser.id : null;
       try {
         var res = await db.from('debts').select('*').order('id', { ascending: true });
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         if (res.data && res.data.length > 0) {
           appData.debts = res.data;
+          saveDebtsToLocal();
         } else {
           loadDebtsFromLocal();
         }
       } catch (e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         loadDebtsFromLocal();
       }
 
       // Load debt payments history from server
       try {
         var payRes = await db.from('debt_payments').select('*').order('payment_date', { ascending: false });
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         if (payRes.data) {
           appData.debt_payments = payRes.data;
         }
       } catch(e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         console.error('Error loading debt payments:', e);
       }
     }
 
     function loadDebtsFromLocal() {
-      var saved = localStorage.getItem('natthawit_studio_debts');
+      var key = getUserStorageKey('natthawit_studio_debts');
+      var saved = localStorage.getItem(key);
       if (saved !== null) {
         try { appData.debts = JSON.parse(saved); } catch(e) { appData.debts = []; }
       } else {
@@ -8365,7 +8427,8 @@
     }
 
     function saveDebtsToLocal() {
-      localStorage.setItem('natthawit_studio_debts', JSON.stringify(appData.debts));
+      var key = getUserStorageKey('natthawit_studio_debts');
+      localStorage.setItem(key, JSON.stringify(appData.debts || []));
     }
 
     function renderDebts() {
@@ -8740,20 +8803,26 @@
     var defaultCards = [];
 
     async function loadCards() {
+      var expectedGeneration = currentSessionGeneration;
+      var expectedUserId = currentUser ? currentUser.id : null;
       try {
         var res = await db.from('cards').select('*').order('id', { ascending: true });
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         if (res.data && res.data.length > 0) {
           appData.cards = res.data;
+          saveCardsToLocal();
         } else {
           loadCardsFromLocal();
         }
       } catch (e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         loadCardsFromLocal();
       }
     }
 
     function loadCardsFromLocal() {
-      var saved = localStorage.getItem('natthawit_studio_cards');
+      var key = getUserStorageKey('natthawit_studio_cards');
+      var saved = localStorage.getItem(key);
       if (saved !== null) {
         try { appData.cards = JSON.parse(saved); } catch(e) { appData.cards = []; }
       } else {
@@ -8762,7 +8831,8 @@
     }
 
     function saveCardsToLocal() {
-      localStorage.setItem('natthawit_studio_cards', JSON.stringify(appData.cards));
+      var key = getUserStorageKey('natthawit_studio_cards');
+      localStorage.setItem(key, JSON.stringify(appData.cards || []));
     }
 
     function renderCards() {
