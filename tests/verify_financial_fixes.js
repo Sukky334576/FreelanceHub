@@ -1264,7 +1264,7 @@ await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Preve
   const balB = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wB};`);
   assert.strictEqual(Number(balB.rows[0].balance), 98765.00, 'User B wallet balance must remain completely untouched');
 
-  // 3. Test every individual payload field modification triggers IDEMPOTENCY_CONFLICT
+  // 3. Test every individual payload field modification triggers IDEMPOTENCY_CONFLICT (including related_job)
   const variations = [
     { field: 'details', sql: `p_details := 'อาหารค่ำ'` },
     { field: 'category', sql: `p_category := 'เดินทาง'` },
@@ -1273,6 +1273,7 @@ await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Preve
     { field: 'type', sql: `p_type := 'รายรับ'` },
     { field: 'card_id', sql: `p_card_id := ${c2}` },
     { field: 'job_id', sql: `p_job_id := ${j2}` },
+    { field: 'related_job', sql: `p_related_job := 'งานตัดต่อวิดีโอ'` },
     { field: 'wallet_id', sql: `p_wallet_id := NULL` }
   ];
 
@@ -1286,7 +1287,7 @@ await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Preve
           p_category := ${v.field === 'category' ? "'เดินทาง'" : "'อาหาร'"},
           p_amount := ${v.field === 'amount' ? '200.00' : '100.00'},
           p_details := ${v.field === 'details' ? "'อาหารค่ำ'" : "'อาหารกลางวัน'"},
-          p_related_job := NULL,
+          p_related_job := ${v.field === 'related_job' ? "'งานตัดต่อวิดีโอ'" : 'NULL'},
           p_wallet_id := ${v.field === 'wallet_id' ? 'NULL' : wA},
           p_card_id := ${v.field === 'card_id' ? c2 : c1},
           p_job_id := ${v.field === 'job_id' ? j2 : j1},
@@ -1300,7 +1301,64 @@ await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Preve
     assert(errCaught, `Altered field ${v.field} must be rejected with IDEMPOTENCY_CONFLICT`);
   }
 
-  // 4. Exact retry must succeed and return wallet_id from operation (wA), NOT caller's param
+  // 4. Test null-safety for related_job: non-null original vs null retry
+  const resRelJob = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 50.00,
+      p_details := 'ของว่างกองถ่าย',
+      p_related_job := 'งานภาพนิ่งสตูดิโอ',
+      p_wallet_id := ${wA},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-n01-reljob'
+    ) AS res;
+  `);
+  assert.strictEqual(resRelJob.rows[0].res.status, 'CREATED');
+
+  // Retry with NULL related_job must throw IDEMPOTENCY_CONFLICT
+  let relJobNullCaught = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายจ่าย',
+        p_category := 'อาหาร',
+        p_amount := 50.00,
+        p_details := 'ของว่างกองถ่าย',
+        p_related_job := NULL,
+        p_wallet_id := ${wA},
+        p_card_id := NULL,
+        p_job_id := NULL,
+        p_request_id := 'req-n01-reljob'
+      );
+    `);
+  } catch (err) {
+    relJobNullCaught = true;
+    assert(err.message.includes('IDEMPOTENCY_CONFLICT'), 'Expected IDEMPOTENCY_CONFLICT when related_job changed from string to NULL');
+  }
+  assert(relJobNullCaught, 'Switching related_job from string to NULL must be rejected with IDEMPOTENCY_CONFLICT');
+
+  // Exact retry with matching related_job succeeds
+  const resRelJobRetry = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 50.00,
+      p_details := 'ของว่างกองถ่าย',
+      p_related_job := 'งานภาพนิ่งสตูดิโอ',
+      p_wallet_id := ${wA},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-n01-reljob'
+    ) AS res;
+  `);
+  assert.strictEqual(resRelJobRetry.rows[0].res.status, 'IDEMPOTENT_RETRY');
+
+  // 5. Exact retry must succeed and return wallet_id from operation (wA), NOT caller's param
   const resRetry = await pg.query(`
     SELECT public.execute_create_transaction(
       p_date := '2026-09-22'::date,
@@ -1317,7 +1375,7 @@ await test('N01', 'Idempotency Payload Validation & Cross-User Wallet Leak Preve
   `);
   assert.strictEqual(resRetry.rows[0].res.status, 'IDEMPOTENT_RETRY');
   assert.strictEqual(Number(resRetry.rows[0].res.wallet_id), Number(wA));
-  assert.strictEqual(Number(resRetry.rows[0].res.new_balance), 900.00);
+  assert.strictEqual(Number(resRetry.rows[0].res.new_balance), 850.00);
 
   await pg.close();
 });
@@ -1368,11 +1426,59 @@ await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: specula
   assert.strictEqual(res1.rows[0].res.status, 'CREATED');
   assert.strictEqual(Number(res1.rows[0].res.new_balance), 900.00);
 
-  // 2. Simulate concurrent race: force Request 2 to skip pre-check (passing pre-check before Request 1 committed)
-  // Request 2 enters the atomic BEGIN block, updates wallet balance speculatively, and attempts INSERT,
-  // triggering unique_violation. PostgreSQL automatically aborts the subtransaction to the savepoint at BEGIN,
-  // rolling back the speculative wallet update!
-  await pg.exec("SET test.simulate_concurrent_race = 'true';");
+  // 2. Sequential retry (exercises Fast Pre-check path in production RPC)
+  const resPrecheck = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 100.00,
+      p_details := 'มื้อเที่ยง',
+      p_related_job := NULL,
+      p_wallet_id := ${wA},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-race-1'
+    ) AS res;
+  `);
+  assert.strictEqual(resPrecheck.rows[0].res.status, 'IDEMPOTENT_RETRY', 'Fast pre-check retry must return IDEMPOTENT_RETRY');
+  assert.strictEqual(Number(resPrecheck.rows[0].res.new_balance), 900.00);
+
+  // 3. Test-Only Barrier to simulate concurrent race in single-process PGlite:
+  // We install a test-only view barrier on public.transactions that hides the row during the pre-check
+  // (simulating in-flight concurrent execution before the winner committed), forcing Request 2 to enter
+  // the atomic BEGIN block, execute UPDATE wallets speculatively, and hit unique_violation on INSERT!
+  // PostgreSQL automatically aborts the subtransaction to the savepoint at BEGIN, rolling back the speculative wallet update!
+  await pg.exec(`
+    ALTER TABLE public.transactions RENAME TO transactions_real;
+    CREATE SEQUENCE test_race_seq;
+    CREATE OR REPLACE FUNCTION test_race_hide(req text) RETURNS BOOLEAN AS $$
+    BEGIN
+      IF req LIKE 'req-race%' AND nextval('test_race_seq') = 1 THEN
+        RETURN TRUE;
+      END IF;
+      RETURN FALSE;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    CREATE VIEW public.transactions AS 
+    SELECT * FROM public.transactions_real WHERE NOT test_race_hide(request_id);
+
+    CREATE OR REPLACE FUNCTION test_view_tx_insert() RETURNS TRIGGER AS $$
+    BEGIN
+      INSERT INTO public.transactions_real (
+        user_id, date, type, category, amount, details, related_job, wallet_id, card_id, job_id, request_id, created_at, updated_at
+      ) VALUES (
+        NEW.user_id, NEW.date, NEW.type, NEW.category, NEW.amount, NEW.details, NEW.related_job, NEW.wallet_id, NEW.card_id, NEW.job_id, NEW.request_id, NOW(), NOW()
+      ) RETURNING * INTO NEW;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    CREATE TRIGGER trg_test_view_tx_insert INSTEAD OF INSERT ON public.transactions
+    FOR EACH ROW EXECUTE FUNCTION test_view_tx_insert();
+  `);
+
   const resRace = await pg.query(`
     SELECT public.execute_create_transaction(
       p_date := '2026-09-22'::date,
@@ -1387,9 +1493,8 @@ await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: specula
       p_request_id := 'req-race-1'
     ) AS res;
   `);
-  await pg.exec("SET test.simulate_concurrent_race = 'false';");
 
-  assert.strictEqual(resRace.rows[0].res.status, 'IDEMPOTENT_RETRY', 'Concurrent loser must return IDEMPOTENT_RETRY');
+  assert.strictEqual(resRace.rows[0].res.status, 'IDEMPOTENT_RETRY', 'Concurrent loser hitting unique_violation must return IDEMPOTENT_RETRY');
   assert.strictEqual(Number(resRace.rows[0].res.new_balance), 900.00, 'Returned balance must be 900.00');
 
   // Verify wallet balance in database: MUST be 900.00 (NOT double-deducted to 800.00!)
@@ -1397,11 +1502,12 @@ await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: specula
   assert.strictEqual(Number(balCheck.rows[0].balance), 900.00, 'Persistent wallet balance must remain exactly 900.00');
 
   // Verify transaction count in ledger: MUST be exactly 1
-  const countCheck = await pg.query(`SELECT COUNT(*) FROM public.transactions WHERE request_id = 'req-race-1';`);
+  const countCheck = await pg.query(`SELECT COUNT(*) FROM public.transactions_real WHERE request_id = 'req-race-1';`);
   assert.strictEqual(Number(countCheck.rows[0].count), 1, 'Ledger must contain exactly 1 transaction');
 
-  // 3. Concurrent race with conflicting payload (e.g. amount changed to 500)
-  await pg.exec("SET test.simulate_concurrent_race = 'true';");
+  // 4. Concurrent race with conflicting payload (e.g. amount changed to 500)
+  // Reset sequence to 0 so nextval triggers hide on first read (pre-check)
+  await pg.exec(`ALTER SEQUENCE test_race_seq RESTART WITH 1;`);
   let raceConflictCaught = false;
   try {
     await pg.query(`
@@ -1421,8 +1527,6 @@ await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: specula
   } catch (err) {
     raceConflictCaught = true;
     assert(err.message.includes('IDEMPOTENCY_CONFLICT'), 'Expected IDEMPOTENCY_CONFLICT on conflicting race payload');
-  } finally {
-    await pg.exec("SET test.simulate_concurrent_race = 'false';");
   }
   assert(raceConflictCaught, 'Conflicting race payload must throw IDEMPOTENCY_CONFLICT');
 
@@ -1430,7 +1534,7 @@ await test('N02', 'Concurrent Retry & Subtransaction Rollback Isolation: specula
   const balCheck2 = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wA};`);
   assert.strictEqual(Number(balCheck2.rows[0].balance), 900.00, 'Balance must remain 900.00 after rejected conflict race');
 
-  // 4. Cross-user isolation: User B creates transaction using identical request_id 'req-race-1'
+  // 5. Cross-user isolation: User B creates transaction using identical request_id 'req-race-1'
   await pg.exec(`
     SET request.jwt.claim.sub = '${userB}';
     SET request.jwt.claim.role = 'authenticated';

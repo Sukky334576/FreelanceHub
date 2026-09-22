@@ -1240,7 +1240,6 @@ DECLARE
   v_job_title TEXT := NULL;
   v_resolved_job RECORD;
   v_req_id TEXT := NULL;
-  v_skip_precheck BOOLEAN := FALSE;
 BEGIN
   -- 1. Session authorization
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
@@ -1275,11 +1274,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- Check test simulation flag for multi-connection concurrency
-  v_skip_precheck := (COALESCE(current_setting('test.simulate_concurrent_race', true), 'false') = 'true');
-
   -- 4. Fast pre-check for idempotency (RR05, N01)
-  IF v_req_id IS NOT NULL AND NOT v_skip_precheck THEN
+  IF v_req_id IS NOT NULL THEN
     SELECT * INTO v_existing_tx 
     FROM public.transactions 
     WHERE user_id = v_user_id AND request_id = v_req_id;
