@@ -3121,6 +3121,7 @@
       <div class="sheet-body">
         <form id="txForm" onsubmit="handleSaveTx(event)">
           <input type="hidden" id="txEditId">
+          <input type="hidden" id="txRequestId">
 
           <!-- Big Amount Hero Input -->
           <div class="amount-hero-input-wrap">
@@ -4273,6 +4274,13 @@
 
     var currentSessionGeneration = 0;
 
+    function isMutationSessionValid(mutationToken, mutationUserId) {
+      if (mutationToken !== currentSessionGeneration) return false;
+      var curId = currentUser ? currentUser.id : null;
+      if (curId !== mutationUserId) return false;
+      return true;
+    }
+
     function clearAppDataAndScreens() {
       currentSessionGeneration++;
       appData = {
@@ -4852,6 +4860,8 @@
     function openAddTxModal() {
       if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
       document.getElementById('txEditId').value = '';
+      var reqInput = document.getElementById('txRequestId');
+      if (reqInput) reqInput.value = '';
       var relJobEl = document.getElementById('txRelatedJob');
       if (relJobEl) relJobEl.value = '';
       document.getElementById('txDrawerTitle').textContent = 'บันทึกรายการเงิน';
@@ -4896,6 +4906,8 @@
       }
 
       document.getElementById('txEditId').value = tx.id;
+      var reqInput = document.getElementById('txRequestId');
+      if (reqInput) reqInput.value = '';
       document.getElementById('txDrawerTitle').textContent = 'แก้ไขรายการเงิน';
       document.getElementById('txAmount').value = tx.amount;
       setTxFormType(tx.type);
@@ -4908,7 +4920,18 @@
       document.getElementById('txDetails').value = meta.details || '';
 
       var relJobEl = document.getElementById('txRelatedJob');
-      if (relJobEl) relJobEl.value = tx.related_job || '';
+      if (relJobEl) {
+        var targetJobId = '';
+        if (tx.job_id) {
+          targetJobId = String(tx.job_id);
+        } else if (tx.related_job) {
+          var matchedJob = (appData.jobs || []).find(function(j) {
+            return String(j.id) === String(tx.related_job) || j.title === tx.related_job;
+          });
+          if (matchedJob) targetJobId = String(matchedJob.id);
+        }
+        relJobEl.value = targetJobId;
+      }
 
       renderCategoryOptions();
       document.getElementById('txCategory').value = tx.category;
@@ -4955,7 +4978,16 @@
       var account = document.getElementById('txAccount').value;
       var date = document.getElementById('txDate').value;
       var time = document.getElementById('txTime').value;
-      var relatedJob = document.getElementById('txRelatedJob')?.value || '';
+
+      // RR03: Canonical Job ID resolution
+      var relJobEl = document.getElementById('txRelatedJob');
+      var selectedJobId = (relJobEl && relJobEl.value) ? parseInt(relJobEl.value, 10) : null;
+      if (isNaN(selectedJobId)) selectedJobId = null;
+      var selectedJob = selectedJobId ? (appData.jobs || []).find(function(j) { return j.id === selectedJobId; }) : null;
+      var opt = (relJobEl && relJobEl.options && relJobEl.selectedIndex >= 0) ? relJobEl.options[relJobEl.selectedIndex] : null;
+      var jobTitle = selectedJob ? selectedJob.title : (opt ? (opt.dataset?.title || opt.text || null) : null);
+      if (jobTitle === '-- ไม่ระบุโปรเจกต์ --') jobTitle = null;
+
       var details = document.getElementById('txDetails').value;
       var editId = document.getElementById('txEditId').value;
 
@@ -4969,9 +5001,22 @@
         category: category,
         amount: amount,
         details: fullDetails,
-        related_job: relatedJob,
+        related_job: jobTitle,
+        job_id: selectedJobId,
         wallet_id: walletId
       };
+
+      // RR05: Persistent request ID per form submission
+      var reqInput = document.getElementById('txRequestId');
+      var submissionRequestId = reqInput ? reqInput.value : '';
+      if (!submissionRequestId && !editId) {
+        submissionRequestId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        if (reqInput) reqInput.value = submissionRequestId;
+      }
+
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
 
       var btnSubmit = document.getElementById('btnTxSubmit');
       if (btnSubmit) {
@@ -5004,7 +5049,7 @@
             return;
           }
 
-          // Compute immutable delta using FinancialCore
+          // Compute delta using FinancialCore for client validation
           var deltaInfo = (window.FinancialCore && typeof window.FinancialCore.computeEditDelta === 'function')
             ? window.FinancialCore.computeEditDelta(oldTx, payload, appData.wallets)
             : { hasFinancialChange: false, isSameWallet: true, targetWalletId: payload.wallet_id, netDelta: 0 };
@@ -5017,12 +5062,20 @@
             p_category: payload.category,
             p_amount: payload.amount,
             p_details: payload.details || null,
-            p_related_job: payload.related_job ? parseInt(payload.related_job, 10) : null,
+            p_related_job: payload.related_job || null,
             p_wallet_id: payload.wallet_id ? parseInt(payload.wallet_id, 10) : null,
-            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null
+            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null,
+            p_job_id: payload.job_id ? parseInt(payload.job_id, 10) : null
           };
 
           var rpcRes = await db.rpc('execute_update_transaction', rpcParams);
+
+          // RR04: Validate session has not switched during in-flight RPC
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+            console.warn('[Session] Discarding updateTx response from previous session token:', mutationToken);
+            return;
+          }
+
           if (rpcRes.error) throw rpcRes.error;
 
           var resultData = rpcRes.data;
@@ -5051,12 +5104,21 @@
             p_category: payload.category,
             p_amount: payload.amount,
             p_details: payload.details || null,
-            p_related_job: payload.related_job ? parseInt(payload.related_job, 10) : null,
+            p_related_job: payload.related_job || null,
             p_wallet_id: payload.wallet_id ? parseInt(payload.wallet_id, 10) : null,
-            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null
+            p_card_id: payload.card_id ? parseInt(payload.card_id, 10) : null,
+            p_job_id: payload.job_id ? parseInt(payload.job_id, 10) : null,
+            p_request_id: submissionRequestId || null
           };
 
           var rpcRes = await db.rpc('execute_create_transaction', rpcParams);
+
+          // RR04: Validate session has not switched during in-flight RPC
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+            console.warn('[Session] Discarding createTx response from previous session token:', mutationToken);
+            return;
+          }
+
           if (rpcRes.error) throw rpcRes.error;
 
           var resultData = rpcRes.data;
@@ -5068,15 +5130,28 @@
             if (targetW) targetW.balance = parseFloat(resultData.new_balance);
           }
 
-          appData.transactions.unshift(newTx);
+          // RR05: Avoid duplicate unshift if idempotent retry returns existing transaction
+          var alreadyExists = appData.transactions.some(function(t) {
+            return t.id === newTx.id || (submissionRequestId && t.request_id && t.request_id === submissionRequestId);
+          });
+          if (!alreadyExists) {
+            appData.transactions.unshift(newTx);
+          }
+
           if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
           showToast('บันทึกรายการเงินสำเร็จ 🎉');
         }
+
+        if (reqInput) reqInput.value = '';
         closeAllDrawers();
         renderDashboard();
         renderTransactions();
         setSyncStatus('synced');
       } catch (err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing saveTx error alert from previous session:', err);
+          return;
+        }
         console.error('Error saving transaction:', err);
         alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err.message || 'เครือข่ายขัดข้อง กรุณาลองใหม่อีกครั้ง'));
         setSyncStatus('error');
@@ -5117,10 +5192,21 @@
 
       if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่? ยอดเงินในบัญชีจะถูกปรับคืนโดยอัตโนมัติ')) return;
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         setSyncStatus('saving');
         // Atomic Delete RPC
         var res = await db.rpc('execute_delete_transaction', { p_tx_id: numId });
+
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding deleteTx response from previous session token:', mutationToken);
+          return;
+        }
+
         if (res.error) throw res.error;
 
         var resultData = res.data;
@@ -5131,6 +5217,7 @@
           renderDashboard();
           renderTransactions();
           setSyncStatus('synced');
+          showToast('รายการนี้ถูกลบไปก่อนหน้าแล้ว');
           return;
         }
 
@@ -5151,8 +5238,12 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(e) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing deleteTx error alert from previous session:', e);
+          return;
+        }
         console.error(e);
-        alert('ลบไม่สำเร็จ: ' + e.message);
+        alert('ลบไม่สำเร็จ: ' + (e.message || e));
         setSyncStatus('error');
       }
     }
@@ -6207,6 +6298,10 @@
       var btn = document.getElementById('btnSubmitRecon');
       if (btn) btn.disabled = true;
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         var acc = document.getElementById('reconAccountSelect').value;
         if (!acc || acc === 'all') {
@@ -6255,6 +6350,12 @@
           p_date: date
         });
 
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding recon response from previous session token:', mutationToken);
+          return;
+        }
+
         // Supabase returns { data: null, error: {...} } on SQL exception
         if (rpcRecon.error) {
           var errMsg = rpcRecon.error.message || String(rpcRecon.error);
@@ -6275,6 +6376,7 @@
 
         // Reload data so the backend-generated audit log row is pulled cleanly without duplicate
         await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
         localStorage.setItem('natthawit_last_recon_date', date);
         if (resData && resData.status === 'NO_OP') {
@@ -6286,6 +6388,10 @@
         renderDashboard();
         renderTransactions();
       } catch(err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing recon error alert from previous session:', err);
+          return;
+        }
         console.error(err);
         alert('เกิดข้อผิดพลาดในการปรับยอดเงิน: ' + (err.message || err));
       } finally {
@@ -6308,6 +6414,10 @@
         return;
       }
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         setSyncStatus('saving');
         var targetWallet = b.linked_wallet_id ? (appData.wallets || []).find(function(w){ return w.id === b.linked_wallet_id; }) : (appData.wallets && appData.wallets[0]);
@@ -6321,11 +6431,18 @@
           p_payment_date: getTodayDateStr()
         });
 
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding quickPayBill response from previous session token:', mutationToken);
+          return;
+        }
+
         if (rpcRes.error) {
           throw new Error(rpcRes.error.message || String(rpcRes.error));
         }
 
         await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
         showToast('ชำระบิล "' + b.item + '" สำเร็จ 🎉');
         renderDashboard();
@@ -6333,6 +6450,10 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing quickPayBill error alert from previous session:', err);
+          return;
+        }
         console.error(err);
         alert('เกิดข้อผิดพลาดในการชำระบิล: ' + (err.message || err));
         setSyncStatus('error');
@@ -6505,13 +6626,13 @@
       appData.transactions.forEach(function(t) {
         if (isOperatingExpense(t)) {
           var matchedProject = null;
-          if (t.related_job && projects[t.related_job]) {
-            matchedProject = projects[t.related_job];
-          } else if (t.job_id) {
+          if (t.job_id) {
             var matchedJob = appData.jobs.find(function(j) { return j.id === t.job_id || String(j.id) === String(t.job_id); });
             if (matchedJob && projects[matchedJob.title]) {
               matchedProject = projects[matchedJob.title];
             }
+          } else if (t.related_job && projects[t.related_job]) {
+            matchedProject = projects[t.related_job];
           }
           if (matchedProject) {
             matchedProject.expenses += (parseFloat(t.amount) || 0);
@@ -6614,14 +6735,27 @@
         await quickPayBill(id);
       } else {
         if (!confirm('ต้องการเปลี่ยนสถานะบิล "' + b.item + '" กลับเป็น "รอชำระ" ใช่หรือไม่? ยอดเงินที่เคยหักจะถูกคืนเข้ากระเป๋าเงินโดยอัตโนมัติ')) return;
+
+        // RR04: Capture session generation token and user ID
+        var mutationToken = currentSessionGeneration;
+        var mutationUserId = currentUser ? currentUser.id : null;
+
         try {
           setSyncStatus('saving');
           var rpcRes = await db.rpc('cancel_bill_payment', { p_bill_id: b.id });
+
+          // RR04: Validate session has not switched during in-flight RPC
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+            console.warn('[Session] Discarding cancel_bill_payment response from previous session token:', mutationToken);
+            return;
+          }
+
           if (rpcRes.error) {
             throw new Error(rpcRes.error.message || String(rpcRes.error));
           }
 
           await loadAllData();
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
           showToast('เปลี่ยนสถานะเป็นรอจ่าย และคืนยอดเข้ากระเป๋าแล้ว ↩️');
           renderDashboard();
@@ -6629,6 +6763,10 @@
           renderTransactions();
           setSyncStatus('synced');
         } catch(err) {
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+            console.warn('[Session] Suppressing cancel_bill_payment error alert from previous session:', err);
+            return;
+          }
           console.error('Error undoing bill payment:', err);
           alert('เกิดข้อผิดพลาดในการยกเลิกสถานะบิล: ' + (err.message || err));
           setSyncStatus('error');
@@ -6658,13 +6796,27 @@
         is_paid: false
       };
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         var res = await db.from('bills').insert([payload]);
+
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding handleSaveBill response from previous session token:', mutationToken);
+          return;
+        }
+
         if (res.error) throw res.error;
         showToast('เพิ่มบิลประจำแล้ว 🎉');
         closeAllDrawers();
         await loadAllData();
       } catch(e) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing handleSaveBill error alert from previous session:', e);
+          return;
+        }
         console.error('Error saving bill:', e);
         alert('เกิดข้อผิดพลาดในการบันทึกบิล: ' + (e.message || e));
       }
@@ -7163,10 +7315,13 @@
       if (!sel) return;
       var html = '<option value="">-- ไม่ระบุโปรเจกต์ --</option>';
       var jobsMap = {};
-      appData.jobs.forEach(function(j) {
-        if (j.title && !jobsMap[j.title]) {
-          jobsMap[j.title] = true;
-          html += '<option value="' + escapeHtml(j.title) + '">' + escapeHtml(j.title) + '</option>';
+      (appData.jobs || []).forEach(function(j) {
+        var key = j.id != null ? String(j.id) : (j.title || '');
+        if (key && !jobsMap[key]) {
+          jobsMap[key] = true;
+          var val = j.id != null ? j.id : escapeHtml(j.title);
+          var title = escapeHtml(j.title || ('โปรเจกต์ #' + j.id));
+          html += '<option value="' + val + '" data-title="' + escapeHtml(j.title || '') + '">' + title + '</option>';
         }
       });
       sel.innerHTML = html;
@@ -7907,6 +8062,10 @@
       var btnSubmit = document.querySelector('#transferModal .btn-submit-main');
       if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = 'กำลังโอน...'; }
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         setSyncStatus('saving');
         var rpcRes = await db.rpc('execute_wallet_transfer', {
@@ -7918,11 +8077,18 @@
           p_note: note
         });
 
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding transfer response from previous session token:', mutationToken);
+          return;
+        }
+
         if (rpcRes.error) {
           throw new Error(rpcRes.error.message || String(rpcRes.error));
         }
 
         await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         closeAllDrawers();
@@ -7931,6 +8097,10 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing transfer error alert from previous session:', err);
+          return;
+        }
         console.error('Transfer error:', err);
         alert('เกิดข้อผิดพลาดในการโอนเงิน: ' + (err.message || err));
         setSyncStatus('error');
@@ -7942,14 +8112,27 @@
     async function cancelTransferByTx(tx) {
       if (!tx || !tx.transfer_id) return;
       var transferId = tx.transfer_id;
+
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         setSyncStatus('saving');
         var res = await db.rpc('cancel_wallet_transfer', { p_transfer_id: transferId });
+
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding cancel_transfer response from previous session token:', mutationToken);
+          return;
+        }
+
         if (res.error) {
           throw new Error(res.error.message || String(res.error));
         }
 
         await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         showToast('ยกเลิกรายการโอนเงินทั้งชุดเรียบร้อย ↩️');
@@ -7958,6 +8141,10 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing cancel_transfer error alert from previous session:', err);
+          return;
+        }
         console.error('Cancel transfer error:', err);
         alert('เกิดข้อผิดพลาดในการยกเลิกรายการโอน: ' + err.message);
         setSyncStatus('error');
@@ -8045,13 +8232,16 @@
       periodTxs.forEach(function(t) {
         var amt = parseFloat(t.amount) || 0;
         totalIncome += amt;
-        var jobKey = t.related_job || 'รายรับไม่ระบุงาน';
+        var jobObj = t.job_id ? appData.jobs.find(function(j) { return j.id === t.job_id; }) : null;
+        var jobKey = jobObj ? jobObj.title : (t.related_job || 'รายรับไม่ระบุงาน');
 
         if (!jobMap[jobKey]) {
-          // Find matching job in appData.jobs
-          var jobObj = appData.jobs.find(function(j) {
-            return j.title === jobKey || String(j.id) === jobKey;
-          });
+          // Find matching job in appData.jobs if not already found
+          if (!jobObj) {
+            jobObj = appData.jobs.find(function(j) {
+              return j.title === jobKey || String(j.id) === jobKey;
+            });
+          }
 
           jobMap[jobKey] = {
             key: jobKey,
@@ -8198,7 +8388,8 @@
         if (currentExpenseGrouping === 'category') {
           key = t.category || 'ยังไม่จัดหมวด';
         } else if (currentExpenseGrouping === 'job') {
-          key = t.related_job || 'ค่าใช้จ่ายทั่วไป (ไม่ผูกงาน)';
+          var matchedJob = t.job_id ? (appData.jobs || []).find(function(j) { return j.id === t.job_id; }) : null;
+          key = matchedJob ? matchedJob.title : (t.related_job || 'ค่าใช้จ่ายทั่วไป (ไม่ผูกงาน)');
         } else if (currentExpenseGrouping === 'wallet') {
           key = 'บัญชีสตูดิโอ';
           (appData.wallets || []).forEach(function(w) {
@@ -8765,6 +8956,10 @@
         return;
       }
 
+      // RR04: Capture session generation token and user ID
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
       try {
         setSyncStatus('saving');
         var rpcRes = await db.rpc('execute_debt_payment', {
@@ -8777,11 +8972,18 @@
           p_note: note
         });
 
+        // RR04: Validate session has not switched during in-flight RPC
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Discarding debt payment response from previous session token:', mutationToken);
+          return;
+        }
+
         if (rpcRes.error) {
           throw new Error(rpcRes.error.message || String(rpcRes.error));
         }
 
         await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
 
         if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
         closeAllDrawers();
@@ -8791,6 +8993,10 @@
         renderTransactions();
         setSyncStatus('synced');
       } catch(err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) {
+          console.warn('[Session] Suppressing debt payment error alert from previous session:', err);
+          return;
+        }
         console.error('Record debt payment error:', err);
         alert('เกิดข้อผิดพลาดในการบันทึกชำระหนี้: ' + (err.message || err));
         setSyncStatus('error');

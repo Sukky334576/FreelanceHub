@@ -1,0 +1,11 @@
+{
+  "name": "natthawit-studio-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/verify_financial_fixes.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}

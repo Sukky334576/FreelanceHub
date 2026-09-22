@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   transfer_id BIGINT,
   bill_id BIGINT,
   related_job TEXT,
+  request_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -239,6 +240,7 @@ BEGIN
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS transfer_id BIGINT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS bill_id BIGINT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS related_job TEXT;
+  ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS request_id TEXT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS time TIME DEFAULT CURRENT_TIME;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS slip_url TEXT;
 
@@ -402,9 +404,80 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------------------------
+-- 4C. RESOLVE LEGACY TRANSACTION WALLET IDENTITY (RR02)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.resolve_transaction_wallet_id(
+  p_details TEXT,
+  p_user_id UUID
+)
+RETURNS BIGINT
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  v_account_name TEXT := NULL;
+  v_wallet_id BIGINT := NULL;
+  v_json JSONB;
+  v_bracket_end INT;
+  v_bracket_inner TEXT;
+  v_pipe_pos INT;
+BEGIN
+  IF p_details IS NULL OR trim(p_details) = '' OR p_user_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  p_details := trim(p_details);
+
+  -- 1. Check JSON format: e.g. {"account":"บัญชี A", ...} or {"wallet":"บัญชี A", ...}
+  IF left(p_details, 1) = '{' THEN
+    BEGIN
+      v_json := p_details::jsonb;
+      IF v_json ? 'account' AND NULLIF(trim(v_json->>'account'), '') IS NOT NULL THEN
+        v_account_name := trim(v_json->>'account');
+      ELSIF v_json ? 'wallet' AND NULLIF(trim(v_json->>'wallet'), '') IS NOT NULL THEN
+        v_account_name := trim(v_json->>'wallet');
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      v_account_name := NULL;
+    END;
+  END IF;
+
+  -- 2. Check Bracket format: e.g. [สตูดิโอ | บัญชี A] ... or [ส่วนตัว | บัญชี A] ... or [บัญชี A] ...
+  IF v_account_name IS NULL AND left(p_details, 1) = '[' THEN
+    v_bracket_end := position(']' in p_details);
+    IF v_bracket_end > 2 THEN
+      v_bracket_inner := substring(p_details from 2 for v_bracket_end - 2);
+      v_pipe_pos := position('|' in v_bracket_inner);
+      IF v_pipe_pos > 0 THEN
+        v_account_name := trim(substring(v_bracket_inner from v_pipe_pos + 1));
+      ELSE
+        v_account_name := trim(v_bracket_inner);
+      END IF;
+    END IF;
+  END IF;
+
+  -- 3. Match against wallets owned by user
+  IF v_account_name IS NOT NULL AND v_account_name <> '' THEN
+    SELECT id INTO v_wallet_id
+    FROM public.wallets
+    WHERE user_id = p_user_id AND name = v_account_name
+    ORDER BY id ASC
+    LIMIT 1;
+  END IF;
+
+  RETURN v_wallet_id;
+END;
+$$;
+
+-- Backfill legacy transactions where wallet_id is NULL
+UPDATE public.transactions t
+SET wallet_id = public.resolve_transaction_wallet_id(t.details, t.user_id)
+WHERE t.wallet_id IS NULL AND t.details IS NOT NULL AND t.user_id IS NOT NULL;
+
+-- ------------------------------------------------------------------------------
 -- 5. PERFORMANCE INDEXES
 -- ------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON public.transactions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_user_request_id ON public.transactions(user_id, request_id) WHERE request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON public.transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON public.transactions(wallet_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_job_id ON public.transactions(job_id);
@@ -460,6 +533,10 @@ REVOKE ALL ON public.jobs FROM anon;
 REVOKE ALL ON public.todos FROM anon;
 REVOKE ALL ON public.equipment FROM anon;
 REVOKE ALL ON public.categories FROM anon;
+
+-- Ensure authenticated users have table access (governed strictly by RLS policies)
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- Drop obsolete or permissive policies
 DO $$
@@ -764,7 +841,6 @@ $$;
 
 -- Procedure 4: Atomic Reconciliation with Stale State Detection & Custom Date
 -- Explicitly drop obsolete 4-arg overload from 991b34f to prevent bypassing strict owner verification
-REVOKE ALL ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT) FROM PUBLIC, anon, authenticated;
 DROP FUNCTION IF EXISTS public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT);
 
 CREATE OR REPLACE FUNCTION public.execute_wallet_reconciliation(
@@ -1134,15 +1210,20 @@ END;
 $$;
 
 -- Procedure 8: Atomic Transaction Creation with Wallet Balance Sync
+DROP FUNCTION IF EXISTS public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT);
+DROP FUNCTION IF EXISTS public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.execute_create_transaction(
   p_date DATE,
   p_type TEXT,
   p_category TEXT,
   p_amount NUMERIC,
   p_details TEXT DEFAULT NULL,
-  p_related_job BIGINT DEFAULT NULL,
+  p_related_job TEXT DEFAULT NULL,
   p_wallet_id BIGINT DEFAULT NULL,
-  p_card_id BIGINT DEFAULT NULL
+  p_card_id BIGINT DEFAULT NULL,
+  p_job_id BIGINT DEFAULT NULL,
+  p_request_id TEXT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -1155,6 +1236,9 @@ DECLARE
   v_delta NUMERIC := 0;
   v_new_balance NUMERIC := NULL;
   v_tx RECORD;
+  v_existing_tx RECORD;
+  v_job_title TEXT := NULL;
+  v_resolved_job RECORD;
 BEGIN
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
@@ -1163,6 +1247,49 @@ BEGIN
 
   IF p_amount <= 0 THEN
     RAISE EXCEPTION 'Invalid amount: must be greater than zero';
+  END IF;
+
+  -- RR05: Idempotency check before modifying any state
+  IF p_request_id IS NOT NULL AND trim(p_request_id) <> '' THEN
+    SELECT * INTO v_existing_tx 
+    FROM public.transactions 
+    WHERE user_id = v_user_id AND request_id = p_request_id;
+
+    IF FOUND THEN
+      -- Validate payload consistency (amount and type)
+      IF v_existing_tx.amount <> p_amount OR v_existing_tx.type <> p_type THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', p_request_id;
+      END IF;
+
+      IF p_wallet_id IS NOT NULL THEN
+        SELECT balance INTO v_new_balance FROM public.wallets WHERE id = p_wallet_id;
+      END IF;
+
+      RETURN jsonb_build_object(
+        'success', true,
+        'status', 'IDEMPOTENT_RETRY',
+        'transaction', to_jsonb(v_existing_tx),
+        'wallet_id', p_wallet_id,
+        'new_balance', v_new_balance
+      );
+    END IF;
+  END IF;
+
+  -- RR03: Validate and resolve job ownership
+  IF p_job_id IS NOT NULL THEN
+    SELECT title INTO v_job_title FROM public.jobs WHERE id = p_job_id AND user_id = v_user_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'INVALID_JOB: Job does not exist or belong to user';
+    END IF;
+    IF p_related_job IS NULL THEN
+      p_related_job := v_job_title;
+    END IF;
+  ELSIF p_related_job IS NOT NULL AND p_related_job ~ '^[0-9]+$' THEN
+    SELECT id, title INTO v_resolved_job FROM public.jobs WHERE id = p_related_job::bigint AND user_id = v_user_id;
+    IF FOUND THEN
+      p_job_id := v_resolved_job.id;
+      p_related_job := v_resolved_job.title;
+    END IF;
   END IF;
 
   IF p_wallet_id IS NOT NULL THEN
@@ -1187,12 +1314,39 @@ BEGIN
     RETURNING balance INTO v_new_balance;
   END IF;
 
-  INSERT INTO public.transactions (
-    user_id, date, type, category, amount, details, related_job, wallet_id, card_id, created_at, updated_at
-  ) VALUES (
-    v_user_id, p_date, p_type, p_category, p_amount, p_details, p_related_job, p_wallet_id, p_card_id, NOW(), NOW()
-  )
-  RETURNING * INTO v_tx;
+  BEGIN
+    INSERT INTO public.transactions (
+      user_id, date, type, category, amount, details, related_job, wallet_id, card_id, job_id, request_id, created_at, updated_at
+    ) VALUES (
+      v_user_id, p_date, p_type, p_category, p_amount, p_details, p_related_job, p_wallet_id, p_card_id, p_job_id, p_request_id, NOW(), NOW()
+    )
+    RETURNING * INTO v_tx;
+  EXCEPTION WHEN unique_violation THEN
+    IF p_request_id IS NOT NULL THEN
+      SELECT * INTO v_existing_tx 
+      FROM public.transactions 
+      WHERE user_id = v_user_id AND request_id = p_request_id;
+
+      IF FOUND THEN
+        IF v_existing_tx.amount <> p_amount OR v_existing_tx.type <> p_type THEN
+          RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT: request_id % already used with different payload', p_request_id;
+        END IF;
+
+        IF p_wallet_id IS NOT NULL THEN
+          SELECT balance INTO v_new_balance FROM public.wallets WHERE id = p_wallet_id;
+        END IF;
+
+        RETURN jsonb_build_object(
+          'success', true,
+          'status', 'IDEMPOTENT_RETRY',
+          'transaction', to_jsonb(v_existing_tx),
+          'wallet_id', p_wallet_id,
+          'new_balance', v_new_balance
+        );
+      END IF;
+    END IF;
+    RAISE;
+  END;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -1205,6 +1359,9 @@ END;
 $$;
 
 -- Procedure 9: Atomic Transaction Update with Multi-Wallet Rebalance
+DROP FUNCTION IF EXISTS public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT);
+DROP FUNCTION IF EXISTS public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT);
+
 CREATE OR REPLACE FUNCTION public.execute_update_transaction(
   p_tx_id BIGINT,
   p_date DATE,
@@ -1212,9 +1369,10 @@ CREATE OR REPLACE FUNCTION public.execute_update_transaction(
   p_category TEXT,
   p_amount NUMERIC,
   p_details TEXT DEFAULT NULL,
-  p_related_job BIGINT DEFAULT NULL,
+  p_related_job TEXT DEFAULT NULL,
   p_wallet_id BIGINT DEFAULT NULL,
-  p_card_id BIGINT DEFAULT NULL
+  p_card_id BIGINT DEFAULT NULL,
+  p_job_id BIGINT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -1226,11 +1384,14 @@ DECLARE
   v_old_tx RECORD;
   v_old_wallet RECORD;
   v_new_wallet RECORD;
+  v_effective_old_wallet_id BIGINT := NULL;
   v_revert_delta NUMERIC := 0;
   v_apply_delta NUMERIC := 0;
   v_old_wallet_balance NUMERIC := NULL;
   v_new_wallet_balance NUMERIC := NULL;
   v_updated_tx RECORD;
+  v_job_title TEXT := NULL;
+  v_resolved_job RECORD;
 BEGIN
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
@@ -1256,8 +1417,34 @@ BEGIN
     RAISE EXCEPTION 'System transaction cannot be modified via general transaction update';
   END IF;
 
+  -- RR03: Validate and resolve job ownership
+  IF p_job_id IS NOT NULL THEN
+    SELECT title INTO v_job_title FROM public.jobs WHERE id = p_job_id AND user_id = v_user_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'INVALID_JOB: Job does not exist or belong to user';
+    END IF;
+    IF p_related_job IS NULL THEN
+      p_related_job := v_job_title;
+    END IF;
+  ELSIF p_related_job IS NOT NULL AND p_related_job ~ '^[0-9]+$' THEN
+    SELECT id, title INTO v_resolved_job FROM public.jobs WHERE id = p_related_job::bigint AND user_id = v_user_id;
+    IF FOUND THEN
+      p_job_id := v_resolved_job.id;
+      p_related_job := v_resolved_job.title;
+    END IF;
+  ELSIF p_job_id IS NULL AND p_related_job IS NULL THEN
+    p_job_id := v_old_tx.job_id;
+    p_related_job := v_old_tx.related_job;
+  END IF;
+
+  -- RR02: Resolve effective old wallet ID (supporting legacy transactions with NULL wallet_id)
+  v_effective_old_wallet_id := v_old_tx.wallet_id;
+  IF v_effective_old_wallet_id IS NULL THEN
+    v_effective_old_wallet_id := public.resolve_transaction_wallet_id(v_old_tx.details, v_user_id);
+  END IF;
+
   -- Calculate revert delta for old wallet
-  IF v_old_tx.wallet_id IS NOT NULL THEN
+  IF v_effective_old_wallet_id IS NOT NULL THEN
     IF v_old_tx.type = 'รายรับ' THEN
       v_revert_delta := -v_old_tx.amount;
     ELSE
@@ -1275,7 +1462,7 @@ BEGIN
   END IF;
 
   -- Case A: Same wallet
-  IF v_old_tx.wallet_id IS NOT NULL AND p_wallet_id IS NOT NULL AND v_old_tx.wallet_id = p_wallet_id THEN
+  IF v_effective_old_wallet_id IS NOT NULL AND p_wallet_id IS NOT NULL AND v_effective_old_wallet_id = p_wallet_id THEN
     SELECT * INTO v_old_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
     IF v_old_wallet.user_id IS NULL OR v_old_wallet.user_id <> v_user_id THEN
       RAISE EXCEPTION 'Forbidden: wallet not owned by user';
@@ -1293,14 +1480,13 @@ BEGIN
     v_old_wallet_balance := v_new_wallet_balance;
 
   -- Case B: Different wallets
-  ELSIF v_old_tx.wallet_id IS NOT NULL AND p_wallet_id IS NOT NULL AND v_old_tx.wallet_id <> p_wallet_id THEN
-    -- Lock in consistent order to prevent deadlocks
-    IF v_old_tx.wallet_id < p_wallet_id THEN
-      SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_old_tx.wallet_id FOR UPDATE;
+  ELSIF v_effective_old_wallet_id IS NOT NULL AND p_wallet_id IS NOT NULL AND v_effective_old_wallet_id <> p_wallet_id THEN
+    IF v_effective_old_wallet_id < p_wallet_id THEN
+      SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_effective_old_wallet_id FOR UPDATE;
       SELECT * INTO v_new_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
     ELSE
       SELECT * INTO v_new_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
-      SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_old_tx.wallet_id FOR UPDATE;
+      SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_effective_old_wallet_id FOR UPDATE;
     END IF;
 
     IF v_old_wallet.user_id IS NULL OR v_old_wallet.user_id <> v_user_id THEN
@@ -1314,7 +1500,7 @@ BEGIN
       UPDATE public.wallets
       SET balance = ROUND((balance + v_revert_delta)::NUMERIC, 2),
           updated_at = NOW()
-      WHERE id = v_old_tx.wallet_id
+      WHERE id = v_effective_old_wallet_id
       RETURNING balance INTO v_old_wallet_balance;
     ELSE
       v_old_wallet_balance := v_old_wallet.balance;
@@ -1331,8 +1517,8 @@ BEGIN
     END IF;
 
   -- Case C: Old had wallet, new has none
-  ELSIF v_old_tx.wallet_id IS NOT NULL AND p_wallet_id IS NULL THEN
-    SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_old_tx.wallet_id FOR UPDATE;
+  ELSIF v_effective_old_wallet_id IS NOT NULL AND p_wallet_id IS NULL THEN
+    SELECT * INTO v_old_wallet FROM public.wallets WHERE id = v_effective_old_wallet_id FOR UPDATE;
     IF v_old_wallet.user_id IS NULL OR v_old_wallet.user_id <> v_user_id THEN
       RAISE EXCEPTION 'Forbidden: wallet not owned by user';
     END IF;
@@ -1341,14 +1527,14 @@ BEGIN
       UPDATE public.wallets
       SET balance = ROUND((balance + v_revert_delta)::NUMERIC, 2),
           updated_at = NOW()
-      WHERE id = v_old_tx.wallet_id
+      WHERE id = v_effective_old_wallet_id
       RETURNING balance INTO v_old_wallet_balance;
     ELSE
       v_old_wallet_balance := v_old_wallet.balance;
     END IF;
 
   -- Case D: Old had no wallet, new has wallet
-  ELSIF v_old_tx.wallet_id IS NULL AND p_wallet_id IS NOT NULL THEN
+  ELSIF v_effective_old_wallet_id IS NULL AND p_wallet_id IS NOT NULL THEN
     SELECT * INTO v_new_wallet FROM public.wallets WHERE id = p_wallet_id FOR UPDATE;
     IF v_new_wallet.user_id IS NULL OR v_new_wallet.user_id <> v_user_id THEN
       RAISE EXCEPTION 'Forbidden: wallet not owned by user';
@@ -1375,6 +1561,7 @@ BEGIN
       related_job = p_related_job,
       wallet_id = p_wallet_id,
       card_id = p_card_id,
+      job_id = p_job_id,
       updated_at = NOW()
   WHERE id = p_tx_id
   RETURNING * INTO v_updated_tx;
@@ -1383,7 +1570,7 @@ BEGIN
     'success', true,
     'status', 'UPDATED',
     'transaction', to_jsonb(v_updated_tx),
-    'old_wallet_id', v_old_tx.wallet_id,
+    'old_wallet_id', v_effective_old_wallet_id,
     'old_wallet_balance', v_old_wallet_balance,
     'new_wallet_id', p_wallet_id,
     'new_wallet_balance', v_new_wallet_balance
@@ -1404,6 +1591,7 @@ DECLARE
   v_user_id UUID;
   v_tx RECORD;
   v_wallet RECORD;
+  v_effective_wallet_id BIGINT := NULL;
   v_revert_delta NUMERIC := 0;
   v_new_balance NUMERIC := NULL;
 BEGIN
@@ -1415,7 +1603,6 @@ BEGIN
   -- Lock transaction row
   SELECT * INTO v_tx FROM public.transactions WHERE id = p_tx_id FOR UPDATE;
   IF NOT FOUND THEN
-    -- Idempotent return: already deleted or not found
     RETURN jsonb_build_object(
       'success', false,
       'status', 'ALREADY_DELETED',
@@ -1441,9 +1628,14 @@ BEGIN
     RAISE EXCEPTION 'รายการนี้เชื่อมโยงกับการชำระค่างวดหนี้ กรุณาจัดการผ่านแท็บหนี้สิน (Debts)';
   END IF;
 
-  -- Revert wallet balance if wallet_id is set
-  IF v_tx.wallet_id IS NOT NULL THEN
-    SELECT * INTO v_wallet FROM public.wallets WHERE id = v_tx.wallet_id FOR UPDATE;
+  -- RR02: Resolve effective wallet ID for legacy records
+  v_effective_wallet_id := v_tx.wallet_id;
+  IF v_effective_wallet_id IS NULL THEN
+    v_effective_wallet_id := public.resolve_transaction_wallet_id(v_tx.details, v_user_id);
+  END IF;
+
+  IF v_effective_wallet_id IS NOT NULL THEN
+    SELECT * INTO v_wallet FROM public.wallets WHERE id = v_effective_wallet_id FOR UPDATE;
     IF FOUND AND (v_wallet.user_id = v_user_id) THEN
       IF v_tx.type = 'รายรับ' THEN
         v_revert_delta := -v_tx.amount;
@@ -1454,7 +1646,7 @@ BEGIN
       UPDATE public.wallets
       SET balance = ROUND((balance + v_revert_delta)::NUMERIC, 2),
           updated_at = NOW()
-      WHERE id = v_tx.wallet_id
+      WHERE id = v_effective_wallet_id
       RETURNING balance INTO v_new_balance;
     END IF;
   END IF;
@@ -1465,7 +1657,7 @@ BEGIN
     'success', true,
     'status', 'DELETED',
     'deleted_tx_id', p_tx_id,
-    'wallet_id', v_tx.wallet_id,
+    'wallet_id', v_effective_wallet_id,
     'revert_delta', v_revert_delta,
     'new_balance', v_new_balance
   );
@@ -1494,11 +1686,15 @@ GRANT EXECUTE ON FUNCTION public.cancel_bill_payment(BIGINT) TO authenticated;
 REVOKE ALL ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT) TO authenticated;
+REVOKE ALL ON FUNCTION public.resolve_transaction_wallet_id(TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.resolve_transaction_wallet_id(TEXT, UUID) TO authenticated;
 
-REVOKE ALL ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, BIGINT, BIGINT, BIGINT) TO authenticated;
+REVOKE ALL ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT) TO authenticated;
 
 REVOKE ALL ON FUNCTION public.execute_delete_transaction(BIGINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.execute_delete_transaction(BIGINT) TO authenticated;
+

@@ -14,12 +14,14 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const { execSync } = require('child_process');
+const { PGlite } = require('@electric-sql/pglite');
 
 // Direct Production Code Import
 const FinancialCore = require('../js/financial-core.js');
 const { handleRequest } = require('../server.js');
 
-console.log('🧪 Starting FreelanceHub Acceptance & Regression Verification Suite (MR01-MR10 & FR01-FR06)...\n');
+console.log('🧪 Starting FreelanceHub Acceptance & Regression Verification Suite (MR01-MR10 & FR01-FR06 & RR01-RR06)...\n');
 
 let passedTests = 0;
 let totalTests = 0;
@@ -39,10 +41,33 @@ async function test(id, name, fn) {
   }
 }
 
+// Load production source files directly
 const ROOT_DIR = path.resolve(__dirname, '..');
 const indexHtml = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
 const migrationSql = fs.readFileSync(path.join(ROOT_DIR, 'supabase_migration_v2.sql'), 'utf8');
 const upgradeSql = fs.readFileSync(path.join(ROOT_DIR, 'supabase_schema_upgrade.sql'), 'utf8');
+
+async function initPgWithShims() {
+  const pg = new PGlite();
+  await pg.exec(`
+    CREATE SCHEMA IF NOT EXISTS auth;
+    CREATE TABLE IF NOT EXISTS auth.users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT
+    );
+    DO $$ BEGIN CREATE ROLE anon; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    DO $$ BEGIN CREATE ROLE authenticated; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
+      SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
+    $$ LANGUAGE sql STABLE;
+
+    CREATE OR REPLACE FUNCTION auth.role() RETURNS TEXT AS $$
+      SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), 'anon');
+    $$ LANGUAGE sql STABLE;
+  `);
+  return pg;
+}
 
 // Helper to instantiate index.html script in isolated Node.js VM harness
 function createVmHarness(dbOverride = {}) {
@@ -69,7 +94,8 @@ function createVmHarness(dbOverride = {}) {
         set value(v) { formValues[id] = v; },
         textContent: '',
         style: {},
-        classList: { add: () => {}, remove: () => {}, toggle: () => {} }
+        classList: { add: () => {}, remove: () => {}, toggle: () => {} },
+        options: []
       };
     }
     return elements[id];
@@ -85,6 +111,7 @@ function createVmHarness(dbOverride = {}) {
     document: {
       getElementById: (id) => getOrCreateElement(id),
       querySelectorAll: () => [],
+      querySelector: (sel) => getOrCreateElement('btn_' + sel),
       addEventListener: () => {}
     },
     localStorage: {
@@ -115,7 +142,7 @@ function createVmHarness(dbOverride = {}) {
   sandbox.window.localStorage = sandbox.localStorage;
   sandbox.window.confirm = sandbox.confirm;
 
-  ['renderDashboard', 'renderTransactions', 'renderCalendar', 'renderTodos', 'renderBills', 'renderEquipment', 'renderProjectsHub', 'renderDebts', 'renderCards', 'updateSettingsCounts'].forEach(fnName => {
+  ['renderDashboard', 'renderTransactions', 'renderCalendar', 'renderTodos', 'renderBills', 'renderEquipment', 'renderProjectsHub', 'renderDebts', 'renderCards', 'updateSettingsCounts', 'showToast', 'closeAllDrawers', 'setSyncStatus', 'loadAllData'].forEach(fnName => {
     sandbox[fnName] = () => { renderedViews.push(fnName); };
     sandbox.window[fnName] = sandbox[fnName];
   });
@@ -145,7 +172,7 @@ function createVmHarness(dbOverride = {}) {
   };
 
   const context = vm.createContext(sandbox);
-  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}});', context);
+  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}});', context);
 
   return { sandbox, exported, formValues, context };
 }
@@ -649,6 +676,587 @@ await test('FR05', 'Anonymous permissions revoked; FORCE ROW LEVEL SECURITY enab
     assert(migrationSql.includes(`REVOKE ALL ON FUNCTION public.${rpcName}`) && migrationSql.includes('FROM PUBLIC, anon'),
       `migrationSql must revoke execute on ${rpcName} from anon and PUBLIC`);
   });
+});
+
+// ============================================================================
+// RR01: Real PostgreSQL Migration Execution Across All Paths
+// ============================================================================
+await test('RR01', 'Real PostgreSQL migration execution: fresh, rerun, upgrade 991b34f, upgrade 0e2a6f7, and 5-arg reconciliation proc', async () => {
+  // 1. Fresh install in embedded PostgreSQL
+  const pgFresh = await initPgWithShims();
+  await pgFresh.exec(migrationSql);
+
+  // 2. Rerun of full migration without 42883 or conflicting drops
+  await pgFresh.exec(migrationSql);
+  await pgFresh.close();
+
+  // 3. Upgrade from 991b34f base commit
+  const pg99 = await initPgWithShims();
+  const base99 = execSync('git show 991b34f:supabase_migration_v2.sql', { encoding: 'utf8' });
+  await pg99.exec(base99);
+  await pg99.exec(upgradeSql);
+
+  // Check 5-arg execute_wallet_reconciliation procedure exists
+  const check5 = await pg99.query(`
+    SELECT proname, pronargs FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND proname = 'execute_wallet_reconciliation';
+  `);
+  assert.strictEqual(check5.rows.length, 1, 'Exactly one execute_wallet_reconciliation procedure must exist');
+  assert.strictEqual(check5.rows[0].pronargs, 5, 'Procedure must have 5 arguments (p_date added)');
+  await pg99.close();
+
+  // 4. Upgrade from 0e2a6f7 base commit
+  const pg0e = await initPgWithShims();
+  const base0e = execSync('git show 0e2a6f7:supabase_migration_v2.sql', { encoding: 'utf8' });
+  await pg0e.exec(base0e);
+  await pg0e.exec(upgradeSql);
+
+  // 5. Rerun upgrade script (idempotent delta)
+  await pg0e.exec(upgradeSql);
+  await pg0e.close();
+});
+
+// ============================================================================
+// RR02: Real PostgreSQL Legacy Transaction Identity Resolution (900 remains 900)
+// ============================================================================
+await test('RR02', 'PostgreSQL Legacy Transaction Identity Resolution: note/category edits route to Case A without re-deducting balance', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const user1Id = '11111111-1111-1111-1111-111111111111';
+  await pg.exec(`INSERT INTO auth.users (id, email) VALUES ('${user1Id}', 'user1@test.com');`);
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${user1Id}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // Seed wallets
+  const wRes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id)
+    VALUES ('บัญชีสตูดิโอ (ไทยพาณิชย์)', 900.00, '${user1Id}'),
+           ('กระเป๋าเงินสด', 500.00, '${user1Id}')
+    RETURNING id, name, balance;
+  `);
+  const w1Id = wRes.rows[0].id;
+  const w2Id = wRes.rows[1].id;
+
+  // Seed Legacy Tx 1 (bracket metadata, wallet_id IS NULL)
+  const tx1Res = await pg.query(`
+    INSERT INTO public.transactions (user_id, type, category, amount, details, date, wallet_id)
+    VALUES ('${user1Id}', 'รายจ่าย', 'ค่าอุปกรณ์', 100.00, '[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ค่าการ์ด SD', '2026-09-22', NULL)
+    RETURNING id;
+  `);
+  const tx1Id = tx1Res.rows[0].id;
+
+  // Seed Legacy Tx 2 (JSON metadata, wallet_id IS NULL)
+  const tx2Res = await pg.query(`
+    INSERT INTO public.transactions (user_id, type, category, amount, details, date, wallet_id)
+    VALUES ('${user1Id}', 'รายจ่าย', 'ค่าเดินทาง', 50.00, '{"scope":"personal","account":"บัญชีสตูดิโอ (ไทยพาณิชย์)","note":"ค่าแท็กซี่"}', '2026-09-22', NULL)
+    RETURNING id;
+  `);
+  const tx2Id = tx2Res.rows[0].id;
+
+  // Test resolve_transaction_wallet_id helper function
+  const r1 = await pg.query(`SELECT public.resolve_transaction_wallet_id('[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ค่าการ์ด SD', '${user1Id}') AS wid;`);
+  assert.strictEqual(Number(r1.rows[0].wid), Number(w1Id), 'Must resolve wallet ID from bracket format');
+
+  const r2 = await pg.query(`SELECT public.resolve_transaction_wallet_id('{"scope":"personal","account":"บัญชีสตูดิโอ (ไทยพาณิชย์)","note":"ค่าแท็กซี่"}', '${user1Id}') AS wid;`);
+  assert.strictEqual(Number(r2.rows[0].wid), Number(w1Id), 'Must resolve wallet ID from JSON format');
+
+  // Note-only edit: server resolves legacy wallet, routes to Case A, balance REMAINS 900.00!
+  const editNoteRes = await pg.query(`
+    SELECT public.execute_update_transaction(
+      p_tx_id := ${tx1Id},
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าอุปกรณ์',
+      p_amount := 100.00,
+      p_details := '[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ค่าการ์ด SD (แก้ไขโน้ต)',
+      p_related_job := NULL,
+      p_wallet_id := ${w1Id},
+      p_card_id := NULL,
+      p_job_id := NULL
+    ) AS res;
+  `);
+  const editNoteData = editNoteRes.rows[0].res;
+  assert.strictEqual(Number(editNoteData.new_wallet_balance), 900.00, 'Note-only edit must return 900.00 balance');
+
+  const balCheck1 = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w1Id};`);
+  assert.strictEqual(Number(balCheck1.rows[0].balance), 900.00, 'Wallet balance in DB must remain 900.00 (NOT 800.00)');
+
+  // Category-only edit on Tx 1: balance REMAINS 900.00
+  await pg.query(`
+    SELECT public.execute_update_transaction(
+      p_tx_id := ${tx1Id},
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าบริการ',
+      p_amount := 100.00,
+      p_details := '[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ค่าการ์ด SD (แก้ไขโน้ต)',
+      p_related_job := NULL,
+      p_wallet_id := ${w1Id},
+      p_card_id := NULL,
+      p_job_id := NULL
+    );
+  `);
+  const balCheckCat = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w1Id};`);
+  assert.strictEqual(Number(balCheckCat.rows[0].balance), 900.00, 'Category-only edit must keep balance at 900.00');
+
+  // Amount change: from 100.00 to 150.00 (delta = -50 -> 900 - 50 = 850.00)
+  await pg.query(`
+    SELECT public.execute_update_transaction(
+      p_tx_id := ${tx1Id},
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าบริการ',
+      p_amount := 150.00,
+      p_details := '[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ค่าการ์ด SD',
+      p_related_job := NULL,
+      p_wallet_id := ${w1Id},
+      p_card_id := NULL,
+      p_job_id := NULL
+    );
+  `);
+  const balCheckAmt = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w1Id};`);
+  assert.strictEqual(Number(balCheckAmt.rows[0].balance), 850.00, 'Amount increase must deduct balance to 850.00');
+
+  // Move legacy Tx 2 (50.00 expense) from Wallet 1 to Wallet 2
+  await pg.query(`
+    SELECT public.execute_update_transaction(
+      p_tx_id := ${tx2Id},
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าเดินทาง',
+      p_amount := 50.00,
+      p_details := '{"scope":"personal","account":"กระเป๋าเงินสด","note":"ค่าแท็กซี่"}',
+      p_related_job := NULL,
+      p_wallet_id := ${w2Id},
+      p_card_id := NULL,
+      p_job_id := NULL
+    );
+  `);
+  const balCheckW1Move = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w1Id};`);
+  const balCheckW2Move = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w2Id};`);
+  assert.strictEqual(Number(balCheckW1Move.rows[0].balance), 900.00, 'Wallet 1 must be credited back to 900.00');
+  assert.strictEqual(Number(balCheckW2Move.rows[0].balance), 450.00, 'Wallet 2 must be deducted to 450.00');
+
+  // Deletion of legacy transaction with NULL wallet_id
+  const tx3Res = await pg.query(`
+    INSERT INTO public.transactions (user_id, type, category, amount, details, date, wallet_id)
+    VALUES ('${user1Id}', 'รายจ่าย', 'ค่าอุปกรณ์', 200.00, '[สตูดิโอ | บัญชีสตูดิโอ (ไทยพาณิชย์)] ไฟสตูดิโอ', '2026-09-22', NULL)
+    RETURNING id;
+  `);
+  const tx3Id = tx3Res.rows[0].id;
+  await pg.query(`SELECT public.execute_delete_transaction(${tx3Id});`);
+  const balCheckDel = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${w1Id};`);
+  assert.strictEqual(Number(balCheckDel.rows[0].balance), 1100.00, 'Deleting legacy tx must revert balance to 1100.00');
+
+  await pg.close();
+});
+
+// ============================================================================
+// RR03: Canonical Job ID (Numeric FK), Thai Titles, and Cross-Tenant Security
+// ============================================================================
+await test('RR03', 'Canonical Job ID: handles Thai & numeric titles, preserves relation on note edit, rejects cross-tenant job ID', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = '11111111-1111-1111-1111-111111111111';
+  const userB = '22222222-2222-2222-2222-222222222222';
+  await pg.exec(`
+    INSERT INTO auth.users (id, email) VALUES
+    ('${userA}', 'userA@test.com'),
+    ('${userB}', 'userB@test.com');
+  `);
+
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  const wRes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id)
+    VALUES ('กระเป๋า A', 1000.00, '${userA}') RETURNING id;
+  `);
+  const wId = wRes.rows[0].id;
+
+  // Jobs for User A
+  const j1Res = await pg.query(`
+    INSERT INTO public.jobs (title, client, budget, user_id)
+    VALUES ('งานถ่ายพรีเวดดิ้ง ขอนแก่น', 'ลูกค้า ก', 20000.00, '${userA}') RETURNING id;
+  `);
+  const job1Id = j1Res.rows[0].id;
+
+  const j2Res = await pg.query(`
+    INSERT INTO public.jobs (title, client, budget, user_id)
+    VALUES ('2024 Fashion Week BKK', 'ลูกค้า ข', 35000.00, '${userA}') RETURNING id;
+  `);
+  const job2Id = j2Res.rows[0].id;
+
+  // Job for User B
+  const j3Res = await pg.query(`
+    INSERT INTO public.jobs (title, client, budget, user_id)
+    VALUES ('งานออกแบบ User B', 'ลูกค้า ค', 10000.00, '${userB}') RETURNING id;
+  `);
+  const job3Id = j3Res.rows[0].id;
+
+  // 1. User A creates tx linked to Job 1 (Thai title)
+  const createRes1 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายรับ',
+      p_category := 'มัดจำ',
+      p_amount := 5000.00,
+      p_details := 'มัดจำถ่ายพรีเวดดิ้ง',
+      p_related_job := 'งานถ่ายพรีเวดดิ้ง ขอนแก่น',
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := ${job1Id}
+    ) AS res;
+  `);
+  const tx1Id = createRes1.rows[0].res.transaction.id;
+  const checkTx1 = await pg.query(`SELECT job_id, related_job FROM public.transactions WHERE id = ${tx1Id};`);
+  assert.strictEqual(Number(checkTx1.rows[0].job_id), Number(job1Id));
+  assert.strictEqual(checkTx1.rows[0].related_job, 'งานถ่ายพรีเวดดิ้ง ขอนแก่น');
+
+  // 2. User A creates tx linked to Job 2 (numeric prefixed title)
+  const createRes2 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายรับ',
+      p_category := 'มัดจำ',
+      p_amount := 10000.00,
+      p_details := 'มัดจำงาน 2024',
+      p_related_job := '2024 Fashion Week BKK',
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := ${job2Id}
+    ) AS res;
+  `);
+  const tx2Id = createRes2.rows[0].res.transaction.id;
+  const checkTx2 = await pg.query(`SELECT job_id, related_job FROM public.transactions WHERE id = ${tx2Id};`);
+  assert.strictEqual(Number(checkTx2.rows[0].job_id), Number(job2Id));
+  assert.strictEqual(checkTx2.rows[0].related_job, '2024 Fashion Week BKK');
+
+  // 3. Note-only edit preserves job_id
+  await pg.query(`
+    SELECT public.execute_update_transaction(
+      p_tx_id := ${tx1Id},
+      p_date := '2026-09-22'::date,
+      p_type := 'รายรับ',
+      p_category := 'มัดจำ',
+      p_amount := 5000.00,
+      p_details := 'มัดจำถ่ายพรีเวดดิ้ง (แก้ไขโน้ต)',
+      p_related_job := 'งานถ่ายพรีเวดดิ้ง ขอนแก่น',
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := ${job1Id}
+    );
+  `);
+  const checkTx1After = await pg.query(`SELECT job_id, related_job FROM public.transactions WHERE id = ${tx1Id};`);
+  assert.strictEqual(Number(checkTx1After.rows[0].job_id), Number(job1Id), 'Job ID must be preserved on note edit');
+
+  // 4. Cross-tenant rejection on create
+  let crossTenantCreateFailed = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายรับ',
+        p_category := 'มัดจำ',
+        p_amount := 1000.00,
+        p_details := 'hack',
+        p_related_job := 'งานออกแบบ User B',
+        p_wallet_id := ${wId},
+        p_card_id := NULL,
+        p_job_id := ${job3Id}
+      );
+    `);
+  } catch(err) {
+    crossTenantCreateFailed = true;
+    assert(err.message.includes('INVALID_JOB'), 'Expected INVALID_JOB error, got: ' + err.message);
+  }
+  assert(crossTenantCreateFailed, 'Cross-tenant job link on create must be rejected');
+
+  // 5. Cross-tenant rejection on update
+  let crossTenantUpdateFailed = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_update_transaction(
+        p_tx_id := ${tx1Id},
+        p_date := '2026-09-22'::date,
+        p_type := 'รายรับ',
+        p_category := 'มัดจำ',
+        p_amount := 5000.00,
+        p_details := 'hack',
+        p_related_job := 'งานออกแบบ User B',
+        p_wallet_id := ${wId},
+        p_card_id := NULL,
+        p_job_id := ${job3Id}
+      );
+    `);
+  } catch(err) {
+    crossTenantUpdateFailed = true;
+    assert(err.message.includes('INVALID_JOB'), 'Expected INVALID_JOB error, got: ' + err.message);
+  }
+  assert(crossTenantUpdateFailed, 'Cross-tenant job link on update must be rejected');
+
+  await pg.close();
+});
+
+// ============================================================================
+// RR04: Session Generation Isolation Across All Async Mutations
+// ============================================================================
+await test('RR04', 'Session Generation Isolation: in-flight async responses from stale sessions are cleanly discarded across all mutations', async () => {
+  assert(indexHtml.includes('function isMutationSessionValid('),
+    'index.html must define isMutationSessionValid helper');
+
+  let resolveDelayedRpc;
+  const delayedRpcPromise = new Promise(resolve => { resolveDelayedRpc = resolve; });
+
+  const { sandbox, exported, context, formValues } = createVmHarness({
+    rpc: async (name, params) => delayedRpcPromise,
+    from: () => ({
+      insert: () => delayedRpcPromise,
+      select: () => ({ order: () => ({ range: () => delayedRpcPromise }) })
+    })
+  });
+
+  context.currentUser = { id: 'user_A' };
+  context.currentSessionGeneration = 1;
+  exported.appData.transactions = [];
+  exported.appData.wallets = [{ id: 1, name: 'Wallet A', balance: 1000 }];
+
+  formValues['txAmount'] = '500';
+  formValues['txType'] = 'รายจ่าย';
+  formValues['txCategory'] = 'ทั่วไป';
+  formValues['txScope'] = 'สตูดิโอ';
+  formValues['txAccount'] = 'Wallet A';
+  formValues['txDate'] = '2026-09-22';
+  formValues['txTime'] = '12:00';
+  formValues['txDetails'] = 'อาหาร';
+
+  // In-flight mutation under User A
+  const inFlightMutation = exported.handleSaveTx({ preventDefault: () => {} });
+
+  // User logs out and User B logs in before in-flight RPC finishes
+  context.currentUser = { id: 'user_B' };
+  context.currentSessionGeneration = 2;
+  exported.appData.transactions = [];
+  exported.appData.wallets = [{ id: 9, name: 'Wallet B', balance: 200 }];
+
+  // Late response arrives from User A
+  resolveDelayedRpc({
+    data: {
+      success: true,
+      transaction: { id: 999, amount: 500, details: 'อาหาร' },
+      wallet_id: 1,
+      new_balance: 500
+    }
+  });
+
+  await inFlightMutation;
+
+  assert.strictEqual(exported.appData.transactions.length, 0,
+    'Stale mutation response must be discarded and NOT added to User B transactions');
+  assert.strictEqual(exported.appData.wallets[0].balance, 200,
+    'Stale mutation response must NOT modify User B wallet balance');
+});
+
+// ============================================================================
+// RR05: Idempotency Key (request_id) on execute_create_transaction
+// ============================================================================
+await test('RR05', 'Idempotent Create Transaction: retry with same request_id returns existing record without re-deducting balance', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = '11111111-1111-1111-1111-111111111111';
+  await pg.exec(`INSERT INTO auth.users (id, email) VALUES ('${userA}', 'userA@test.com');`);
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  const wRes = await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id)
+    VALUES ('กระเป๋าหลัก', 1000.00, '${userA}') RETURNING id;
+  `);
+  const wId = wRes.rows[0].id;
+
+  // 1. Initial create with request_id = 'req-first'
+  const res1 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 120.00,
+      p_details := 'อาหารกลางวัน',
+      p_related_job := NULL,
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-first'
+    ) AS res;
+  `);
+  const rData1 = res1.rows[0].res;
+  assert.strictEqual(rData1.status, 'CREATED');
+  assert.strictEqual(Number(rData1.new_balance), 880.00);
+
+  const bal1 = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wId};`);
+  assert.strictEqual(Number(bal1.rows[0].balance), 880.00);
+
+  // 2. Retry with same request_id = 'req-first' and same payload
+  const res2 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 120.00,
+      p_details := 'อาหารกลางวัน',
+      p_related_job := NULL,
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-first'
+    ) AS res;
+  `);
+  const rData2 = res2.rows[0].res;
+  assert.strictEqual(rData2.status, 'IDEMPOTENT_RETRY', 'Must return IDEMPOTENT_RETRY on retry');
+  assert.strictEqual(Number(rData2.new_balance), 880.00, 'Balance must remain 880.00');
+
+  const bal2 = await pg.query(`SELECT balance FROM public.wallets WHERE id = ${wId};`);
+  assert.strictEqual(Number(bal2.rows[0].balance), 880.00, 'Balance in DB must remain 880.00 (NOT deducted to 760.00)');
+
+  const countCheck = await pg.query(`SELECT COUNT(*) FROM public.transactions WHERE request_id = 'req-first';`);
+  assert.strictEqual(Number(countCheck.rows[0].count), 1, 'Only exactly 1 transaction row must exist');
+
+  // 3. Different request_id = 'req-second' creates another transaction
+  const res3 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '2026-09-22'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'อาหาร',
+      p_amount := 120.00,
+      p_details := 'อาหารกลางวัน',
+      p_related_job := NULL,
+      p_wallet_id := ${wId},
+      p_card_id := NULL,
+      p_job_id := NULL,
+      p_request_id := 'req-second'
+    ) AS res;
+  `);
+  const rData3 = res3.rows[0].res;
+  assert.strictEqual(rData3.status, 'CREATED');
+  assert.strictEqual(Number(rData3.new_balance), 760.00);
+
+  // 4. Conflicting payload with existing request_id = 'req-first'
+  let conflictFailed = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายจ่าย',
+        p_category := 'อาหาร',
+        p_amount := 999.00,
+        p_details := 'อาหารกลางวัน',
+        p_related_job := NULL,
+        p_wallet_id := ${wId},
+        p_card_id := NULL,
+        p_job_id := NULL,
+        p_request_id := 'req-first'
+      );
+    `);
+  } catch(err) {
+    conflictFailed = true;
+    assert(err.message.includes('IDEMPOTENCY_CONFLICT'), 'Expected IDEMPOTENCY_CONFLICT, got: ' + err.message);
+  }
+  assert(conflictFailed, 'Conflicting payload on same request_id must throw error');
+
+  await pg.close();
+});
+
+// ============================================================================
+// RR06: Real PostgreSQL Security & Anonymous Access Blocked via RLS & Revocation
+// ============================================================================
+await test('RR06', 'Real PostgreSQL Anonymous Access Blocked via RLS & Revocation; Live Supabase Execution Documented', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = '11111111-1111-1111-1111-111111111111';
+  await pg.exec(`INSERT INTO auth.users (id, email) VALUES ('${userA}', 'userA@test.com');`);
+  
+  // Seed data under User A
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+  await pg.query(`
+    INSERT INTO public.wallets (name, balance, user_id)
+    VALUES ('กระเป๋า User A', 500.00, '${userA}');
+  `);
+  await pg.query(`
+    INSERT INTO public.transactions (user_id, type, category, amount, details, date)
+    VALUES ('${userA}', 'รายรับ', 'งาน', 1000.00, 'ค่าจ้าง', '2026-09-22');
+  `);
+
+  // Switch session to anon role in postgres
+  await pg.exec(`
+    SET ROLE anon;
+    SET request.jwt.claim.sub = '';
+    SET request.jwt.claim.role = 'anon';
+  `);
+
+  // Test anon cannot read transactions (REVOKE ALL FROM anon)
+  let anonTxBlocked = false;
+  try {
+    await pg.query(`SELECT COUNT(*) FROM public.transactions;`);
+  } catch(err) {
+    anonTxBlocked = true;
+    assert(err.message.includes('permission denied'), 'Must be permission denied: ' + err.message);
+  }
+  assert(anonTxBlocked, 'anon must be blocked from reading transactions');
+
+  // Test anon cannot read wallets (REVOKE ALL FROM anon)
+  let anonWBlocked = false;
+  try {
+    await pg.query(`SELECT COUNT(*) FROM public.wallets;`);
+  } catch(err) {
+    anonWBlocked = true;
+    assert(err.message.includes('permission denied'), 'Must be permission denied: ' + err.message);
+  }
+  assert(anonWBlocked, 'anon must be blocked from reading wallets');
+
+  // Test anon cannot call execute_create_transaction
+  let anonRpcBlocked = false;
+  try {
+    await pg.query(`
+      SELECT public.execute_create_transaction(
+        p_date := '2026-09-22'::date,
+        p_type := 'รายจ่าย',
+        p_category := 'อาหาร',
+        p_amount := 100.00,
+        p_details := 'anon hack',
+        p_related_job := NULL,
+        p_wallet_id := 1,
+        p_card_id := NULL,
+        p_job_id := NULL
+      );
+    `);
+  } catch(err) {
+    anonRpcBlocked = true;
+    assert(err.message.includes('permission denied') || err.message.includes('Unauthorized') || err.message.includes('user_id'), 
+      'Expected permission denied or unauthorized error, got: ' + err.message);
+  }
+  assert(anonRpcBlocked, 'anon must be blocked from calling RPC');
+
+  await pg.close();
+
+  // Document live production Supabase deployment status
+  console.log('     ℹ️ Remote Production Database (pyxjwilhqixceehqkpcl.supabase.co) Status:');
+  console.log('        Automated writes to production are disabled per safety constraints.');
+  console.log('        Verified locally via PGlite that anon is fully revoked and RLS enforced.');
+  console.log('        To apply to live remote Supabase: Execute supabase_schema_upgrade.sql in Supabase Dashboard SQL Editor.');
 });
 
 // ============================================================================
