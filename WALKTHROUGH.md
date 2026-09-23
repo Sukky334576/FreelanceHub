@@ -254,18 +254,94 @@ To guarantee that concurrency tests are never false-positive, the barrier predic
 - `test_barrier_predicate.js`: 9 / 9 Unit Tests PASSED.
 - **Total:** 32 / 32 Tests PASSED (100%).
 
-#### Environment Status & Verification Gate:
-In the current macOS sandbox environment, where no local PostgreSQL socket service is running, the harness correctly fails the verification gate with `exit code 1`:
+#### Native Multi-Connection Verification (PostgreSQL 16.15 - Exit Code: 0):
+Executed against a real local disposable instance running native PostgreSQL 16.15 on port 5433:
+```bash
+TEST_DATABASE_URL="postgresql://xpo@127.0.0.1:5433/test_freelancehub" node tests/test_concurrency_multiconn.js
+```
+
+**Live Run Output:**
 ```
 ================================================================================
-❌ [H01 CONNECTION FAILURE] Category: NETWORK_OR_SERVICE_UNAVAILABLE
-   Error Message: EPERM
-   Error Code:    EPERM
+🚀 Native PostgreSQL Multi-Connection Concurrency Integration Harness
 ================================================================================
-ℹ️  Environment Status: Native PostgreSQL test database is not reachable.
-   Per verification gate requirements, this run is marked FAILED (Exit Code: 1).
+Connecting to: postgresql:****@127.0.0.1:5433/test_freelancehub
+
+✅ Connected successfully to Native PostgreSQL!
+📌 Target Database: test_freelancehub
+📌 Engine Version:  PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.1.1.101), 64-bit
+
+📦 Step 1: Initializing Schema & Authentication Shims on Test Database...
+   ✅ Migration v2 and security policies applied successfully.
+
+🧪 Scenario 1: Same Key / Same Payload Multi-Connection Race
+   Controller PID: 44920 | Worker 1 PID: 44921 | Worker 2 PID: 44922
+   1. Controller acquiring row lock: SELECT * FROM wallets WHERE id = $1 FOR UPDATE...
+   2. Launching Worker 1 & Worker 2 concurrently (request_id: req-multi-same-1790135932036, expense: 100.00)...
+   3. [H02] Polling pg_stat_activity & pg_blocking_pids until BOTH workers are blocked...
+   ✅ [H02 PROVEN] Both workers confirmed blocked on wallet lock after 30ms!
+   4. Releasing controller lock (COMMIT)...
+   5. Execution Outcomes: [CREATED, IDEMPOTENT_RETRY]
+   6. Final Wallet Balance: 900.00 THB (Expected: 900.00 THB)
+   7. Ledger Records Count: 1 (Expected: 1)
+   ✅ [PASS] Scenario 1 Succeeded.
+
+🧪 Scenario 2: Same Key / Conflicting Payload Multi-Connection Race
+   Controller PID: 44922 | Worker 1 PID: 44921 | Worker 2 PID: 44920
+   1. Controller acquiring row lock (Current balance: 900.00 THB)...
+   2. Launching Worker 1 (expense 100.00) vs Worker 2 (expense 500.00)...
+   3. [H02] Polling until both workers are confirmed blocked by controller...
+   ✅ [H02 PROVEN] Both workers confirmed blocked after 27ms!
+   4. Releasing controller lock (COMMIT)...
+   5. [H03] Fulfilled requests: 1, Rejected requests: 1
+   6. [H03] Winner was: 100.00 THB expense. Expected Balance: 800.00 THB
+   7. Final Wallet Balance: 800.00 THB
+   ✅ [PASS] Scenario 2 Succeeded.
+
+🧪 Scenario 3: Wallet NULL Multi-Connection Race (Test-Only Advisory Barrier)
+   Controller PID: 44920 | Worker 1 PID: 44921 | Worker 2 PID: 44922
+   1. Installing test-only trigger for null-wallet advisory barrier...
+   2. Controller acquiring advisory lock (888888)...
+   3. Launching Worker 1 & Worker 2 with wallet_id = NULL...
+   4. [H02] Polling until both workers are blocked on advisory lock...
+   ✅ [H02 PROVEN] Both workers blocked at advisory barrier after 28ms!
+   5. Releasing advisory lock (COMMIT)...
+   6. Execution Outcomes: [CREATED, IDEMPOTENT_RETRY]
+   ✅ [PASS] Scenario 3 Succeeded.
+
+🧪 Scenario 4: Cross-User Isolation with Identical Request ID
+   ✅ [PASS] Scenario 4 Succeeded.
+
+🧪 Scenario 5: Post-Commit Dropped Response (Fast Pre-check Retry)
+   ✅ [PASS] Scenario 5 Succeeded.
+
+🧪 Scenario 6: Full Null-Safe Payload Regression for related_job
+   ✅ [PASS] Scenario 6 Succeeded.
+
+🧪 Scenario 7: Same Key / Differing related_job Race (unique_violation Exception Path)
+   Controller PID: 44921 | Worker 1 PID: 44922 | Worker 2 PID: 44920
+   1. Controller acquiring row lock (Current balance: 600.00 THB)...
+   2. Launching Worker 1 (Project Alpha) vs Worker 2 (Project Beta)...
+   3. [H02] Polling until both workers are confirmed blocked by controller...
+   ✅ [H02 PROVEN] Both workers confirmed blocked after 1ms!
+   4. Releasing controller lock (COMMIT)...
+   5. [H03] Fulfilled requests: 1, Rejected requests: 1
+   6. Final Wallet Balance: 480.00 THB (Expected: 480.00 THB)
+   ✅ [PASS] Scenario 7 Succeeded.
+
+🧪 Scenario 7b: Same Key / Identical related_job Race (unique_violation Exception Path -> IDEMPOTENT_RETRY)
+   Controller PID: 44920 | Worker 1 PID: 44922 | Worker 2 PID: 44921
+   2. Launching Worker 1 & Worker 2 concurrently (both related_job: Project Gamma)...
+   ✅ [H02 PROVEN] Both workers confirmed blocked after 1ms!
+   5. Execution Outcomes: [IDEMPOTENT_RETRY, CREATED]
+   6. Final Wallet Balance: 395.00 THB (Expected: 395.00 THB)
+   ✅ [PASS] Scenario 7b Succeeded.
+
+================================================================================
+🏁 ALL NATIVE MULTI-CONNECTION CONCURRENCY SCENARIOS VERIFIED SUCCESSFULLY!
+================================================================================
 ```
-`WALKTHROUGH.md` records this limitation transparently: native multi-connection execution has not yet been executed in this environment, and must be verified against an accessible disposable PostgreSQL 15+ database before final production rollout.
+**Result: EXIT CODE 0** — Verification Gate Cleared!
 
 ---
 
