@@ -4,6 +4,193 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
+-- 0. BASELINE TABLES IF NOT EXISTS (Guarantees missing tables exist before ALTER)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.categories (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  color TEXT DEFAULT '#168EA1',
+  icon TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.jobs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  title TEXT NOT NULL,
+  client TEXT,
+  date DATE,
+  end_date DATE,
+  time_slot TEXT,
+  location TEXT,
+  budget NUMERIC(14, 2) DEFAULT 0.00,
+  advance_amount NUMERIC(14, 2) DEFAULT 0.00,
+  final_amount NUMERIC(14, 2) DEFAULT 0.00,
+  paid_amount NUMERIC(14, 2) DEFAULT 0.00,
+  profit NUMERIC(14, 2) DEFAULT 0.00,
+  job_type TEXT,
+  status TEXT DEFAULT 'pending',
+  description TEXT,
+  remark TEXT,
+  is_complete BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.todos (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  title TEXT NOT NULL,
+  date DATE DEFAULT CURRENT_DATE,
+  time_slot TEXT,
+  tag TEXT DEFAULT 'ทั่วไป',
+  is_complete BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.bills (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  item TEXT NOT NULL,
+  amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  due_date INTEGER DEFAULT 1,
+  is_paid BOOLEAN DEFAULT FALSE,
+  note TEXT,
+  notes TEXT,
+  last_paid_date DATE,
+  last_paid_tx_id BIGINT,
+  linked_wallet_id BIGINT,
+  linked_debt_id BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.equipment (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  name TEXT NOT NULL,
+  cost NUMERIC(14, 2) DEFAULT 0.00,
+  purchase_date DATE DEFAULT CURRENT_DATE,
+  status TEXT DEFAULT 'active',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.wallets (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'bank',
+  color TEXT DEFAULT '#168EA1',
+  icon TEXT DEFAULT 'fa-building-columns',
+  balance NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  opening_balance NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  opening_date DATE DEFAULT CURRENT_DATE,
+  is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.debts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  name TEXT NOT NULL,
+  lender TEXT,
+  debt_type TEXT NOT NULL DEFAULT 'installment',
+  original_principal NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  remaining_principal NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  interest_method TEXT NOT NULL DEFAULT 'zero',
+  interest_rate NUMERIC(8, 4) DEFAULT 0.00,
+  rate_unit TEXT DEFAULT 'annual',
+  term_months INTEGER DEFAULT 1,
+  paid_months INTEGER DEFAULT 0,
+  monthly_payment NUMERIC(14, 2) DEFAULT 0.00,
+  due_day INTEGER DEFAULT 1,
+  default_wallet_id BIGINT,
+  status TEXT NOT NULL DEFAULT 'active',
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.debt_payments (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  debt_id BIGINT NOT NULL,
+  wallet_id BIGINT,
+  payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  amount NUMERIC(14, 2) NOT NULL,
+  total_amount NUMERIC(14, 2),
+  principal_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  principal_amount NUMERIC(14, 2),
+  interest_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  interest_amount NUMERIC(14, 2),
+  fee_paid NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  transaction_id BIGINT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.cards (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  name TEXT NOT NULL,
+  issuer TEXT NOT NULL,
+  card_type TEXT NOT NULL DEFAULT 'credit',
+  last_four VARCHAR(4),
+  closing_day INTEGER NOT NULL DEFAULT 20,
+  due_day INTEGER NOT NULL DEFAULT 10,
+  credit_limit NUMERIC(14, 2) DEFAULT 0.00,
+  current_balance NUMERIC(14, 2) DEFAULT 0.00,
+  default_payment_mode TEXT DEFAULT 'full',
+  default_wallet_id BIGINT,
+  color TEXT DEFAULT '#164F57',
+  is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.transfers (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  from_wallet_id BIGINT NOT NULL,
+  to_wallet_id BIGINT NOT NULL,
+  amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+  fee NUMERIC(14, 2) NOT NULL DEFAULT 0.00 CHECK (fee >= 0),
+  transfer_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  note TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  time TIME DEFAULT CURRENT_TIME,
+  type TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  details TEXT,
+  slip_url TEXT,
+  wallet_id BIGINT,
+  job_id BIGINT,
+  debt_id BIGINT,
+  card_id BIGINT,
+  transfer_id BIGINT,
+  bill_id BIGINT,
+  related_job TEXT,
+  request_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ------------------------------------------------------------------------------
 -- 1. SAFE COLUMN & CONSTRAINT ADDITIONS (RR01, RR03, RR05)
 -- ------------------------------------------------------------------------------
 DO $$
