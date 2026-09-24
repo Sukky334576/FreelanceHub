@@ -2337,10 +2337,207 @@
       }
     }
 
+    /* =========================================================
+       LOGIN GATE OVERLAY & CARD STYLES
+       ========================================================= */
+    .login-gate-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-base, #0D282C);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-gate-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-surface, #133D44);
+      border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+      border-radius: var(--radius-xl, 20px);
+      padding: 36px 30px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      animation: loginCardFadeIn 0.3s ease-out;
+    }
+    @keyframes loginCardFadeIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .login-gate-brand {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+    .login-gate-logo {
+      width: 68px;
+      height: 68px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--color-primary, #168EA1), #0E5E6B);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      color: #FFFFFF;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 24px rgba(22, 142, 161, 0.4);
+    }
+    .login-gate-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--text-primary, #FFFFFF);
+      letter-spacing: 0.5px;
+      margin: 0 0 6px 0;
+    }
+    .login-gate-sub {
+      font-size: 0.85rem;
+      color: var(--text-secondary, #94A3B8);
+      margin: 0;
+    }
+    .login-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .login-input-icon {
+      position: absolute;
+      left: 14px;
+      color: var(--text-muted, #64748B);
+      font-size: 0.95rem;
+      pointer-events: none;
+    }
+    .login-gate-input {
+      width: 100%;
+      height: 48px;
+      padding: 0 44px 0 42px;
+      background: var(--bg-surface-elevated, #1A4E57);
+      border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+      border-radius: var(--radius-md, 12px);
+      color: var(--text-primary, #FFFFFF);
+      font-size: 0.95rem;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .login-gate-input:focus {
+      outline: none;
+      border-color: var(--color-primary, #168EA1);
+      box-shadow: 0 0 0 3px rgba(22, 142, 161, 0.25);
+    }
+    .login-pwd-toggle {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      color: var(--text-muted, #64748B);
+      cursor: pointer;
+      padding: 8px;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-pwd-toggle:hover {
+      color: var(--text-primary, #FFFFFF);
+    }
+    .login-submit-btn {
+      width: 100%;
+      height: 48px;
+      margin-top: 18px;
+      background: linear-gradient(135deg, var(--color-primary, #168EA1), #137788);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radius-md, 12px);
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(22, 142, 161, 0.35);
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .login-submit-btn:active {
+      transform: scale(0.98);
+    }
+    .login-submit-btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .login-error-alert {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: var(--radius-md, 12px);
+      color: #EF4444;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .login-footer-badge {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted, #64748B);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
 </style>
 </head>
 <body>
 
+  <!-- =======================================================
+       LOGIN GATE: NATTHAWIT STUDIO AUTHENTICATION SCREEN
+       ======================================================= -->
+  <div id="loginGateOverlay" class="login-gate-overlay" style="display: none;">
+    <div class="login-gate-card">
+      <div class="login-gate-brand">
+        <div class="login-gate-logo">
+          <i class="fa-solid fa-camera"></i>
+        </div>
+        <h1 class="login-gate-title">NATTHAWIT STUDIO</h1>
+        <p class="login-gate-sub">ระบบบริหารการเงิน &amp; ตารางงานโปรดักชัน</p>
+      </div>
+
+      <form id="gateLoginForm" onsubmit="event.preventDefault(); handleGateLogin();">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="gateEmail">อีเมล (Email)</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-envelope login-input-icon"></i>
+            <input type="email" id="gateEmail" class="login-gate-input" placeholder="natthawitstudio@gmail.com" required autocomplete="email">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" for="gatePassword">รหัสผ่าน (Password)</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-lock login-input-icon"></i>
+            <input type="password" id="gatePassword" class="login-gate-input" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="login-pwd-toggle" onclick="toggleGatePasswordVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
+              <i id="gatePwdEyeIcon" class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="gateErrorAlert" class="login-error-alert" style="display: none;"></div>
+
+        <button type="submit" id="gateSubmitBtn" class="login-submit-btn">
+          <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
+        </button>
+      </form>
+
+      <div class="login-footer-badge">
+        <i class="fa-solid fa-shield-halved" style="color: var(--color-primary);"></i>
+        <span>ระบบความปลอดภัย Row Level Security (RLS)</span>
+      </div>
+    </div>
+  </div>
 
   <!-- App Layout -->
   <div class="app-layout">
@@ -7571,6 +7768,11 @@
       var btnSignIn = document.getElementById('settingsBtnSignIn');
       var btnSignOut = document.getElementById('settingsBtnSignOut');
 
+      var loginGate = document.getElementById('loginGateOverlay');
+      if (loginGate) {
+        loginGate.style.display = currentUser ? 'none' : 'flex';
+      }
+
       if (currentUser) {
         var email = currentUser.email || 'ผู้ใช้ระบบ';
         var shortEmail = email.length > 20 ? email.substring(0, 18) + '...' : email;
@@ -7608,17 +7810,74 @@
           mobileAuthBtn.title = 'คลิกเพื่อเข้าสู่ระบบ';
         }
         if (settingsStatus) {
-          settingsStatus.textContent = 'ยังไม่ได้เข้าสู่ระบบ (Guest / Offline)';
+          settingsStatus.textContent = 'ยังไม่ได้เข้าสู่ระบบ (กรุณาลงชื่อเข้าใช้)';
           settingsStatus.style.color = 'var(--text-muted)';
         }
         if (settingsEmail) settingsEmail.textContent = '-';
         if (settingsRole) {
-          settingsRole.textContent = 'Anonymous / Guest';
+          settingsRole.textContent = 'Guest / Locked';
           settingsRole.style.background = 'rgba(245, 158, 11, 0.15)';
           settingsRole.style.color = '#F59E0B';
         }
         if (btnSignIn) btnSignIn.style.display = 'inline-flex';
         if (btnSignOut) btnSignOut.style.display = 'none';
+      }
+    }
+
+    function toggleGatePasswordVisibility() {
+      var pwd = document.getElementById('gatePassword');
+      var icon = document.getElementById('gatePwdEyeIcon');
+      if (!pwd || !icon) return;
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        pwd.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    async function handleGateLogin(e) {
+      if (e) e.preventDefault();
+      var email = document.getElementById('gateEmail').value.trim();
+      var password = document.getElementById('gatePassword').value;
+      var btn = document.getElementById('gateSubmitBtn');
+      var errEl = document.getElementById('gateErrorAlert');
+
+      if (!email || !password) {
+        if (errEl) {
+          errEl.textContent = 'กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเข้าสู่ระบบ...';
+      if (errEl) errEl.style.display = 'none';
+
+      try {
+        var res = await db.auth.signInWithPassword({ email: email, password: password });
+        if (res.error) throw res.error;
+        currentUser = res.data.user;
+        updateAuthUI();
+        showToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับคุณณัฐวิทย์ 👋');
+        await loadAllData();
+      } catch (err) {
+        console.error('Gate login error:', err);
+        if (errEl) {
+          var msg = err.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+          if (msg.includes('Invalid login credentials')) {
+            msg = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง';
+          }
+          errEl.textContent = msg;
+          errEl.style.display = 'block';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ';
       }
     }
 
@@ -7632,6 +7891,9 @@
           currentUser = null;
         }
         updateAuthUI();
+        if (currentUser) {
+          loadAllData();
+        }
 
         db.auth.onAuthStateChange(function(event, session) {
           currentSessionGeneration++;
@@ -7670,11 +7932,8 @@
         }
       });
 
-      // 2. Auth Session Check
+      // 2. Auth Session Check & Gate
       initAuth();
-
-      // 3. Load Data
-      loadAllData();
 
       // 4. Supabase Realtime with Debounce
       var rtDebounce = null;
