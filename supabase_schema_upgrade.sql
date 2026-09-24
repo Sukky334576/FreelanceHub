@@ -484,6 +484,46 @@ CREATE POLICY "owner_all_transfers" ON public.transfers FOR ALL TO authenticated
 -- 5. ATOMIC STORED PROCEDURES (PROCEDURES 1 TO 10)
 -- ------------------------------------------------------------------------------
 
+-- Procedure 0: Atomic Balance Adjustment
+CREATE OR REPLACE FUNCTION public.adjust_wallet_balance(p_wallet_id BIGINT, p_delta NUMERIC)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_new_balance NUMERIC;
+  v_owner UUID;
+BEGIN
+  IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized: authenticated session required';
+  END IF;
+
+  -- Lock row and verify existence
+  SELECT user_id, balance INTO v_owner, v_new_balance
+  FROM public.wallets
+  WHERE id = p_wallet_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Wallet with ID % not found', p_wallet_id;
+  END IF;
+
+  -- Ownership verification
+  IF v_owner IS NULL OR v_owner <> auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: wallet not owned by authenticated user';
+  END IF;
+
+  UPDATE public.wallets
+  SET balance = balance + p_delta,
+      updated_at = NOW()
+  WHERE id = p_wallet_id
+  RETURNING balance INTO v_new_balance;
+
+  RETURN v_new_balance;
+END;
+$$;
+
 -- Procedure 1: Atomic Wallet Transfer
 CREATE OR REPLACE FUNCTION public.execute_wallet_transfer(
   p_from_id BIGINT,
@@ -1494,35 +1534,33 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 6. RESTRICT RPC EXECUTE PRIVILEGES TO AUTHENTICATED USERS ONLY (RR06)
 -- ------------------------------------------------------------------------------
-REVOKE ALL ON FUNCTION public.adjust_wallet_balance(BIGINT, NUMERIC) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.adjust_wallet_balance(BIGINT, NUMERIC) TO authenticated;
+DO $$
+DECLARE
+  func_sig RECORD;
+BEGIN
+  FOR func_sig IN
+    SELECT proname, pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public'
+      AND proname IN (
+        'adjust_wallet_balance',
+        'execute_wallet_transfer',
+        'cancel_wallet_transfer',
+        'cancel_wallet_transfer_by_tx',
+        'execute_wallet_reconciliation',
+        'execute_bill_payment',
+        'cancel_bill_payment',
+        'execute_debt_payment',
+        'resolve_transaction_wallet_id',
+        'execute_create_transaction',
+        'execute_update_transaction',
+        'execute_delete_transaction'
+      )
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM PUBLIC, anon', func_sig.proname, func_sig.args);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%I(%s) TO authenticated', func_sig.proname, func_sig.args);
+  END LOOP;
+END;
+$$;
 
-REVOKE ALL ON FUNCTION public.execute_wallet_transfer(BIGINT, BIGINT, NUMERIC, NUMERIC, DATE, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_wallet_transfer(BIGINT, BIGINT, NUMERIC, NUMERIC, DATE, TEXT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.cancel_wallet_transfer(BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.cancel_wallet_transfer(BIGINT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT, DATE) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_wallet_reconciliation(BIGINT, NUMERIC, NUMERIC, TEXT, DATE) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_bill_payment(BIGINT, BIGINT, DATE) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_bill_payment(BIGINT, BIGINT, DATE) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.cancel_bill_payment(BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.cancel_bill_payment(BIGINT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_debt_payment(BIGINT, BIGINT, NUMERIC, NUMERIC, NUMERIC, DATE, TEXT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.resolve_transaction_wallet_id(TEXT, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.resolve_transaction_wallet_id(TEXT, UUID) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_create_transaction(DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT, TEXT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, TEXT, NUMERIC, TEXT, TEXT, BIGINT, BIGINT, BIGINT) TO authenticated;
-
-REVOKE ALL ON FUNCTION public.execute_delete_transaction(BIGINT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.execute_delete_transaction(BIGINT) TO authenticated;
