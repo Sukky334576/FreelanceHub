@@ -1,7 +1,7 @@
 {
-  "name": "Freelance Hub - Natthawit Studio",
-  "short_name": "Freelance Hub",
-  "description": "ระบบการเงิน & ตารางงานสตูดิโอ คุณณัฐวิทย์ (Plan Earn Grow)",
+  "name": "FreelanceHub - ระบบบริหารการเงิน & คิวงานฟรีแลนซ์",
+  "short_name": "FreelanceHub",
+  "description": "ระบบบริหารการเงิน & คิวงานฟรีแลนซ์ (Plan Earn Grow)",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F5F5F1",

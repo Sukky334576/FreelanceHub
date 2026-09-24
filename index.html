@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Freelance Hub">
+  <meta name="apple-mobile-web-app-title" content="FreelanceHub">
   <meta name="theme-color" content="#164F57">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <title>Freelance Hub - Natthawit Production & Finance</title>
+  <title>FreelanceHub - ระบบบริหารการเงิน &amp; คิวงานฟรีแลนซ์</title>
   
   <!-- FontAwesome & Google Fonts: IBM Plex Sans Thai + Noto Sans Thai + Plus Jakarta Sans -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -29,7 +29,7 @@
   <style>
 
     /* =========================================================
-       NATTHAWIT PRODUCTION & FINANCE HUB: MODERN WARM-TEAL THEME
+       FREELANCEHUB: MODERN WARM-TEAL THEME
        Design Tokens, Typography & Shared Components
        ========================================================= */
     :root {
@@ -2493,16 +2493,16 @@
 <body>
 
   <!-- =======================================================
-       LOGIN GATE: NATTHAWIT STUDIO AUTHENTICATION SCREEN
+       LOGIN GATE: FREELANCEHUB AUTHENTICATION SCREEN
        ======================================================= -->
   <div id="loginGateOverlay" class="login-gate-overlay" style="display: none;">
     <div class="login-gate-card">
       <div class="login-gate-brand">
         <div class="login-gate-logo">
-          <i class="fa-solid fa-camera"></i>
+          <i class="fa-solid fa-briefcase"></i>
         </div>
-        <h1 class="login-gate-title">NATTHAWIT STUDIO</h1>
-        <p class="login-gate-sub">ระบบบริหารการเงิน &amp; ตารางงานโปรดักชัน</p>
+        <h1 class="login-gate-title">FREELANCEHUB</h1>
+        <p class="login-gate-sub">ระบบบริหารการเงิน &amp; คิวงานฟรีแลนซ์</p>
       </div>
 
       <form id="gateLoginForm" onsubmit="event.preventDefault(); handleGateLogin();">
@@ -2545,10 +2545,10 @@
     <!-- DESKTOP SIDEBAR -->
     <aside class="desktop-sidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-avatar">N</div>
+        <div class="sidebar-avatar">F</div>
         <div class="sidebar-brand-text">
-          <h2>NATTHAWIT</h2>
-          <p><i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i> สตูดิโอโปรดักชัน</p>
+          <h2>FREELANCEHUB</h2>
+          <p><i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i> การเงิน &amp; คิวงาน</p>
         </div>
       </div>
       <nav class="sidebar-menu">
@@ -2581,7 +2581,7 @@
         </button>
       </nav>
       <div style="padding-top: 16px; border-top: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-muted); text-align: center;">
-        Natthawit Studio v2.5
+        FreelanceHub v2.5
       </div>
     </aside>
 
@@ -2590,7 +2590,7 @@
       
       <!-- Mobile Top Header -->
       <header class="mobile-header">
-        <div class="mobile-brand">NATTHAWIT STUDIO</div>
+        <div class="mobile-brand">FREELANCEHUB</div>
         <div class="mobile-status">
           <span id="syncStatusBadge" class="status-badge">
             <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> บันทึกแล้ว
@@ -4406,7 +4406,7 @@
   <div id="authModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 440px;">
       <div class="drawer-header">
-        <div class="drawer-title" id="authModalTitle">🔐 เข้าสู่ระบบ Natthawit Studio</div>
+        <div class="drawer-title" id="authModalTitle">🔐 เข้าสู่ระบบ FreelanceHub</div>
         <button class="drawer-close-btn" onclick="closeAllDrawers()" aria-label="ปิดหน้าต่าง">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -6101,7 +6101,7 @@
       // Update Live Thai Date Header
       var liveDateEl = document.getElementById('dashLiveDate');
       if (liveDateEl) {
-        liveDateEl.textContent = 'วัน' + thaiDaysFull[now.getDay()] + 'ที่ ' + now.getDate() + ' ' + thaiMonthsFull[now.getMonth()] + ' ' + (now.getFullYear() + 543) + ' • Natthawit Studio';
+        liveDateEl.textContent = 'วัน' + thaiDaysFull[now.getDay()] + 'ที่ ' + now.getDate() + ' ' + thaiMonthsFull[now.getMonth()] + ' ' + (now.getFullYear() + 543) + ' • FreelanceHub';
       }
 
       // 1. Calculate Period Filtered Totals
@@ -7244,7 +7244,7 @@
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(eqData), 'Equipment');
 
         var nowStr = new Date().toISOString().substring(0, 10);
-        XLSX.writeFile(wb, 'Natthawit_Studio_Export_' + nowStr + '.xlsx');
+        XLSX.writeFile(wb, 'FreelanceHub_Export_' + nowStr + '.xlsx');
         showToast('📥 ส่งออกไฟล์ Excel ครบทุกแผ่นงานสำเร็จ');
       } catch(e) {
         console.error('Excel export error:', e);
@@ -7326,9 +7326,9 @@
           '<div class="page">' +
             '<div class="header-row">' +
               '<div>' +
-                '<div class="studio-logo">NATTHAWIT STUDIO</div>' +
-                '<div class="studio-sub">บริการถ่ายภาพ วิดีโอ และโปรดักชันครบวงจร</div>' +
-                '<div class="studio-sub" style="margin-top:2px;">Email: contact@natthawitstudio.com • Tel: 08x-xxx-xxxx</div>' +
+                '<div class="studio-logo">FREELANCEHUB</div>' +
+                '<div class="studio-sub">ระบบบริหารการเงิน & คิวงานฟรีแลนซ์ครบวงจร</div>' +
+                '<div class="studio-sub" style="margin-top:2px;">Email: contact@freelancehub.app • Tel: 08x-xxx-xxxx</div>' +
               '</div>' +
               '<div class="doc-badge">' +
                 '<div class="doc-title">' + escapeHtml(docTitle) + '</div>' +
@@ -7380,7 +7380,7 @@
               '<div>' +
                 '<div class="sig-line"></div>' +
                 '<div style="font-weight:700;">ผู้มีอำนาจลงนาม</div>' +
-                '<div style="font-size:12px; color:#64748B;">Natthawit Studio</div>' +
+                '<div style="font-size:12px; color:#64748B;">FreelanceHub</div>' +
               '</div>' +
               '<div>' +
                 '<div class="sig-line"></div>' +
@@ -7678,12 +7678,12 @@
       }
 
       if (authMode === 'signup') {
-        if (titleEl) titleEl.textContent = '📝 สมัครสมาชิก Natthawit Studio';
+        if (titleEl) titleEl.textContent = '📝 สมัครสมาชิก FreelanceHub';
         if (subEl) subEl.textContent = 'สร้างบัญชีผู้ใช้ใหม่สำหรับจัดการระบบบัญชีและการเงิน';
         if (submitBtn) submitBtn.textContent = 'สมัครสมาชิกใหม่';
         if (toggleBtn) toggleBtn.textContent = 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบที่นี่';
       } else {
-        if (titleEl) titleEl.textContent = '🔐 เข้าสู่ระบบ Natthawit Studio';
+        if (titleEl) titleEl.textContent = '🔐 เข้าสู่ระบบ FreelanceHub';
         if (subEl) subEl.textContent = 'ลงชื่อเข้าใช้เพื่อซิงค์ข้อมูลอย่างปลอดภัยตามมาตรฐาน Row Level Security (RLS)';
         if (submitBtn) submitBtn.textContent = 'เข้าสู่ระบบ';
         if (toggleBtn) toggleBtn.textContent = 'ยังไม่มีบัญชี? สมัครสมาชิกใหม่';
@@ -7863,7 +7863,7 @@
         if (res.error) throw res.error;
         currentUser = res.data.user;
         updateAuthUI();
-        showToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับคุณณัฐวิทย์ 👋');
+        showToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ FreelanceHub 👋');
         await loadAllData();
       } catch (err) {
         console.error('Gate login error:', err);
@@ -8737,7 +8737,7 @@
       var diff = inc - exp;
 
       var periodText = (dashPeriod === 'today' ? 'วันนี้' : (dashPeriod === 'month' ? 'เดือนนี้' : 'ปีนี้'));
-      document.getElementById('netModalPeriodLabel').textContent = 'ข้อมูลรอบ: ' + periodText + ' • Natthawit Studio';
+      document.getElementById('netModalPeriodLabel').textContent = 'ข้อมูลรอบ: ' + periodText + ' • FreelanceHub';
       document.getElementById('netModalIncome').textContent = '+฿' + inc.toLocaleString(undefined, {minimumFractionDigits: 2});
       document.getElementById('netModalExpense').textContent = '−฿' + exp.toLocaleString(undefined, {minimumFractionDigits: 2});
       
