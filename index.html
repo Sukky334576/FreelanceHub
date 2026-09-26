@@ -2515,7 +2515,10 @@
         </div>
 
         <div class="form-group" style="margin-bottom: 8px;">
-          <label class="form-label" for="gatePassword">รหัสผ่าน (Password)</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="gatePassword" style="margin-bottom: 0;">รหัสผ่าน (Password)</label>
+            <a href="javascript:void(0)" onclick="handleForgotPasswordPrompt()" style="font-size: 0.78rem; color: var(--color-primary); text-decoration: none;">ลืมรหัสผ่าน?</a>
+          </div>
           <div class="login-input-wrap">
             <i class="fa-solid fa-lock login-input-icon"></i>
             <input type="password" id="gatePassword" class="login-gate-input" placeholder="••••••••" required autocomplete="current-password">
@@ -3240,6 +3243,9 @@
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button id="settingsBtnSignIn" class="btn-primary" onclick="openAuthModal('signin')" style="padding: 8px 18px; font-size: 0.85rem; cursor: pointer;">
                 🔑 เข้าสู่ระบบ / สมัครสมาชิก
+              </button>
+              <button id="settingsBtnChangePwd" class="btn-secondary" onclick="openChangePasswordModal()" style="display: none; padding: 8px 18px; font-size: 0.85rem; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); border-radius: var(--radius-md); font-weight: 700;">
+                🔑 เปลี่ยนรหัสผ่าน
               </button>
               <button id="settingsBtnSignOut" class="btn-danger-outline" onclick="handleSignOut()" style="display: none; padding: 8px 18px; font-size: 0.85rem; cursor: pointer;">
                 🚪 ออกจากระบบ
@@ -4435,6 +4441,48 @@
             </button>
             <button type="button" id="authToggleModeBtn" class="btn-secondary" onclick="toggleAuthMode()" style="width: 100%; justify-content: center; height: 38px; font-size: 0.85rem; background: transparent; border: 1px dashed var(--border-color);">
               ยังไม่มีบัญชี? สมัครสมาชิกใหม่
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================
+       DRAWER / MODAL: เปลี่ยนรหัสผ่าน (CHANGE PASSWORD MODAL)
+       ======================================================= -->
+  <div id="changePasswordModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 440px;">
+      <div class="drawer-header">
+        <div class="drawer-title" id="changePasswordTitle">🔑 เปลี่ยนรหัสผ่านส่วนตัว</div>
+        <button class="drawer-close-btn" onclick="closeAllDrawers()" aria-label="ปิดหน้าต่าง">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="drawer-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+          กำหนดรหัสผ่านใหม่เพื่อความปลอดภัยในการเข้าใช้งาน FreelanceHub
+        </p>
+
+        <form id="changePasswordForm" onsubmit="event.preventDefault(); handleChangePasswordSubmit();">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="newPassword">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร) *</label>
+            <input type="password" id="newPassword" class="form-input" placeholder="••••••••" required minlength="8" autocomplete="new-password">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label class="form-label" for="confirmPassword">ยืนยันรหัสผ่านใหม่อีกครั้ง *</label>
+            <input type="password" id="confirmPassword" class="form-input" placeholder="••••••••" required minlength="8" autocomplete="new-password">
+          </div>
+
+          <div id="changePasswordErrorMsg" style="display: none; padding: 10px 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: #ef4444; font-size: 0.8rem; margin-bottom: 14px;"></div>
+
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-secondary" onclick="closeAllDrawers()" style="flex: 1; justify-content: center; height: 42px;">
+              ยกเลิก
+            </button>
+            <button type="submit" id="changePasswordSubmitBtn" class="btn-primary" style="flex: 2; justify-content: center; height: 42px; font-weight: 700;">
+              บันทึกรหัสผ่านใหม่
             </button>
           </div>
         </form>
@@ -7767,6 +7815,7 @@
       var settingsRole = document.getElementById('settingsAuthRole');
       var btnSignIn = document.getElementById('settingsBtnSignIn');
       var btnSignOut = document.getElementById('settingsBtnSignOut');
+      var btnChangePwd = document.getElementById('settingsBtnChangePwd');
 
       var loginGate = document.getElementById('loginGateOverlay');
       if (loginGate) {
@@ -7798,6 +7847,7 @@
         }
         if (btnSignIn) btnSignIn.style.display = 'none';
         if (btnSignOut) btnSignOut.style.display = 'inline-flex';
+        if (btnChangePwd) btnChangePwd.style.display = 'inline-flex';
       } else {
         if (desktopAuthText) desktopAuthText.textContent = 'เข้าสู่ระบบ';
         if (desktopAuthBadge) {
@@ -7821,6 +7871,87 @@
         }
         if (btnSignIn) btnSignIn.style.display = 'inline-flex';
         if (btnSignOut) btnSignOut.style.display = 'none';
+        if (btnChangePwd) btnChangePwd.style.display = 'none';
+      }
+    }
+
+    function openChangePasswordModal() {
+      var errEl = document.getElementById('changePasswordErrorMsg');
+      if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
+      var newPwd = document.getElementById('newPassword');
+      var confPwd = document.getElementById('confirmPassword');
+      if (newPwd) newPwd.value = '';
+      if (confPwd) confPwd.value = '';
+      openDrawer('changePasswordModal');
+    }
+
+    async function handleChangePasswordSubmit() {
+      var newPwd = document.getElementById('newPassword')?.value || '';
+      var confPwd = document.getElementById('confirmPassword')?.value || '';
+      var errEl = document.getElementById('changePasswordErrorMsg');
+      var submitBtn = document.getElementById('changePasswordSubmitBtn');
+
+      if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
+
+      if (newPwd.length < 8) {
+        if (errEl) {
+          errEl.textContent = 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      if (newPwd !== confPwd) {
+        if (errEl) {
+          errEl.textContent = 'รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+      }
+
+      try {
+        var res = await db.auth.updateUser({ password: newPwd });
+        if (res.error) throw res.error;
+        showToast('🔑 เปลี่ยนรหัสผ่านใหม่สำเร็จเรียบร้อยแล้ว');
+        closeAllDrawers();
+      } catch (err) {
+        console.error('Change password error:', err);
+        if (errEl) {
+          errEl.textContent = 'เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้');
+          errEl.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'บันทึกรหัสผ่านใหม่';
+        }
+      }
+    }
+
+    async function handleForgotPasswordPrompt() {
+      var defaultEmail = document.getElementById('gateEmail')?.value || document.getElementById('authEmail')?.value || '';
+      var inputEmail = prompt('กรุณากรอกอีเมลของคุณเพื่อรับลิงก์รีเซ็ตรหัสผ่าน:', defaultEmail);
+      if (!inputEmail || !inputEmail.trim()) return;
+      try {
+        var res = await db.auth.resetPasswordForEmail(inputEmail.trim(), {
+          redirectTo: window.location.origin
+        });
+        if (res.error) throw res.error;
+        alert('ระบบส่งคำขอรีเซ็ตรหัสผ่านไปยัง ' + inputEmail + ' แล้ว (โปรดตรวจสอบกล่องจดหมายหรือสแปม)');
+      } catch (err) {
+        console.error('Password reset error:', err);
+        alert('เกิดข้อผิดพลาดในการขอรีเซ็ตรหัสผ่าน: ' + (err.message || 'กรุณาลองใหม่อีกครั้ง'));
       }
     }
 

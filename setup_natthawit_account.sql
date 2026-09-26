@@ -10,7 +10,7 @@ DO $$
 DECLARE
   v_user_id UUID := gen_random_uuid();
   v_email TEXT := 'natthawitstudio@gmail.com';
-  v_password TEXT := 'StudioNatthawit2026!';
+  v_password TEXT := '<SET_SECURE_PASSWORD_HERE>'; -- Replace with a secure password before running
 BEGIN
   -- 1. Check if user already exists in auth.users
   IF EXISTS (SELECT 1 FROM auth.users WHERE email = v_email) THEN

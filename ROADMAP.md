@@ -26,7 +26,7 @@
 - **สถานะฐานข้อมูล:** Supabase PostgreSQL พร้อมฟังก์ชัน Atomic RPCs, deterministic wallet row locking (`FOR UPDATE`), และการบังคับใช้ Row Level Security (RLS) อย่างเข้มงวด
 - **ความสมบูรณ์ของโค้ด:** ผ่าน Acceptance & Regression Verification Suite รวม **32 / 32 รายการ** (MR01–MR10, FR01–FR06, RR01–RR06, และ H02 Barrier Tests)
 - **สถานะการติดตั้ง (Deployment):** Live บน Cloudflare Pages (`https://natthawit-studio.pages.dev/`)
-- **ข้อมูลผู้ใช้งานตั้งต้น:** คุณณัฐวิทย์ (`natthawitstudio@gmail.com`) ยอดเงิน 3 บัญชีรวม ฿67,056.22, 638 รายการธุรกรรม, 148 คิวงาน ปลอดภัย 100%
+- **ข้อมูลผู้ใช้งานตั้งต้น:** คุณณัฐวิทย์ (`natthawitstudio@gmail.com`) ยอดเงิน 3 บัญชีรวม ฿67,056.22, 638 รายการธุรกรรม, 148 คิวงาน (ผ่านการตรวจสอบด้วย RLS & Tenant Isolation Test บน commit `ce385c9`)
 
 ---
 
@@ -41,7 +41,7 @@
 - [ ] **ทดสอบการส่งออกเอกสาร:** ตรวจสอบความถูกต้องของใบเสนอราคา/ใบแจ้งหนี้ (PDF) และไฟล์สรุปบัญชี (Excel XLSX) ว่าแสดงแบรนด์ FreelanceHub สวยงามและคมชัด
 
 ### 2.2 ระบบจัดการบัญชีและความปลอดภัย (User Profile & Security)
-- [ ] **หน้าต่างเปลี่ยนรหัสผ่าน (Self-Service Password Change):** สร้าง UI ในแท็บ "ตั้งค่า" ให้คุณณัฐวิทย์สามารถเปลี่ยนจากรหัสชั่วคราว (`StudioNatthawit2026!`) เป็นรหัสผ่านส่วนตัวได้เองโดยตรงผ่าน Supabase Auth API
+- [ ] **หน้าต่างเปลี่ยนรหัสผ่าน (Self-Service Password Change):** สร้าง UI ในแท็บ "ตั้งค่า" ให้คุณณัฐวิทย์สามารถเปลี่ยนจากรหัสชั่วคราวเริ่มต้นเป็นรหัสผ่านส่วนตัวได้เองโดยตรงผ่าน Supabase Auth API
 - [ ] **ระบบรีเซ็ตรหัสผ่านผ่านอีเมล (Forgot Password Flow):** รองรับการส่ง Magic Link ไปยังอีเมลผู้ใช้กรณีลืมรหัสผ่าน
 
 ### 2.3 การจดและผูกชื่อโดเมนหลัก (Custom Domain Setup)
