@@ -4490,6 +4490,113 @@
     </div>
   </div>
 
+  <!-- =======================================================
+       DRAWER / MODAL: ต้อนรับผู้ใช้ใหม่ (ONBOARDING WIZARD)
+       ======================================================= -->
+  <div id="onboardingWizardModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" style="display: none; z-index: 10000;">
+    <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 480px; border-radius: var(--radius-lg); box-shadow: 0 20px 40px rgba(0,0,0,0.25);">
+      <div class="drawer-header" style="border-bottom: 1px solid var(--border-color); padding: 18px 24px;">
+        <div class="drawer-title" id="onboardingTitle" style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
+          <span>🚀</span> ยินดีต้อนรับสู่ FreelanceHub
+        </div>
+        <div id="onboardingStepIndicator" style="font-size: 0.78rem; font-weight: 700; color: var(--color-primary); background: var(--color-primary-light); padding: 4px 10px; border-radius: 999px;">
+          ขั้นตอน 1 จาก 3
+        </div>
+      </div>
+      <div class="drawer-body" style="padding: 24px;">
+        
+        <!-- Step 1: Profile & Profession -->
+        <div id="onboardingStep1" class="onboarding-step-content">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 6px;">1. แนะนำตัวของคุณ</h3>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 18px;">
+            ระบุชื่อแสดงและสายงาน เพื่อจัดเตรียมระบบให้เหมาะสมกับการทำงานของคุณ
+          </p>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="obDisplayName">ชื่อสตูดิโอ / ชื่อที่ใช้แสดง *</label>
+            <input type="text" id="obDisplayName" class="form-input" placeholder="เช่น Natthawit Studio, ปอ กราฟิกดีไซน์" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label" for="obProfession">สายงานหลักของคุณ</label>
+            <select id="obProfession" class="form-select">
+              <option value="ช่างภาพ / ช่างวิดีโอ">📷 ช่างภาพ / โปรดักชันวิดีโอ</option>
+              <option value="กราฟิกดีไซน์ / ครีเอทีฟ">🎨 กราฟิกดีไซน์ / ครีเอทีฟ</option>
+              <option value="นักพัฒนาซอฟต์แวร์ / ไอที">💻 โปรแกรมเมอร์ / ไอที</option>
+              <option value="คอนเทนต์ครีเอเตอร์ / การตลาด">✍️ คอนเทนต์ / การตลาดออนไลน์</option>
+              <option value="ฟรีแลนซ์ทั่วไป" selected>💼 ฟรีแลนซ์ทั่วไป</option>
+            </select>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="button" class="btn-primary" onclick="goToOnboardingStep(2)" style="height: 44px; padding: 0 24px; font-weight: 700;">
+              ถัดไป <i class="fa-solid fa-arrow-right" style="margin-left: 6px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: First Wallet Setup -->
+        <div id="onboardingStep2" class="onboarding-step-content" style="display: none;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 6px;">2. บัญชีรับเงินแรกของคุณ</h3>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 18px;">
+            กำหนดกระเป๋าเงินหรือบัญชีธนาคารที่คุณใช้รับเงินค่าจ้างหลัก พร้อมระบุยอดเงินเริ่มต้น
+          </p>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="obWalletName">ชื่อบัญชี / กระเป๋าเงิน *</label>
+            <input type="text" id="obWalletName" class="form-input" placeholder="เช่น บัญชีรับงาน (กสิกรไทย), บัญชีสตูดิโอ" value="บัญชีรับงานหลัก" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="obWalletType">ประเภทกระเป๋าเงิน</label>
+            <select id="obWalletType" class="form-select">
+              <option value="bank" selected>🏦 บัญชีธนาคาร (Bank Account)</option>
+              <option value="cash">💵 เงินสด (Cash)</option>
+              <option value="e-wallet">📱 E-Wallet / PromptPay</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label" for="obOpeningBalance">ยอดเงินตั้งต้น ณ วันนี้ (บาท)</label>
+            <input type="number" id="obOpeningBalance" step="0.01" class="form-input tabular-nums" placeholder="0.00" value="0.00">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+              * ยอดเงินตั้งต้นนี้จะถูกบันทึกเป็นเงินคงเหลือเริ่มต้น ไม่นับเป็นรายรับจากการทำงาน
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <button type="button" class="btn-secondary" onclick="goToOnboardingStep(1)" style="height: 44px; padding: 0 18px;">
+              <i class="fa-solid fa-arrow-left" style="margin-right: 6px;"></i> ย้อนกลับ
+            </button>
+            <button type="button" class="btn-primary" onclick="goToOnboardingStep(3)" style="height: 44px; padding: 0 24px; font-weight: 700;">
+              ถัดไป <i class="fa-solid fa-arrow-right" style="margin-left: 6px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Review & Complete -->
+        <div id="onboardingStep3" class="onboarding-step-content" style="display: none;">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 6px;">3. ตรวจสอบความถูกต้อง</h3>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 14px;">
+            ระบบจะสร้างกระเป๋าเงินแรกและจัดเตรียมหมวดหมู่รายรับ-รายจ่ายพื้นฐานให้คุณทันที
+          </p>
+          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; font-size: 0.85rem; line-height: 1.8;">
+            <div>• <strong>ชื่อที่ใช้แสดง:</strong> <span id="obSummaryName">-</span></div>
+            <div>• <strong>สายงาน:</strong> <span id="obSummaryProf">-</span></div>
+            <div>• <strong>บัญชีเริ่มต้น:</strong> <span id="obSummaryWallet">-</span></div>
+            <div>• <strong>ยอดเงินตั้งต้น:</strong> <span id="obSummaryBal" style="color: var(--color-primary); font-weight: 700;">฿0.00</span></div>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color); font-size: 0.78rem; color: var(--text-muted);">
+              ✅ เตรียม 9 หมวดหมู่พื้นฐาน (ค่าจ้าง, มัดจำ, ค่าอุปกรณ์, ค่าเดินทาง, สตูดิโอ ฯลฯ)
+            </div>
+          </div>
+          <div id="obErrorAlert" style="display: none; padding: 10px 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: #ef4444; font-size: 0.8rem; margin-bottom: 14px;"></div>
+          <div style="display: flex; justify-content: space-between;">
+            <button type="button" class="btn-secondary" onclick="goToOnboardingStep(2)" style="height: 44px; padding: 0 18px;">
+              <i class="fa-solid fa-arrow-left" style="margin-right: 6px;"></i> ย้อนกลับ
+            </button>
+            <button type="button" id="obFinishBtn" class="btn-primary" onclick="handleFinishOnboarding()" style="height: 44px; padding: 0 24px; font-weight: 800; background: var(--color-primary-dark);">
+              🚀 เริ่มต้นใช้งานเลย
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
 <!-- Toast Message -->
   <div id="toast">บันทึกสำเร็จ 🎉</div>
 
@@ -4707,6 +4814,10 @@
         renderCategoryOptions();
         populateJobDropdowns();
         renderAll();
+
+        if (currentUser) {
+          checkOnboardingStatus();
+        }
       } catch (e) {
         if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
         console.error('Error loading data:', e);
@@ -7952,6 +8063,138 @@
       } catch (err) {
         console.error('Password reset error:', err);
         alert('เกิดข้อผิดพลาดในการขอรีเซ็ตรหัสผ่าน: ' + (err.message || 'กรุณาลองใหม่อีกครั้ง'));
+      }
+    }
+
+    // =========================================================
+    // NEW USER ONBOARDING WIZARD LOGIC (OB01)
+    // =========================================================
+    var currentOnboardingStep = 1;
+
+    function openOnboardingWizard() {
+      currentOnboardingStep = 1;
+      goToOnboardingStep(1);
+      var modal = document.getElementById('onboardingWizardModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeOnboardingWizard() {
+      var modal = document.getElementById('onboardingWizardModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function goToOnboardingStep(step) {
+      currentOnboardingStep = step;
+      var s1 = document.getElementById('onboardingStep1');
+      var s2 = document.getElementById('onboardingStep2');
+      var s3 = document.getElementById('onboardingStep3');
+      var ind = document.getElementById('onboardingStepIndicator');
+
+      if (s1) s1.style.display = step === 1 ? 'block' : 'none';
+      if (s2) s2.style.display = step === 2 ? 'block' : 'none';
+      if (s3) s3.style.display = step === 3 ? 'block' : 'none';
+
+      if (ind) ind.textContent = 'ขั้นตอน ' + step + ' จาก 3';
+
+      if (step === 3) {
+        var name = document.getElementById('obDisplayName')?.value || 'ฟรีแลนซ์';
+        var prof = document.getElementById('obProfession')?.value || 'ฟรีแลนซ์ทั่วไป';
+        var wName = document.getElementById('obWalletName')?.value || 'บัญชีรับงานหลัก';
+        var bal = parseFloat(document.getElementById('obOpeningBalance')?.value) || 0;
+
+        var sumName = document.getElementById('obSummaryName');
+        var sumProf = document.getElementById('obSummaryProf');
+        var sumWallet = document.getElementById('obSummaryWallet');
+        var sumBal = document.getElementById('obSummaryBal');
+
+        if (sumName) sumName.textContent = name;
+        if (sumProf) sumProf.textContent = prof;
+        if (sumWallet) sumWallet.textContent = wName;
+        if (sumBal) sumBal.textContent = '฿' + bal.toLocaleString(undefined, { minimumFractionDigits: 2 });
+      }
+    }
+
+    async function checkOnboardingStatus() {
+      if (!currentUser) return;
+      try {
+        var res = await db.from('user_profiles').select('onboarding_completed_at').eq('id', currentUser.id).maybeSingle();
+        if (res && res.data && res.data.onboarding_completed_at) {
+          // Already completed onboarding
+          return;
+        }
+
+        // If legacy user with wallets already present (e.g. Khun Natthawit), backfill profile silently
+        if (appData.wallets && appData.wallets.length > 0) {
+          await db.from('user_profiles').upsert({
+            id: currentUser.id,
+            display_name: 'คุณณัฐวิทย์',
+            profession: 'สตูดิโอโปรดักชัน',
+            onboarding_completed_at: new Date().toISOString()
+          });
+          return;
+        }
+
+        // Genuinely new user without wallets and no completion timestamp: open onboarding
+        openOnboardingWizard();
+      } catch (err) {
+        console.warn('Check onboarding status error:', err);
+      }
+    }
+
+    async function handleFinishOnboarding() {
+      var displayName = document.getElementById('obDisplayName')?.value || '';
+      var profession = document.getElementById('obProfession')?.value || 'ฟรีแลนซ์ทั่วไป';
+      var walletName = document.getElementById('obWalletName')?.value || 'บัญชีรับงานหลัก';
+      var walletType = document.getElementById('obWalletType')?.value || 'bank';
+      var openingBalance = parseFloat(document.getElementById('obOpeningBalance')?.value) || 0;
+      var errEl = document.getElementById('obErrorAlert');
+      var finishBtn = document.getElementById('obFinishBtn');
+
+      if (errEl) {
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+      }
+
+      if (!displayName.trim()) {
+        if (errEl) {
+          errEl.textContent = 'กรุณาระบุชื่อสตูดิโอหรือชื่อที่ใช้แสดง';
+          errEl.style.display = 'block';
+        }
+        goToOnboardingStep(1);
+        return;
+      }
+
+      if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังจัดเตรียมระบบ...';
+      }
+
+      try {
+        var res = await db.rpc('complete_onboarding', {
+          p_display_name: displayName.trim(),
+          p_profession: profession,
+          p_wallet_name: walletName.trim(),
+          p_wallet_type: walletType,
+          p_opening_balance: openingBalance,
+          p_opening_date: getTodayDateStr()
+        });
+
+        if (res.error) throw res.error;
+
+        closeOnboardingWizard();
+        showToast('🎉 ยินดีต้อนรับสู่ FreelanceHub จัดเตรียมระบบเรียบร้อยแล้ว!');
+        await loadAllData();
+      } catch (err) {
+        console.error('Onboarding finish error:', err);
+        if (errEl) {
+          errEl.textContent = 'เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถจัดเตรียมระบบได้');
+          errEl.style.display = 'block';
+        }
+      } finally {
+        if (finishBtn) {
+          finishBtn.disabled = false;
+          finishBtn.innerHTML = '🚀 เริ่มต้นใช้งานเลย';
+        }
       }
     }
 

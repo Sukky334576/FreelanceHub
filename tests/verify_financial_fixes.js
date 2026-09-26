@@ -1646,6 +1646,83 @@ await test('RR06', 'Real PostgreSQL Anonymous Access Blocked via RLS & Revocatio
 });
 
 // ============================================================================
+// OB01: Atomic & Idempotent Onboarding Provisioning (RPC & State Isolation)
+// ============================================================================
+await test('OB01', 'Atomic & Idempotent Onboarding RPC: provisions 1 wallet, categories, opening balance, and prevents duplicate provisioning on retry', async () => {
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const newUserId = '22222222-2222-2222-2222-222222222222';
+  await pg.exec(`INSERT INTO auth.users (id, email) VALUES ('${newUserId}', 'newuser@freelancehub.app');`);
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${newUserId}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // 1. Initial complete_onboarding call
+  const call1 = await pg.query(`
+    SELECT public.complete_onboarding(
+      p_display_name := 'สมชาย ฟรีแลนซ์',
+      p_profession := 'ช่างภาพ',
+      p_wallet_name := 'บัญชีออมทรัพย์ กสิกรไทย',
+      p_wallet_type := 'ธนาคาร',
+      p_opening_balance := 5000.00,
+      p_opening_date := '2026-09-26'::date
+    ) AS res;
+  `);
+
+  const res1 = call1.rows[0].res;
+  assert.strictEqual(res1.success, true, 'First onboarding call must succeed');
+  assert.strictEqual(res1.status, 'COMPLETED', 'Status must be COMPLETED');
+  assert(res1.wallet_id, 'Must return created wallet_id');
+
+  // Verify wallet created with confirmed opening balance
+  const walletCheck = await pg.query(`SELECT * FROM public.wallets WHERE user_id = '${newUserId}';`);
+  assert.strictEqual(walletCheck.rows.length, 1, 'Exactly 1 wallet must be provisioned');
+  assert.strictEqual(Number(walletCheck.rows[0].balance), 5000.00, 'Wallet balance must equal confirmed opening balance');
+  assert.strictEqual(walletCheck.rows[0].name, 'บัญชีออมทรัพย์ กสิกรไทย', 'Wallet name must match');
+
+  // Verify default categories seeded
+  const catCheck = await pg.query(`SELECT COUNT(*) as cnt FROM public.categories WHERE user_id = '${newUserId}';`);
+  assert(Number(catCheck.rows[0].cnt) >= 8, 'Default categories must be provisioned');
+
+  // Verify user_profiles row
+  const profileCheck = await pg.query(`SELECT * FROM public.user_profiles WHERE id = '${newUserId}';`);
+  assert.strictEqual(profileCheck.rows.length, 1, 'Profile row must exist');
+  assert(profileCheck.rows[0].onboarding_completed_at !== null, 'onboarding_completed_at must be populated');
+  assert.strictEqual(profileCheck.rows[0].display_name, 'สมชาย ฟรีแลนซ์');
+
+  // 2. Retry / Double-submit simulation: Second call must return ALREADY_COMPLETED and same wallet_id without duplicating
+  const call2 = await pg.query(`
+    SELECT public.complete_onboarding(
+      p_display_name := 'สมชาย ฟรีแลนซ์',
+      p_profession := 'ช่างภาพ',
+      p_wallet_name := 'บัญชีออมทรัพย์ กสิกรไทย',
+      p_wallet_type := 'ธนาคาร',
+      p_opening_balance := 5000.00,
+      p_opening_date := '2026-09-26'::date
+    ) AS res;
+  `);
+
+  const res2 = call2.rows[0].res;
+  assert.strictEqual(res2.success, true, 'Retry onboarding call must return success');
+  assert.strictEqual(res2.status, 'ALREADY_COMPLETED', 'Retry must return ALREADY_COMPLETED');
+  assert.strictEqual(String(res2.wallet_id), String(res1.wallet_id), 'Must return the same wallet_id without duplicating');
+
+  // Confirm still exactly 1 wallet and not 2
+  const walletCount2 = await pg.query(`SELECT COUNT(*) as cnt FROM public.wallets WHERE user_id = '${newUserId}';`);
+  assert.strictEqual(Number(walletCount2.rows[0].cnt), 1, 'Must still have exactly 1 wallet after retry (idempotent)');
+
+  // 3. User with deleted wallets does NOT get re-onboarded
+  await pg.query(`DELETE FROM public.wallets WHERE user_id = '${newUserId}';`);
+  const profileCheckAfterDelete = await pg.query(`SELECT onboarding_completed_at FROM public.user_profiles WHERE id = '${newUserId}';`);
+  assert(profileCheckAfterDelete.rows[0].onboarding_completed_at !== null,
+    'onboarding_completed_at remains set even if user deletes wallets, preventing accidental wizard restart');
+
+  await pg.close();
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log(`\n=======================================================`);

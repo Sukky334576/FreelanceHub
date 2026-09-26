@@ -45,13 +45,20 @@ sequenceDiagram
 1. **การจัดการ Security Hygiene (Item 1):**
    - ✅ ทำการ Redact/ลบรหัสผ่าน Plaintext ใน `setup_natthawit_account.sql` และ `ROADMAP.md` ออกเรียบร้อยแล้ว
    - ✅ ปรับแก้ข้อความยืนยันความปลอดภัยใน `ROADMAP.md` ตามที่ Codex แนะนำ: ระบุผลการทดสอบตาม commit (`ce385c9`), สภาพแวดล้อม และขอบเขตการบังคับใช้ `FORCE ROW LEVEL SECURITY`
-   - 🔄 กำลังเพิ่มฟังก์ชัน "เปลี่ยนรหัสผ่าน" (Self-service Password Change) ในหน้าแท็บตั้งค่า เพื่อให้ผู้ใช้สามารถ Rotate รหัสผ่านของตนเองได้โดยตรงผ่าน `db.auth.updateUser()`
+   - ✅ เพิ่มฟังก์ชัน "เปลี่ยนรหัสผ่าน" (`#changePasswordModal`) ในแท็บตั้งค่า และลิงก์ "ลืมรหัสผ่าน?" ที่หน้า Login Gate
 2. **สถาปัตยกรรม Onboarding & Multi-Tenant (Item 2):**
-   - เห็นชอบกับคำแนะนำของ Codex: เลือกแนวทาง B (Client-side Wizard) ทำงานร่วมกับ Server-side Atomic RPC `complete_onboarding`
-   - กำหนดสถานะ `onboarding_completed_at` ที่ Server เป็นผู้ควบคุม (ไม่ตัดสินจาก `wallets.length === 0`) เพื่อแยกแยะสถานะ loading/error/empty ได้อย่างถูกต้อง
-   - ยอดเงินตั้งต้นจะถูกบันทึกเป็น `opening_balance = balance` ไม่ถูกนับเป็นรายรับจากการดำเนินงาน (Operating Income)
-3. **การทดสอบความสมบูรณ์ (Verification):**
-   - Acceptance & Regression Suite ผ่าน 32/32 tests (Exit code: 0)
+   - ✅ **Database & Schema:** สร้างตาราง `public.user_profiles` พร้อม `FORCE ROW LEVEL SECURITY` และฟังก์ชัน RPC `complete_onboarding` (แบบ Atomic & Idempotent) ใน `supabase_schema_upgrade.sql` และ `supabase_migration_v2.sql`
+   - ✅ **Backfill Legacy Users:** สร้าง profile และบันทึก `onboarding_completed_at = NOW()` ให้กับผู้ใช้เดิมที่มีข้อมูล (คุณณัฐวิทย์) เพื่อป้องกันไม่ให้หน้า Onboarding เด้งรบกวนผู้ใช้เดิม
+   - ✅ **Opening Balance Contract:** ยอดเงินตั้งต้นจะบันทึกเป็น `opening_balance = balance` ไม่ถูกนับเป็น Operating Income
+   - ✅ **Frontend UI/UX:** เพิ่ม Onboarding Wizard 3 ขั้นตอน (`#onboardingWizardModal`):
+     - ขั้นตอน 1: ชื่อที่ใช้แสดง & สายงาน
+     - ขั้นตอน 2: กระเป๋าเงินแรก & ยอดเริ่มต้น
+     - ขั้นตอน 3: ตรวจทานหมวดหมู่ & ยืนยันเริ่มต้นใช้งาน
+   - ✅ **Automated Test (OB01):** เพิ่มชุดทดสอบ `OB01` ใน `tests/verify_financial_fixes.js` ตรวจสอบความถูกต้องของการสร้างกระเป๋าเงิน, หมวดหมู่, และการป้องกัน double-submit/retry ส่งผลลัพธ์เป็น `ALREADY_COMPLETED` โดยไม่สร้างกระเป๋าซ้ำ
+3. **ผลการทดสอบและการติดตั้ง (Verification & Deployment):**
+   - Acceptance & Regression Suite ผ่านครบ **33 / 33 tests (100% PASS, Exit code: 0)**
+   - ไฟล์ที่แก้ไข: `index.html`, `supabase_schema_upgrade.sql`, `supabase_migration_v2.sql`, `tests/verify_financial_fixes.js`, `setup_natthawit_account.sql`, `ROADMAP.md`
+   - Live Preview URL: `https://natthawit-studio.pages.dev/`
 
 ---
 

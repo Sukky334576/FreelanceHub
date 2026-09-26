@@ -1738,3 +1738,136 @@ GRANT EXECUTE ON FUNCTION public.execute_update_transaction(BIGINT, DATE, TEXT, 
 REVOKE ALL ON FUNCTION public.execute_delete_transaction(BIGINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.execute_delete_transaction(BIGINT) TO authenticated;
 
+-- User profiles & Onboarding Provisioning
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name TEXT,
+  profession TEXT,
+  onboarding_completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_profiles FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'user_profiles' AND policyname = 'user_profiles_owner_all'
+  ) THEN
+    CREATE POLICY user_profiles_owner_all ON public.user_profiles
+      FOR ALL TO authenticated
+      USING (id = auth.uid())
+      WITH CHECK (id = auth.uid());
+  END IF;
+END $$;
+
+INSERT INTO public.user_profiles (id, display_name, profession, onboarding_completed_at)
+SELECT DISTINCT user_id, 'คุณณัฐวิทย์', 'สตูดิโอโปรดักชัน', NOW()
+FROM public.wallets
+WHERE user_id IS NOT NULL
+ON CONFLICT (id) DO UPDATE SET onboarding_completed_at = COALESCE(public.user_profiles.onboarding_completed_at, NOW());
+
+CREATE OR REPLACE FUNCTION public.complete_onboarding(
+  p_display_name TEXT,
+  p_profession TEXT DEFAULT 'ทั่วไป',
+  p_wallet_name TEXT DEFAULT 'บัญชีรับเงินหลัก',
+  p_wallet_type TEXT DEFAULT 'ธนาคาร',
+  p_opening_balance NUMERIC DEFAULT 0.00,
+  p_opening_date DATE DEFAULT CURRENT_DATE
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_profile RECORD;
+  v_wallet_id BIGINT;
+  v_existing_wallet_count INT;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized: authenticated session required';
+  END IF;
+
+  INSERT INTO public.user_profiles (id, display_name, profession)
+  VALUES (v_user_id, COALESCE(NULLIF(TRIM(p_display_name), ''), 'ฟรีแลนซ์'), COALESCE(NULLIF(TRIM(p_profession), ''), 'ทั่วไป'))
+  ON CONFLICT (id) DO NOTHING;
+
+  SELECT * INTO v_profile
+  FROM public.user_profiles
+  WHERE id = v_user_id
+  FOR UPDATE;
+
+  IF v_profile.onboarding_completed_at IS NOT NULL THEN
+    SELECT id INTO v_wallet_id
+    FROM public.wallets
+    WHERE user_id = v_user_id
+    ORDER BY id ASC
+    LIMIT 1;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'status', 'ALREADY_COMPLETED',
+      'message', 'Onboarding has already been completed for this user',
+      'wallet_id', v_wallet_id,
+      'completed_at', v_profile.onboarding_completed_at
+    );
+  END IF;
+
+  SELECT COUNT(*) INTO v_existing_wallet_count FROM public.wallets WHERE user_id = v_user_id;
+
+  IF v_existing_wallet_count = 0 THEN
+    INSERT INTO public.wallets (
+      user_id, name, type, balance, opening_balance, opening_date, color, icon
+    )
+    VALUES (
+      v_user_id,
+      COALESCE(NULLIF(TRIM(p_wallet_name), ''), 'บัญชีรับเงินหลัก'),
+      COALESCE(NULLIF(TRIM(p_wallet_type), ''), 'bank'),
+      ROUND(COALESCE(p_opening_balance, 0.00)::NUMERIC, 2),
+      ROUND(COALESCE(p_opening_balance, 0.00)::NUMERIC, 2),
+      COALESCE(p_opening_date, CURRENT_DATE),
+      '#168EA1',
+      'fa-wallet'
+    )
+    RETURNING id INTO v_wallet_id;
+  ELSE
+    SELECT id INTO v_wallet_id FROM public.wallets WHERE user_id = v_user_id ORDER BY id ASC LIMIT 1;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.categories WHERE user_id = v_user_id) THEN
+    INSERT INTO public.categories (user_id, name, type, color, icon)
+    VALUES
+      (v_user_id, 'รับเงินค่าจ้าง/โปรเจกต์', 'รายรับ', '#10B981', 'fa-money-bill-wave'),
+      (v_user_id, 'เงินมัดจำรับล่วงหน้า', 'รายรับ', '#06B6D4', 'fa-hand-holding-dollar'),
+      (v_user_id, 'รายรับอื่นๆ', 'รายรับ', '#3B82F6', 'fa-coins'),
+      (v_user_id, 'ค่าอุปกรณ์/ซอฟต์แวร์', 'รายจ่าย', '#F43F5E', 'fa-laptop'),
+      (v_user_id, 'ค่าเดินทาง/ที่พัก', 'รายจ่าย', '#F97316', 'fa-car'),
+      (v_user_id, 'ค่าอาหาร/ของใช้', 'รายจ่าย', '#EAB308', 'fa-utensils'),
+      (v_user_id, 'ค่าเช่า/สตูดิโอ', 'รายจ่าย', '#8B5CF6', 'fa-building'),
+      (v_user_id, 'สาธารณูปโภค/บิล', 'รายจ่าย', '#64748B', 'fa-receipt'),
+      (v_user_id, 'เบ็ดเตล็ด', 'รายจ่าย', '#94A3B8', 'fa-box');
+  END IF;
+
+  UPDATE public.user_profiles
+  SET display_name = COALESCE(NULLIF(TRIM(p_display_name), ''), display_name, 'ฟรีแลนซ์'),
+      profession = COALESCE(NULLIF(TRIM(p_profession), ''), profession, 'ทั่วไป'),
+      onboarding_completed_at = NOW(),
+      updated_at = NOW()
+  WHERE id = v_user_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'status', 'COMPLETED',
+    'wallet_id', v_wallet_id,
+    'completed_at', NOW()
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) TO authenticated;
+
+
