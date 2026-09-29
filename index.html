@@ -4493,14 +4493,19 @@
   <!-- =======================================================
        DRAWER / MODAL: ต้อนรับผู้ใช้ใหม่ (ONBOARDING WIZARD)
        ======================================================= -->
-  <div id="onboardingWizardModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" style="display: none; z-index: 10000;">
+  <div id="onboardingWizardModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" onclick="closeAllDrawers()" style="z-index: 10000;">
     <div class="drawer-sheet" onclick="event.stopPropagation()" style="max-width: 480px; border-radius: var(--radius-lg); box-shadow: 0 20px 40px rgba(0,0,0,0.25);">
-      <div class="drawer-header" style="border-bottom: 1px solid var(--border-color); padding: 18px 24px;">
+      <div class="drawer-header" style="border-bottom: 1px solid var(--border-color); padding: 18px 24px; position: relative;">
         <div class="drawer-title" id="onboardingTitle" style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
           <span>🚀</span> ยินดีต้อนรับสู่ FreelanceHub
         </div>
-        <div id="onboardingStepIndicator" style="font-size: 0.78rem; font-weight: 700; color: var(--color-primary); background: var(--color-primary-light); padding: 4px 10px; border-radius: 999px;">
-          ขั้นตอน 1 จาก 3
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="onboardingStepIndicator" style="font-size: 0.78rem; font-weight: 700; color: var(--color-primary); background: var(--color-primary-light); padding: 4px 10px; border-radius: 999px;">
+            ขั้นตอน 1 จาก 3
+          </div>
+          <button type="button" class="drawer-close-btn" onclick="closeAllDrawers()" aria-label="ปิดหน้าต่าง" style="position: static; margin-left: 4px;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
       <div class="drawer-body" style="padding: 24px;">
@@ -4511,6 +4516,7 @@
           <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 18px;">
             ระบุชื่อแสดงและสายงาน เพื่อจัดเตรียมระบบให้เหมาะสมกับการทำงานของคุณ
           </p>
+          <div id="obErrorAlertStep1" style="display: none; padding: 10px 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: #ef4444; font-size: 0.8rem; margin-bottom: 14px;"></div>
           <div class="form-group" style="margin-bottom: 16px;">
             <label class="form-label" for="obDisplayName">ชื่อสตูดิโอ / ชื่อที่ใช้แสดง *</label>
             <input type="text" id="obDisplayName" class="form-input" placeholder="เช่น Natthawit Studio, ปอ กราฟิกดีไซน์" required>
@@ -4635,6 +4641,22 @@
 
     function clearAppDataAndScreens() {
       currentSessionGeneration++;
+      if (typeof closeOnboardingWizard === 'function') {
+        closeOnboardingWizard();
+      }
+      var obName = document.getElementById('obDisplayName');
+      if (obName) obName.value = '';
+      var obProf = document.getElementById('obProfession');
+      if (obProf) obProf.selectedIndex = 0;
+      var obWallet = document.getElementById('obWalletName');
+      if (obWallet) obWallet.value = 'บัญชีรับงานหลัก';
+      var obBal = document.getElementById('obOpeningBalance');
+      if (obBal) obBal.value = '0.00';
+      var errEl1 = document.getElementById('obErrorAlertStep1');
+      if (errEl1) { errEl1.style.display = 'none'; errEl1.textContent = ''; }
+      var errEl3 = document.getElementById('obErrorAlert');
+      if (errEl3) { errEl3.style.display = 'none'; errEl3.textContent = ''; }
+
       appData = {
         categories: [],
         jobs: [],
@@ -8067,23 +8089,41 @@
     }
 
     // =========================================================
-    // NEW USER ONBOARDING WIZARD LOGIC (OB01)
+    // NEW USER ONBOARDING WIZARD LOGIC (OB01 - OBR04)
     // =========================================================
     var currentOnboardingStep = 1;
 
-    function openOnboardingWizard() {
+    function openOnboardingWizard(triggerEl) {
       currentOnboardingStep = 1;
+      openDrawer('onboardingWizardModal', triggerEl);
       goToOnboardingStep(1);
-      var modal = document.getElementById('onboardingWizardModal');
-      if (modal) modal.style.display = 'flex';
     }
 
     function closeOnboardingWizard() {
       var modal = document.getElementById('onboardingWizardModal');
-      if (modal) modal.style.display = 'none';
+      if (modal) modal.classList.remove('active');
     }
 
     function goToOnboardingStep(step) {
+      // Validate Step 1 before advancing
+      if (step > 1 && currentOnboardingStep === 1) {
+        var nameInput = document.getElementById('obDisplayName');
+        var err1 = document.getElementById('obErrorAlertStep1');
+        var displayNameVal = nameInput ? nameInput.value.trim() : '';
+        if (!displayNameVal) {
+          if (err1) {
+            err1.textContent = 'กรุณาระบุชื่อสตูดิโอหรือชื่อที่ใช้แสดงก่อนไปขั้นตอนถัดไป';
+            err1.style.display = 'block';
+          }
+          if (nameInput) nameInput.focus();
+          return;
+        }
+        if (err1) {
+          err1.style.display = 'none';
+          err1.textContent = '';
+        }
+      }
+
       currentOnboardingStep = step;
       var s1 = document.getElementById('onboardingStep1');
       var s2 = document.getElementById('onboardingStep2');
@@ -8096,7 +8136,17 @@
 
       if (ind) ind.textContent = 'ขั้นตอน ' + step + ' จาก 3';
 
-      if (step === 3) {
+      if (step === 1) {
+        setTimeout(function() {
+          var input = document.getElementById('obDisplayName');
+          if (input) input.focus();
+        }, 50);
+      } else if (step === 2) {
+        setTimeout(function() {
+          var input = document.getElementById('obWalletName');
+          if (input) input.focus();
+        }, 50);
+      } else if (step === 3) {
         var name = document.getElementById('obDisplayName')?.value || 'ฟรีแลนซ์';
         var prof = document.getElementById('obProfession')?.value || 'ฟรีแลนซ์ทั่วไป';
         var wName = document.getElementById('obWalletName')?.value || 'บัญชีรับงานหลัก';
@@ -8111,24 +8161,42 @@
         if (sumProf) sumProf.textContent = prof;
         if (sumWallet) sumWallet.textContent = wName;
         if (sumBal) sumBal.textContent = '฿' + bal.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+        setTimeout(function() {
+          var btn = document.getElementById('obFinishBtn');
+          if (btn) btn.focus();
+        }, 50);
       }
     }
 
     async function checkOnboardingStatus() {
       if (!currentUser) return;
+      var sessionGen = currentSessionGeneration;
+      var sessionUserId = currentUser.id;
+
       try {
-        var res = await db.from('user_profiles').select('onboarding_completed_at').eq('id', currentUser.id).maybeSingle();
-        if (res && res.data && res.data.onboarding_completed_at) {
-          // Already completed onboarding
+        var res = await db.from('user_profiles').select('onboarding_completed_at').eq('id', sessionUserId).maybeSingle();
+        // Guard against stale async resolution across account switches
+        if (!isMutationSessionValid(sessionGen, sessionUserId)) return;
+
+        // OBR02: If query returned an error, abort immediately. DO NOT assume user is new!
+        if (res && res.error) {
+          console.warn('Check onboarding status query error:', res.error);
           return;
         }
 
-        // If legacy user with wallets already present (e.g. Khun Natthawit), backfill profile silently
+        // Already completed onboarding
+        if (res && res.data && res.data.onboarding_completed_at) {
+          return;
+        }
+
+        // If legacy user with wallets already present, silently backfill profile without hardcoded user names
         if (appData.wallets && appData.wallets.length > 0) {
+          var fallbackName = (currentUser.user_metadata && (currentUser.user_metadata.full_name || currentUser.user_metadata.name)) || (currentUser.email ? currentUser.email.split('@')[0] : 'ฟรีแลนซ์');
           await db.from('user_profiles').upsert({
-            id: currentUser.id,
-            display_name: 'คุณณัฐวิทย์',
-            profession: 'สตูดิโอโปรดักชัน',
+            id: sessionUserId,
+            display_name: fallbackName,
+            profession: 'ทั่วไป',
             onboarding_completed_at: new Date().toISOString()
           });
           return;
@@ -8142,23 +8210,32 @@
     }
 
     async function handleFinishOnboarding() {
+      if (!currentUser) return;
+      var sessionGen = currentSessionGeneration;
+      var sessionUserId = currentUser.id;
+
       var displayName = document.getElementById('obDisplayName')?.value || '';
       var profession = document.getElementById('obProfession')?.value || 'ฟรีแลนซ์ทั่วไป';
       var walletName = document.getElementById('obWalletName')?.value || 'บัญชีรับงานหลัก';
       var walletType = document.getElementById('obWalletType')?.value || 'bank';
       var openingBalance = parseFloat(document.getElementById('obOpeningBalance')?.value) || 0;
-      var errEl = document.getElementById('obErrorAlert');
+      var errEl3 = document.getElementById('obErrorAlert');
+      var errEl1 = document.getElementById('obErrorAlertStep1');
       var finishBtn = document.getElementById('obFinishBtn');
 
-      if (errEl) {
-        errEl.style.display = 'none';
-        errEl.textContent = '';
+      if (errEl3) {
+        errEl3.style.display = 'none';
+        errEl3.textContent = '';
+      }
+      if (errEl1) {
+        errEl1.style.display = 'none';
+        errEl1.textContent = '';
       }
 
       if (!displayName.trim()) {
-        if (errEl) {
-          errEl.textContent = 'กรุณาระบุชื่อสตูดิโอหรือชื่อที่ใช้แสดง';
-          errEl.style.display = 'block';
+        if (errEl1) {
+          errEl1.textContent = 'กรุณาระบุชื่อสตูดิโอหรือชื่อที่ใช้แสดง';
+          errEl1.style.display = 'block';
         }
         goToOnboardingStep(1);
         return;
@@ -8179,19 +8256,35 @@
           p_opening_date: getTodayDateStr()
         });
 
+        // Guard against stale response if user switched account while RPC was inflight
+        if (!isMutationSessionValid(sessionGen, sessionUserId)) return;
+
         if (res.error) throw res.error;
 
+        // OBR03: Check if payload conflicted with an already completed onboarding
+        if (res.data && res.data.status === 'PAYLOAD_CONFLICT') {
+          closeOnboardingWizard();
+          alert('ระบบเคยได้รับการตั้งค่าเริ่มต้นไว้ก่อนหน้านี้ด้วยข้อมูลอื่นแล้ว กำลังโหลดข้อมูลปัจจุบันของคุณ');
+          await loadAllData();
+          return;
+        }
+
         closeOnboardingWizard();
-        showToast('🎉 ยินดีต้อนรับสู่ FreelanceHub จัดเตรียมระบบเรียบร้อยแล้ว!');
+        if (res.data && res.data.status === 'ALREADY_COMPLETED') {
+          showToast('ระบบได้รับการตั้งค่าเรียบร้อยแล้ว ยินดีต้อนรับกลับ 👋');
+        } else {
+          showToast('🎉 ยินดีต้อนรับสู่ FreelanceHub จัดเตรียมระบบเรียบร้อยแล้ว!');
+        }
         await loadAllData();
       } catch (err) {
+        if (!isMutationSessionValid(sessionGen, sessionUserId)) return;
         console.error('Onboarding finish error:', err);
-        if (errEl) {
-          errEl.textContent = 'เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถจัดเตรียมระบบได้');
-          errEl.style.display = 'block';
+        if (errEl3) {
+          errEl3.textContent = 'เกิดข้อผิดพลาด: ' + (err.message || 'ไม่สามารถจัดเตรียมระบบได้');
+          errEl3.style.display = 'block';
         }
       } finally {
-        if (finishBtn) {
+        if (isMutationSessionValid(sessionGen, sessionUserId) && finishBtn) {
           finishBtn.disabled = false;
           finishBtn.innerHTML = '🚀 เริ่มต้นใช้งานเลย';
         }

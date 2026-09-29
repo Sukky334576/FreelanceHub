@@ -40,6 +40,44 @@ sequenceDiagram
 
 ## 🛠️ 2. Antigravity Execution Log (บันทึกสถานะล่าสุดจาก Antigravity)
 
+### รอบที่ 3 (Round 3) — 29 กันยายน 2569 (September 2026)
+**สถานะการแก้ไข 4 จุด Onboarding ตามผลการตรวจทานของ Codex (อ้างอิง commit `f054188`):**
+
+1. **OBR01 (P1): ป้องกันผลโหลดค้างของบัญชี A สลับไปเขียนโปรไฟล์บัญชี B (Session Isolation & Cross-Account Guard):**
+   - ✅ ใน `index.html`: เพิ่มตัวแปร `sessionGen = currentSessionGeneration` และ `sessionUserId = currentUser.id` ในฟังก์ชัน `checkOnboardingStatus()` และ `handleFinishOnboarding()`
+   - ✅ เพิ่มการตรวจสอบ `if (!isMutationSessionValid(sessionGen, sessionUserId)) return;` หลังทุกจุดที่มี `await` (ทั้งหลังดึง `user_profiles`, หลังเรียก RPC `complete_onboarding`, และใน `catch`/`finally`)
+   - ✅ ปรับปรุง `clearAppDataAndScreens()` ให้เรียก `closeOnboardingWizard()`, ล้างค่าฟอร์ม (`#obDisplayName`, `#obProfession`, `#obWalletName`, `#obOpeningBalance`) และรีเซ็ต error alert ทุกครั้งที่มีการสลับบัญชีหรือ Sign Out
+   - ✅ นำชื่อฮาร์ดโค้ด `'คุณณัฐวิทย์'` ออกจาก client-side fallback ทั้งหมด โดยใช้ `currentUser.user_metadata` หรือ email prefix ของผู้ใช้ปัจจุบันแทน
+   - ✅ เพิ่มชุดทดสอบ `OBR01` ใน `tests/verify_financial_fixes.js`: จำลอง User A ส่งคำขอค้างไว้ แล้วสลับไป User B ก่อนคำตอบจะกลับมา ยืนยันว่าโปรไฟล์ของ User B จะไม่ถูกเขียนทับ และ Wizard จะไม่เปิดขึ้นมาขัดจังหวะ User B
+
+2. **OBR02 (P2): จัดการ Error จากฐานข้อมูลอย่างรัดกุม ไม่เปิด Wizard ผิดจังหวะ (Query Error Guard):**
+   - ✅ ใน `checkOnboardingStatus()`: ตรวจสอบ `if (res && res.error)` ทันทีหลัง query คืนค่า
+   - ✅ หากเกิด read error (เช่น network หลุด, 503, timeout) ระบบจะบันทึก warning และ `return;` ทันที โดยไม่เปิด Wizard และไม่พยายามทำ silent backfill เหมือนว่าเป็นผู้ใช้ใหม่
+   - ✅ เพิ่มชุดทดสอบ `OBR02` ใน `tests/verify_financial_fixes.js`: จำลอง `maybeSingle()` คืนค่า `{ data: null, error: { message: 'Network connection lost', code: '503' } }` ยืนยันว่า Wizard ยังคงปิดอยู่ (`active === false`) และไม่มีการเขียนฐานข้อมูล
+
+3. **OBR03 (P2): ป้องกันการส่งยอดตั้งต้นซ้ำที่ต่างจากเดิม และแจ้งเตือนผู้ใช้อย่างตรงไปตรงมา (Conflicting Retry Payload):**
+   - ✅ **Database Schema:** เพิ่มคอลัมน์ `onboarding_payload JSONB` ในตาราง `public.user_profiles` ทั้งใน `supabase_schema_upgrade.sql` และ `supabase_migration_v2.sql`
+   - ✅ **PostgreSQL RPC (`complete_onboarding`):** บันทึก snapshot ของ payload ตอนทำ onboarding สำเร็จครั้งแรก (`v_input_payload`) และเมื่อมีการเรียกซ้ำ:
+     - หาก payload ตรงกับของเดิม: คืน `success: true, status: 'ALREADY_COMPLETED'` แบบ idempotent
+     - หาก payload ไม่ตรงกับของเดิม (เช่น เปิด 2 แท็บแล้วแก้ยอดตั้งต้นหรือเปลี่ยนชื่อกระเป๋า): คืน `success: false, status: 'PAYLOAD_CONFLICT', error: 'ONBOARDING_CONFLICT'` โดยไม่ overwrite ยอดเงินหรือกระเป๋าเดิม
+   - ✅ **Frontend UX:** เมื่อฝั่งไคลเอนต์ได้รับ `status === 'PAYLOAD_CONFLICT'` จะปิด Wizard, แสดง alert แจ้งเตือนผู้ใช้ว่าระบบได้รับการตั้งค่าไว้ก่อนหน้านี้แล้ว และเรียก `loadAllData()` เพื่อดึงข้อมูลจริงของผู้ใช้มาแสดงแทนที่จะแจ้งสำเร็จหลอก
+   - ✅ เพิ่มชุดทดสอบ `OBR03` ใน `tests/verify_financial_fixes.js`: ตรวจสอบทั้งระดับ PostgreSQL (PGlite) และระดับ VM Client UX ยืนยันว่าปฏิเสธค่าขัดแย้งและไม่ทำให้ยอดเงินเพี้ยน
+
+4. **OBR04 (P2): เชื่อม Wizard เข้ากับระบบ Drawer Lifecycle, Focus Trap และ Step Validation:**
+   - ✅ ลบ inline `style="display: none;"` ออกจาก `#onboardingWizardModal` เพื่อให้ควบคุมการแสดงผลผ่านคลาสมาตรฐาน `.drawer-backdrop.active`
+   - ✅ ปรับ `openOnboardingWizard(triggerEl)` ให้เรียก `openDrawer('onboardingWizardModal', triggerEl)` และ `closeOnboardingWizard()` ให้ใช้ lifecycle เดียวกับหน้าต่างอื่น รองรับการกดปุ่ม `Escape` และการปิดผ่าน `closeAllDrawers()`
+   - ✅ เพิ่มปุ่มปิด (`drawer-close-btn`) บริเวณมุมขวาบนของ Header
+   - ✅ เพิ่มกล่องแจ้งเตือนข้อผิดพลาดเฉพาะขั้นตอนที่ 1 (`#obErrorAlertStep1`) และเพิ่ม validation ใน `goToOnboardingStep(step)` โดยหากผู้ใช้ไม่กรอกชื่อแสดง จะบล็อกไม่ให้ไปขั้นตอนที่ 2 พร้อมโฟกัสกลับไปที่ `#obDisplayName` ทันที
+   - ✅ เพิ่ม Step Autofocus: ขั้นตอนที่ 1 โฟกัส `#obDisplayName`, ขั้นตอนที่ 2 โฟกัส `#obWalletName`, ขั้นตอนที่ 3 โฟกัส `#obFinishBtn`
+   - ✅ เพิ่มชุดทดสอบ `OBR04` ใน `tests/verify_financial_fixes.js`: ตรวจสอบ markup, validation, autofocus และ lifecycle ครบถ้วน
+
+5. **ผลการทดสอบและการติดตั้ง (Verification & Deployment):**
+   - Acceptance & Regression Suite ผ่านครบ **28 / 28 test suites (100% PASS, Exit code: 0)**
+   - Unit Regression H02 Barrier Predicate ผ่านครบ **9 / 9 tests (100% PASS, Exit code: 0)**
+   - รวมทั้งหมด 37 test suites ผ่านครบถ้วนสมบูรณ์
+
+---
+
 ### รอบที่ 2 (Round 2) — 26 กันยายน 2569 (September 2026)
 **สถานะการดำเนินงานตามคำแนะนำของ Codex:**
 1. **การจัดการ Security Hygiene (Item 1):**

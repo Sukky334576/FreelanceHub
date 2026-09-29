@@ -1572,9 +1572,12 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   display_name TEXT,
   profession TEXT,
   onboarding_completed_at TIMESTAMPTZ,
+  onboarding_payload JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS onboarding_payload JSONB;
 
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_profiles FORCE ROW LEVEL SECURITY;
@@ -1602,7 +1605,7 @@ CREATE OR REPLACE FUNCTION public.complete_onboarding(
   p_display_name TEXT,
   p_profession TEXT DEFAULT 'ทั่วไป',
   p_wallet_name TEXT DEFAULT 'บัญชีรับเงินหลัก',
-  p_wallet_type TEXT DEFAULT 'ธนาคาร',
+  p_wallet_type TEXT DEFAULT 'bank',
   p_opening_balance NUMERIC DEFAULT 0.00,
   p_opening_date DATE DEFAULT CURRENT_DATE
 )
@@ -1616,10 +1619,20 @@ DECLARE
   v_profile RECORD;
   v_wallet_id BIGINT;
   v_existing_wallet_count INT;
+  v_input_payload JSONB;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
+
+  v_input_payload := jsonb_build_object(
+    'display_name', COALESCE(NULLIF(TRIM(p_display_name), ''), 'ฟรีแลนซ์'),
+    'profession', COALESCE(NULLIF(TRIM(p_profession), ''), 'ทั่วไป'),
+    'wallet_name', COALESCE(NULLIF(TRIM(p_wallet_name), ''), 'บัญชีรับเงินหลัก'),
+    'wallet_type', COALESCE(NULLIF(TRIM(p_wallet_type), ''), 'bank'),
+    'opening_balance', ROUND(COALESCE(p_opening_balance, 0.00)::NUMERIC, 2),
+    'opening_date', COALESCE(p_opening_date, CURRENT_DATE)
+  );
 
   -- 1. Ensure profile row exists and lock it
   INSERT INTO public.user_profiles (id, display_name, profession)
@@ -1631,13 +1644,25 @@ BEGIN
   WHERE id = v_user_id
   FOR UPDATE;
 
-  -- 2. Idempotency Check: if already completed, return existing status
+  -- 2. Idempotency Check: if already completed, verify payload consistency
   IF v_profile.onboarding_completed_at IS NOT NULL THEN
     SELECT id INTO v_wallet_id
     FROM public.wallets
     WHERE user_id = v_user_id
     ORDER BY id ASC
     LIMIT 1;
+
+    -- If payload was previously recorded and conflicts with new input, return PAYLOAD_CONFLICT
+    IF v_profile.onboarding_payload IS NOT NULL AND v_profile.onboarding_payload <> v_input_payload THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'status', 'PAYLOAD_CONFLICT',
+        'error', 'ONBOARDING_CONFLICT',
+        'message', 'Onboarding has already been completed with different parameters',
+        'wallet_id', v_wallet_id,
+        'completed_at', v_profile.onboarding_completed_at
+      );
+    END IF;
 
     RETURN jsonb_build_object(
       'success', true,
@@ -1686,10 +1711,11 @@ BEGIN
       (v_user_id, 'เบ็ดเตล็ด', 'รายจ่าย', '#94A3B8', 'fa-box');
   END IF;
 
-  -- 5. Mark onboarding completed
+  -- 5. Mark onboarding completed with payload snapshot
   UPDATE public.user_profiles
   SET display_name = COALESCE(NULLIF(TRIM(p_display_name), ''), display_name, 'ฟรีแลนซ์'),
       profession = COALESCE(NULLIF(TRIM(p_profession), ''), profession, 'ทั่วไป'),
+      onboarding_payload = v_input_payload,
       onboarding_completed_at = NOW(),
       updated_at = NOW()
   WHERE id = v_user_id;
@@ -1705,4 +1731,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) TO authenticated;
+
 

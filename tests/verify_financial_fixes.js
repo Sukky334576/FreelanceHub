@@ -88,13 +88,22 @@ function createVmHarness(dbOverride = {}) {
 
   function getOrCreateElement(id) {
     if (!elements[id]) {
+      const classSet = new Set();
       elements[id] = {
         id,
         get value() { return formValues[id] || ''; },
         set value(v) { formValues[id] = v; },
         textContent: '',
         style: {},
-        classList: { add: () => {}, remove: () => {}, toggle: () => {} },
+        classList: {
+          add: (c) => classSet.add(c),
+          remove: (c) => classSet.delete(c),
+          toggle: (c) => classSet.has(c) ? classSet.delete(c) : classSet.add(c),
+          contains: (c) => classSet.has(c)
+        },
+        querySelectorAll: () => [],
+        querySelector: (sel) => getOrCreateElement('child_' + sel),
+        focus: () => { sandbox.lastFocusedElementId = id; },
         options: []
       };
     }
@@ -110,7 +119,12 @@ function createVmHarness(dbOverride = {}) {
     },
     document: {
       getElementById: (id) => getOrCreateElement(id),
-      querySelectorAll: () => [],
+      querySelectorAll: (sel) => {
+        if (sel === '.drawer-backdrop') {
+          return Object.values(elements).filter(el => el.classList.contains('drawer-backdrop') || el.id.includes('Drawer') || el.id.includes('Modal'));
+        }
+        return [];
+      },
       querySelector: (sel) => getOrCreateElement('btn_' + sel),
       addEventListener: () => {}
     },
@@ -172,7 +186,7 @@ function createVmHarness(dbOverride = {}) {
   };
 
   const context = vm.createContext(sandbox);
-  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}});', context);
+  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep});', context);
 
   return { sandbox, exported, formValues, context };
 }
@@ -1720,6 +1734,270 @@ await test('OB01', 'Atomic & Idempotent Onboarding RPC: provisions 1 wallet, cat
     'onboarding_completed_at remains set even if user deletes wallets, preventing accidental wizard restart');
 
   await pg.close();
+});
+
+// ============================================================================
+// OBR01: Asynchronous Session Isolation & Profile Leakage Prevention
+// ============================================================================
+await test('OBR01', 'Stale async onboarding responses are cleanly discarded across session switches without writing to other profiles', async () => {
+  // 1. Static check: client-side onboarding code must NOT hardcode legacy user names
+  assert(!indexHtml.includes("display_name: 'คุณณัฐวิทย์'"),
+    'client-side code in index.html must NOT contain hardcoded legacy user name "คุณณัฐวิทย์"');
+
+  // 2. Dynamic check: User A starts checkOnboardingStatus, switches to User B while query is in-flight
+  let resolveUserAQuery;
+  const userAQueryPromise = new Promise(resolve => { resolveUserAQuery = resolve; });
+  let upsertCalled = false;
+
+  const { sandbox, exported, context } = createVmHarness({
+    from: (table) => {
+      if (table === 'user_profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => userAQueryPromise
+            })
+          }),
+          upsert: async () => {
+            upsertCalled = true;
+            return { data: null, error: null };
+          }
+        };
+      }
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) })
+      };
+    }
+  });
+
+  context.currentUser = { id: 'user_A', email: 'user_a@freelancehub.app' };
+  context.currentSessionGeneration = 1;
+  exported.appData.wallets = [];
+
+  // Start onboarding check for User A
+  const checkPromise = exported.checkOnboardingStatus();
+
+  // User A signs out / User B logs in before response arrives
+  exported.clearAppDataAndScreens();
+  context.currentUser = { id: 'user_B', email: 'user_b@freelancehub.app' };
+  exported.appData.wallets = [{ id: 101, name: 'User B Wallet', balance: 5000 }];
+
+  // User A query resolves
+  resolveUserAQuery({
+    data: null,
+    error: null
+  });
+
+  await checkPromise;
+
+  assert.strictEqual(upsertCalled, false,
+    'Stale response from User A must NOT trigger backfill upsert on User B profile');
+  const modalEl = sandbox.document.getElementById('onboardingWizardModal');
+  assert.strictEqual(modalEl.classList.contains('active'), false,
+    'Stale response from User A must NOT open the onboarding wizard for User B');
+
+  // 3. Verify clearAppDataAndScreens clears form values
+  const nameEl = sandbox.document.getElementById('obDisplayName');
+  nameEl.value = 'Draft Studio Name';
+  exported.clearAppDataAndScreens();
+  assert.strictEqual(nameEl.value, '', 'clearAppDataAndScreens must wipe onboarding draft inputs');
+});
+
+// ============================================================================
+// OBR02: Safe Handling of Onboarding Query Errors (No False Wizard)
+// ============================================================================
+await test('OBR02', 'Read errors on user_profiles do NOT pop the onboarding wizard or attempt backfill', async () => {
+  let upsertCalled = false;
+  const { sandbox, exported, context } = createVmHarness({
+    from: (table) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: null,
+            error: { message: 'Network connection lost', code: '503' }
+          })
+        })
+      }),
+      upsert: async () => {
+        upsertCalled = true;
+        return { data: null, error: null };
+      }
+    })
+  });
+
+  context.currentUser = { id: 'existing_user_id', email: 'existing@freelancehub.app' };
+  exported.appData.wallets = []; // Even if wallets haven't loaded yet
+
+  await exported.checkOnboardingStatus();
+
+  const modalEl = sandbox.document.getElementById('onboardingWizardModal');
+  assert.strictEqual(modalEl.classList.contains('active'), false,
+    'Database read error must abort and NOT open the onboarding wizard');
+  assert.strictEqual(upsertCalled, false,
+    'Database read error must NOT attempt backfill upsert');
+});
+
+// ============================================================================
+// OBR03: Conflicting Retry Payload Rejection (PostgreSQL RPC & Frontend UX)
+// ============================================================================
+await test('OBR03', 'Submitting conflicting onboarding payload returns PAYLOAD_CONFLICT and alerts user rather than false success', async () => {
+  // 1. PostgreSQL DB test with PGlite
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const conflictUserId = '33333333-3333-3333-3333-333333333333';
+  await pg.exec(`INSERT INTO auth.users (id, email) VALUES ('${conflictUserId}', 'conflict@freelancehub.app');`);
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${conflictUserId}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // Call 1: Original onboarding setup
+  const call1 = await pg.query(`
+    SELECT public.complete_onboarding(
+      p_display_name := 'สตูดิโอ นภัส',
+      p_profession := 'กราฟิกดีไซน์',
+      p_wallet_name := 'บัญชีกสิกรไทย',
+      p_wallet_type := 'bank',
+      p_opening_balance := 10000.00,
+      p_opening_date := '2026-09-29'::date
+    ) AS res;
+  `);
+  const res1 = call1.rows[0].res;
+  assert.strictEqual(res1.success, true);
+  assert.strictEqual(res1.status, 'COMPLETED');
+
+  // Verify stored payload in user_profiles
+  const profileRow = await pg.query(`SELECT onboarding_payload FROM public.user_profiles WHERE id = '${conflictUserId}';`);
+  assert(profileRow.rows[0].onboarding_payload, 'onboarding_payload must be saved');
+  assert.strictEqual(profileRow.rows[0].onboarding_payload.wallet_name, 'บัญชีกสิกรไทย');
+  assert.strictEqual(Number(profileRow.rows[0].onboarding_payload.opening_balance), 10000.00);
+
+  // Call 2: Identical retry succeeds idempotently
+  const call2 = await pg.query(`
+    SELECT public.complete_onboarding(
+      p_display_name := 'สตูดิโอ นภัส',
+      p_profession := 'กราฟิกดีไซน์',
+      p_wallet_name := 'บัญชีกสิกรไทย',
+      p_wallet_type := 'bank',
+      p_opening_balance := 10000.00,
+      p_opening_date := '2026-09-29'::date
+    ) AS res;
+  `);
+  const res2 = call2.rows[0].res;
+  assert.strictEqual(res2.success, true);
+  assert.strictEqual(res2.status, 'ALREADY_COMPLETED');
+
+  // Call 3: Conflicting retry (e.g. from second tab with different balance & wallet name)
+  const call3 = await pg.query(`
+    SELECT public.complete_onboarding(
+      p_display_name := 'สตูดิโอ นภัส',
+      p_profession := 'กราฟิกดีไซน์',
+      p_wallet_name := 'บัญชีไทยพาณิชย์ใหม่',
+      p_wallet_type := 'bank',
+      p_opening_balance := 99999.00,
+      p_opening_date := '2026-09-29'::date
+    ) AS res;
+  `);
+  const res3 = call3.rows[0].res;
+  assert.strictEqual(res3.success, false, 'Conflicting retry must return success: false');
+  assert.strictEqual(res3.status, 'PAYLOAD_CONFLICT', 'Conflicting retry must return status: PAYLOAD_CONFLICT');
+  assert.strictEqual(res3.error, 'ONBOARDING_CONFLICT', 'Conflicting retry must return error: ONBOARDING_CONFLICT');
+
+  // Verify wallet balance remained 10,000 and was NOT overwritten to 99,999
+  const walletCheck = await pg.query(`SELECT balance, name FROM public.wallets WHERE user_id = '${conflictUserId}';`);
+  assert.strictEqual(Number(walletCheck.rows[0].balance), 10000.00, 'Balance must remain 10,000');
+  assert.strictEqual(walletCheck.rows[0].name, 'บัญชีกสิกรไทย', 'Wallet name must remain original');
+
+  await pg.close();
+
+  // 2. Client UX handling in VM harness
+  const { sandbox, exported, context, formValues } = createVmHarness({
+    rpc: async (fn) => {
+      if (fn === 'complete_onboarding') {
+        return {
+          data: {
+            success: false,
+            status: 'PAYLOAD_CONFLICT',
+            error: 'ONBOARDING_CONFLICT',
+            message: 'Onboarding already completed with different parameters'
+          }
+        };
+      }
+      return { data: {} };
+    }
+  });
+
+  context.currentUser = { id: 'client_user_id', email: 'test@freelancehub.app' };
+  formValues['obDisplayName'] = 'ชื่อสตูดิโอ';
+  formValues['obWalletName'] = 'กระเป๋าใหม่';
+  formValues['obOpeningBalance'] = '50000';
+
+  const modalEl = sandbox.document.getElementById('onboardingWizardModal');
+  modalEl.classList.add('active');
+
+  await exported.handleFinishOnboarding();
+
+  assert.strictEqual(modalEl.classList.contains('active'), false, 'Wizard must close on conflict');
+  assert(sandbox.lastAlert && sandbox.lastAlert.includes('ได้รับการตั้งค่าเริ่มต้นไว้ก่อนหน้านี้'),
+    'User must be alerted about pre-existing setup rather than showing false success');
+  assert(indexHtml.includes("if (res.data && res.data.status === 'PAYLOAD_CONFLICT')"),
+    'index.html must explicitly branch on PAYLOAD_CONFLICT');
+  assert(indexHtml.includes("alert('ระบบเคยได้รับการตั้งค่าเริ่มต้นไว้ก่อนหน้านี้ด้วยข้อมูลอื่นแล้ว กำลังโหลดข้อมูลปัจจุบันของคุณ');\n          await loadAllData();"),
+    'handleFinishOnboarding must alert user and invoke loadAllData on conflict');
+});
+
+// ============================================================================
+// OBR04: Modal Lifecycle, Focus Management & Step Validation
+// ============================================================================
+await test('OBR04', 'Wizard integrates with standard drawer lifecycle, enforces step validation, and manages focus', async () => {
+  // 1. Static markup checks
+  assert(!indexHtml.includes('<div id="onboardingWizardModal" class="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" style="display: none;'),
+    'onboardingWizardModal must NOT have inline style="display: none;"');
+  assert(indexHtml.includes('id="obErrorAlertStep1"'),
+    'Step 1 must have its own obErrorAlertStep1 container');
+
+  // 2. Dynamic lifecycle and focus trapping
+  const { sandbox, exported, formValues } = createVmHarness();
+  const modalEl = sandbox.document.getElementById('onboardingWizardModal');
+
+  // Open wizard
+  exported.openOnboardingWizard();
+  assert.strictEqual(modalEl.classList.contains('active'), true,
+    'openOnboardingWizard must add .active class to drawer-backdrop');
+  assert.strictEqual(sandbox.lastFocusedElementId, 'obDisplayName',
+    'Opening wizard must autofocus obDisplayName on Step 1');
+
+  // Step 1 Validation: Attempt to advance to Step 2 without display name
+  formValues['obDisplayName'] = '';
+  exported.goToOnboardingStep(2);
+
+  const step1Err = sandbox.document.getElementById('obErrorAlertStep1');
+  assert.strictEqual(step1Err.style.display, 'block',
+    'Advancing without name must display Step 1 validation error');
+  assert(step1Err.textContent.includes('กรุณาระบุชื่อสตูดิโอ'),
+    'Step 1 error message must instruct user to provide name');
+
+  // Provide display name and advance to Step 2
+  formValues['obDisplayName'] = 'สตูดิโอ มีศิลป์';
+  exported.goToOnboardingStep(2);
+
+  assert.strictEqual(step1Err.style.display, 'none',
+    'Valid name must clear Step 1 error');
+  assert.strictEqual(sandbox.lastFocusedElementId, 'obWalletName',
+    'Advancing to Step 2 must autofocus obWalletName');
+
+  // Advance to Step 3
+  exported.goToOnboardingStep(3);
+  assert.strictEqual(sandbox.document.getElementById('obSummaryName').textContent, 'สตูดิโอ มีศิลป์',
+    'Step 3 summary must display entered display name');
+  assert.strictEqual(sandbox.lastFocusedElementId, 'obFinishBtn',
+    'Advancing to Step 3 must autofocus obFinishBtn');
+
+  // Close wizard
+  exported.closeOnboardingWizard();
+  assert.strictEqual(modalEl.classList.contains('active'), false,
+    'closeOnboardingWizard must remove .active class from modal');
 });
 
 // ============================================================================
