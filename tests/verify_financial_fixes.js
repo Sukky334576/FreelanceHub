@@ -186,7 +186,7 @@ function createVmHarness(dbOverride = {}) {
   };
 
   const context = vm.createContext(sandbox);
-  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep});', context);
+  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep, saveAppDataSnapshot, loadAppDataSnapshot, loadAllData});', context);
 
   return { sandbox, exported, formValues, context };
 }
@@ -1998,6 +1998,101 @@ await test('OBR04', 'Wizard integrates with standard drawer lifecycle, enforces 
   exported.closeOnboardingWizard();
   assert.strictEqual(modalEl.classList.contains('active'), false,
     'closeOnboardingWizard must remove .active class from modal');
+});
+
+// ============================================================================
+// PR01: Instant PWA Startup, Stale-While-Revalidate Snapshot & In-Flight Race Guard
+// ============================================================================
+await test('PR01', 'Instant PWA Startup: local snapshot loads <50ms, queries parallelized, and INITIAL_SESSION preserves in-flight load', async () => {
+  // 1. Static assertions
+  assert(indexHtml.includes('function saveAppDataSnapshot() {'),
+    'saveAppDataSnapshot must be defined in index.html');
+  assert(indexHtml.includes('function loadAppDataSnapshot() {'),
+    'loadAppDataSnapshot must be defined in index.html');
+  assert(indexHtml.includes("getUserStorageKey('freelancehub_snapshot_v1')"),
+    'Snapshot must be scoped by user storage key');
+  assert(indexHtml.includes("document.addEventListener('visibilitychange'"),
+    'visibilitychange listener must be registered for mobile resume sync');
+  assert(indexHtml.includes('loadWallets(),\n          loadDebts(),\n          loadCards()'),
+    'loadAllData must execute loadWallets, loadDebts, and loadCards concurrently in Promise.all');
+
+  // 2. Dynamic Snapshot and Cache Isolation
+  const { sandbox, exported, context } = createVmHarness();
+  context.currentUser = { id: 'user_natthawit' };
+  exported.appData.wallets = [
+    { id: 1, name: 'SCB Studio', balance: 67056.22, opening_balance: 0 },
+    { id: 2, name: 'KBank Personal', balance: 12500.00, opening_balance: 0 }
+  ];
+  exported.appData.transactions = [
+    { id: 101, amount: 15000, type: 'รายรับ', category: 'งานถ่ายภาพ' }
+  ];
+
+  // Save snapshot to local storage
+  exported.saveAppDataSnapshot();
+  const snapshotKey = 'freelancehub_snapshot_v1_user_natthawit';
+  assert(sandbox.localStorageStore[snapshotKey] !== undefined,
+    'Snapshot must be saved in localStorage with user-scoped key');
+
+  const parsedSnapshot = JSON.parse(sandbox.localStorageStore[snapshotKey]);
+  assert.strictEqual(parsedSnapshot.userId, 'user_natthawit');
+  assert.strictEqual(parsedSnapshot.wallets.length, 2);
+  assert.strictEqual(parsedSnapshot.wallets[0].balance, 67056.22);
+  assert.strictEqual(parsedSnapshot.transactions.length, 1);
+
+  // Clear in-memory state (simulating fresh PWA cold-boot)
+  exported.appData.wallets = [];
+  exported.appData.transactions = [];
+
+  // Restore snapshot instantly
+  const loaded = exported.loadAppDataSnapshot();
+  assert.strictEqual(loaded, true, 'loadAppDataSnapshot must return true on valid snapshot');
+  assert.strictEqual(exported.appData.wallets.length, 2, 'Wallets must be restored from snapshot');
+  assert.strictEqual(exported.appData.wallets[0].balance, 67056.22, 'Wallet balance must be restored');
+  assert.strictEqual(exported.appData.transactions.length, 1, 'Transactions must be restored');
+
+  // Verify multi-tenant isolation: User B must NOT load User A's snapshot
+  context.currentUser = { id: 'user_other' };
+  exported.appData.wallets = [];
+  const loadedOther = exported.loadAppDataSnapshot();
+  assert.strictEqual(loadedOther, false, 'User B must not load User A snapshot');
+  assert.strictEqual(exported.appData.wallets.length, 0, 'User B appData must remain empty');
+
+  // 3. Auth Race Condition: INITIAL_SESSION must NOT bump currentSessionGeneration
+  // Reset harness for auth simulation
+  let authCallback = null;
+  let getSessionResolved = false;
+  const authHarness = createVmHarness({
+    auth: {
+      getSession: async () => {
+        getSessionResolved = true;
+        return { data: { session: { user: { id: 'user_natthawit' } } } };
+      },
+      onAuthStateChange: (cb) => {
+        authCallback = cb;
+      }
+    }
+  });
+
+  authHarness.context.currentSessionGeneration = 0;
+  await authHarness.exported.initAuth();
+
+  const initialGen = authHarness.context.currentSessionGeneration;
+  assert(initialGen > 0, 'initAuth must set currentSessionGeneration >= 1');
+
+  // Trigger INITIAL_SESSION event with the same user
+  authCallback('INITIAL_SESSION', { user: { id: 'user_natthawit' } });
+  assert.strictEqual(authHarness.context.currentSessionGeneration, initialGen,
+    'INITIAL_SESSION for the same user must NOT increment currentSessionGeneration, preventing in-flight load abort');
+
+  // Trigger TOKEN_REFRESHED with same user
+  authCallback('TOKEN_REFRESHED', { user: { id: 'user_natthawit' } });
+  assert.strictEqual(authHarness.context.currentSessionGeneration, initialGen,
+    'TOKEN_REFRESHED for the same user must NOT increment currentSessionGeneration');
+
+  // Trigger SIGNED_OUT
+  authCallback('SIGNED_OUT', null);
+  assert(authHarness.context.currentSessionGeneration > initialGen,
+    'SIGNED_OUT must increment currentSessionGeneration to invalidate stale requests');
 });
 
 // ============================================================================

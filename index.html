@@ -4632,6 +4632,64 @@
 
     var currentSessionGeneration = 0;
 
+    function getUserStorageKey(key) {
+      var uid = (currentUser && currentUser.id) ? currentUser.id : 'anon';
+      return key + '_' + uid;
+    }
+
+    function saveAppDataSnapshot() {
+      if (!currentUser || !currentUser.id) return;
+      try {
+        var key = getUserStorageKey('freelancehub_snapshot_v1');
+        var snapshot = {
+          savedAt: Date.now(),
+          userId: currentUser.id,
+          categories: appData.categories || [],
+          jobs: appData.jobs || [],
+          todos: appData.todos || [],
+          bills: appData.bills || [],
+          equipment: appData.equipment || [],
+          transactions: (appData.transactions || []).slice(0, 1000),
+          wallets: appData.wallets || [],
+          debts: appData.debts || [],
+          debt_payments: appData.debt_payments || [],
+          cards: appData.cards || []
+        };
+        localStorage.setItem(key, JSON.stringify(snapshot));
+      } catch (err) {
+        console.warn('Could not save snapshot to localStorage:', err);
+      }
+    }
+
+    function loadAppDataSnapshot() {
+      if (!currentUser || !currentUser.id) return false;
+      try {
+        var key = getUserStorageKey('freelancehub_snapshot_v1');
+        var raw = localStorage.getItem(key);
+        if (!raw) return false;
+        var snapshot = JSON.parse(raw);
+        if (!snapshot || snapshot.userId !== currentUser.id) return false;
+
+        if (Array.isArray(snapshot.categories)) appData.categories = snapshot.categories;
+        if (Array.isArray(snapshot.jobs)) appData.jobs = snapshot.jobs;
+        if (Array.isArray(snapshot.todos)) appData.todos = snapshot.todos;
+        if (Array.isArray(snapshot.bills)) appData.bills = snapshot.bills;
+        if (Array.isArray(snapshot.equipment)) appData.equipment = snapshot.equipment;
+        if (Array.isArray(snapshot.transactions)) appData.transactions = snapshot.transactions;
+        if (Array.isArray(snapshot.wallets)) appData.wallets = snapshot.wallets;
+        if (Array.isArray(snapshot.debts)) appData.debts = snapshot.debts;
+        if (Array.isArray(snapshot.debt_payments)) appData.debt_payments = snapshot.debt_payments;
+        if (Array.isArray(snapshot.cards)) appData.cards = snapshot.cards;
+
+        if (typeof calculateWalletBalances === 'function') calculateWalletBalances();
+        if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
+        return true;
+      } catch (err) {
+        console.warn('Could not load snapshot from localStorage:', err);
+        return false;
+      }
+    }
+
     function isMutationSessionValid(mutationToken, mutationUserId) {
       if (mutationToken !== currentSessionGeneration) return false;
       var curId = currentUser ? currentUser.id : null;
@@ -4794,7 +4852,24 @@
       return allTxs;
     }
 
+    var _activeLoadPromise = null;
+    var _activeLoadGeneration = -1;
+
     async function loadAllData() {
+      if (_activeLoadPromise && _activeLoadGeneration === currentSessionGeneration) {
+        return _activeLoadPromise;
+      }
+      var gen = currentSessionGeneration;
+      _activeLoadGeneration = gen;
+      _activeLoadPromise = _loadAllDataInternal().finally(function() {
+        if (_activeLoadGeneration === gen) {
+          _activeLoadPromise = null;
+        }
+      });
+      return _activeLoadPromise;
+    }
+
+    async function _loadAllDataInternal() {
       var expectedGeneration = currentSessionGeneration;
       var expectedUserId = currentUser ? currentUser.id : null;
       try {
@@ -4805,7 +4880,10 @@
           txPromise,
           db.from('jobs').select('*').order('date', { ascending: true }),
           db.from('bills').select('*').order('due_date', { ascending: true }),
-          db.from('equipment').select('*').order('created_at', { ascending: false })
+          db.from('equipment').select('*').order('created_at', { ascending: false }),
+          loadWallets(),
+          loadDebts(),
+          loadCards()
         ]);
 
         if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
@@ -4825,12 +4903,9 @@
         if (results[3].data) appData.bills = results[3].data;
         if (results[4].data) appData.equipment = results[4].data;
 
-        await loadWallets();
-        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
-        await loadDebts();
-        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
-        await loadCards();
-        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
+        calculateWalletBalances();
+        populateAllWalletSelects();
+        saveAppDataSnapshot();
 
         setSyncStatus('synced');
         renderCategoryOptions();
@@ -4856,6 +4931,7 @@
       renderEquipment();
       renderProjectsHub();
       updateSettingsCounts();
+      saveAppDataSnapshot();
     }
 
     // =========================================================
@@ -7921,11 +7997,6 @@
       }
     }
 
-    function getUserStorageKey(key) {
-      var uid = (currentUser && currentUser.id) ? currentUser.id : 'anon';
-      return key + '_' + uid;
-    }
-
     async function handleSignOut() {
       if (!confirm('ต้องการออกจากระบบใช่หรือไม่?')) return;
       try {
@@ -8351,7 +8422,9 @@
     async function initAuth() {
       try {
         var sessionRes = await db.auth.getSession();
-        currentSessionGeneration++;
+        if (currentSessionGeneration === 0) {
+          currentSessionGeneration = 1;
+        }
         if (sessionRes.data && sessionRes.data.session) {
           currentUser = sessionRes.data.session.user;
         } else {
@@ -8359,14 +8432,29 @@
         }
         updateAuthUI();
         if (currentUser) {
+          loadAppDataSnapshot();
+          if (typeof renderCategoryOptions === 'function') renderCategoryOptions();
+          if (typeof populateJobDropdowns === 'function') populateJobDropdowns();
+          if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
+          renderAll();
           loadAllData();
         }
 
         db.auth.onAuthStateChange(function(event, session) {
-          currentSessionGeneration++;
+          var newUserId = (session && session.user) ? session.user.id : null;
+          var prevUserId = currentUser ? currentUser.id : null;
+
+          if (prevUserId !== newUserId) {
+            currentSessionGeneration++;
+          }
           currentUser = session ? session.user : null;
           updateAuthUI();
           if (event === 'SIGNED_IN') {
+            loadAppDataSnapshot();
+            if (typeof renderCategoryOptions === 'function') renderCategoryOptions();
+            if (typeof populateJobDropdowns === 'function') populateJobDropdowns();
+            if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
+            renderAll();
             loadAllData();
           } else if (event === 'SIGNED_OUT') {
             clearAppDataAndScreens();
@@ -8401,6 +8489,19 @@
 
       // 2. Auth Session Check & Gate
       initAuth();
+
+      // 3. iOS PWA / Mobile Tab Resume Sync
+      var lastHiddenTime = 0;
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          lastHiddenTime = Date.now();
+        } else {
+          var elapsed = Date.now() - lastHiddenTime;
+          if (currentUser && elapsed > 45000) {
+            loadAllData();
+          }
+        }
+      });
 
       // 4. Supabase Realtime with Debounce
       var rtDebounce = null;
