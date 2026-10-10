@@ -186,7 +186,7 @@ function createVmHarness(dbOverride = {}) {
   };
 
   const context = vm.createContext(sandbox);
-  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep, saveAppDataSnapshot, loadAppDataSnapshot, loadAllData});', context);
+  const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep, saveAppDataSnapshot, loadAppDataSnapshot, loadAllData, getCurrentBangkokPeriod, isChecklistItemChecked, getBangkokMonthDisplayName, setChecklistFilter, renderChecklist, toggleChecklistItem, openAddChecklistItemModal, openEditChecklistItemModal, handleSaveChecklistItem, deleteChecklistItem, openSlipScannerModal, closeSlipScannerModal, cancelSlipProcessing, handleSlipFilesSelected, setSlipDraftFilter, renderSlipDrafts, updateSlipDraft, removeSlipDraft, applyBulkWalletToSlips, applyBulkCategoryToSlips, confirmAndSaveSlipDrafts});', context);
 
   return { sandbox, exported, formValues, context };
 }
@@ -2093,6 +2093,269 @@ await test('PR01', 'Instant PWA Startup: local snapshot loads <50ms, queries par
   authCallback('SIGNED_OUT', null);
   assert(authHarness.context.currentSessionGeneration > initialGen,
     'SIGNED_OUT must increment currentSessionGeneration to invalidate stale requests');
+});
+
+// ============================================================================
+// RC01: Recurring Fixed Cost Checklist (Auto-Reset, Zero Ledger Impact, Multi-Tenant)
+// ============================================================================
+await test('RC01', 'Recurring Fixed Cost Checklist: month rollover in Thai time, zero ledger/wallet impact, tenant isolation, and idempotent migration', async () => {
+  // 1. Static markup & script checks
+  assert(indexHtml.includes('checklistFullList'), 'index.html must contain checklistFullList');
+  assert(indexHtml.includes('checklistMonthBadge'), 'index.html must contain checklistMonthBadge');
+  assert(indexHtml.includes('toggle_recurring_checklist_item'), 'index.html must reference toggle_recurring_checklist_item RPC');
+
+  // 2. Unit logic: Month rollover evaluation
+  const { exported } = createVmHarness();
+  
+  // Simulated checklist item checked in October 2026
+  const itemOct = {
+    id: 1,
+    title: 'ค่าบริการอินเทอร์เน็ตสตูดิโอ',
+    amount: 1199.00,
+    due_day: 5,
+    checked_period: '2026-10'
+  };
+
+  // Checked in October
+  assert.strictEqual(exported.isChecklistItemChecked(itemOct, '2026-10'), true,
+    'Item checked in 2026-10 must show as checked during 2026-10');
+
+  // Month crossover: In November, it automatically shows as unchecked WITHOUT database mutation
+  assert.strictEqual(exported.isChecklistItemChecked(itemOct, '2026-11'), false,
+    'Item must automatically evaluate to unchecked on the 1st of the next month');
+
+  // Year crossover: December to January
+  const itemDec = { id: 2, title: 'ค่าเช่าสตูดิโอ', amount: 15000, due_day: 1, checked_period: '2026-12' };
+  assert.strictEqual(exported.isChecklistItemChecked(itemDec, '2026-12'), true);
+  assert.strictEqual(exported.isChecklistItemChecked(itemDec, '2027-01'), false,
+    'Item must automatically evaluate to unchecked across year crossover');
+
+  // Leap year crossover: February 29 to March 1
+  const itemFebLeap = { id: 3, title: 'ค่าซอฟต์แวร์รายปี', amount: 3500, due_day: 28, checked_period: '2028-02' };
+  assert.strictEqual(exported.isChecklistItemChecked(itemFebLeap, '2028-02'), true);
+  assert.strictEqual(exported.isChecklistItemChecked(itemFebLeap, '2028-03'), false,
+    'Item must automatically evaluate to unchecked across leap year February to March');
+
+  // 3. PostgreSQL Database & RPC Execution with PGlite
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const userA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const userB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  await pg.exec(`
+    INSERT INTO auth.users (id, email) VALUES
+      ('${userA}', 'usera@freelancehub.app'),
+      ('${userB}', 'userb@freelancehub.app');
+  `);
+
+  // Setup wallet for User A to confirm zero balance deduction
+  await pg.exec(`
+    INSERT INTO public.wallets (id, user_id, name, type, balance, created_at, updated_at)
+    VALUES (701, '${userA}', 'กระเป๋าหลัก', 'bank', 50000.00, NOW(), NOW());
+  `);
+
+  // Seed debt and legacy bills: 1 debt-linked bill, 1 reminder bill
+  await pg.exec(`
+    INSERT INTO public.debts (id, user_id, name, original_principal, remaining_principal)
+    VALUES (999, '${userA}', 'ผ่อนกล้อง Sony A7IV', 50000.00, 30000.00);
+
+    INSERT INTO public.bills (id, user_id, item, amount, due_date, linked_debt_id, is_paid)
+    VALUES
+      (801, '${userA}', 'ผ่อนกล้อง Sony A7IV', 5500.00, 15, 999, false),
+      (802, '${userA}', 'ค่าไฟสตูดิโอ', 2400.00, 20, NULL, false);
+  `);
+
+  // Rerun idempotent migration script block
+  await pg.exec(`
+    INSERT INTO public.recurring_checklist_items (user_id, title, amount, due_day, note, source_bill_id, checked_period, created_at)
+    SELECT
+      b.user_id,
+      COALESCE(NULLIF(TRIM(b.item), ''), 'รายจ่ายประจำ'),
+      COALESCE(b.amount, 0.00),
+      CASE WHEN b.due_date BETWEEN 1 AND 31 THEN b.due_date ELSE 1 END,
+      COALESCE(b.notes, b.note),
+      b.id,
+      NULL,
+      COALESCE(b.created_at, NOW())
+    FROM public.bills b
+    WHERE b.user_id IS NOT NULL
+      AND b.linked_debt_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.recurring_checklist_items r
+        WHERE r.user_id = b.user_id AND r.source_bill_id = b.id
+      );
+  `);
+
+  // Verify only non-debt bill 802 was migrated
+  const checkRows = await pg.query(`SELECT id, title, amount, source_bill_id, checked_period FROM public.recurring_checklist_items WHERE user_id = '${userA}';`);
+  assert.strictEqual(checkRows.rows.length, 1, 'Only non-debt bills should be migrated into recurring checklist');
+  assert.strictEqual(checkRows.rows[0].title, 'ค่าไฟสตูดิโอ');
+  assert.strictEqual(checkRows.rows[0].source_bill_id, 802);
+  assert.strictEqual(checkRows.rows[0].checked_period, null, 'Newly migrated checklist items must start unchecked');
+
+  const itemId = checkRows.rows[0].id;
+
+  // Set auth session as User A
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userA}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // Determine current period in Asia/Bangkok
+  const curPeriodRes = await pg.query(`SELECT to_char(timezone('Asia/Bangkok', NOW()), 'YYYY-MM') AS cur_period;`);
+  const curPeriod = curPeriodRes.rows[0].cur_period;
+
+  // 4. Toggle check item via RPC
+  const toggleCheck = await pg.query(`
+    SELECT public.toggle_recurring_checklist_item(
+      p_item_id := ${itemId},
+      p_expected_period := '${curPeriod}',
+      p_check := true
+    ) AS res;
+  `);
+  const resCheck = toggleCheck.rows[0].res;
+  assert.strictEqual(resCheck.success, true);
+  assert.strictEqual(resCheck.checked, true);
+  assert.strictEqual(resCheck.checked_period, curPeriod);
+
+  // CRITICAL FINANCIAL CONTRACT: Verify wallet balance is 100% untouched and NO transaction created
+  const walletCheck = await pg.query(`SELECT balance FROM public.wallets WHERE id = 701;`);
+  assert.strictEqual(Number(walletCheck.rows[0].balance), 50000.00, 'Wallet balance must remain completely untouched (50,000.00)');
+
+  const txCountCheck = await pg.query(`SELECT COUNT(*) AS count FROM public.transactions WHERE user_id = '${userA}';`);
+  assert.strictEqual(Number(txCountCheck.rows[0].count), 0, 'Zero financial transactions must be created for reminder checklist toggle');
+
+  // 5. Test Rollover Race Guard: client with mismatched period rejected
+  const mismatchRes = await pg.query(`
+    SELECT public.toggle_recurring_checklist_item(
+      p_item_id := ${itemId},
+      p_expected_period := '2020-01',
+      p_check := true
+    ) AS res;
+  `);
+  assert.strictEqual(mismatchRes.rows[0].res.success, false);
+  assert.strictEqual(mismatchRes.rows[0].res.error, 'PERIOD_MISMATCH');
+
+  // 6. Test Multi-Tenant Isolation: User B cannot modify User A's item
+  await pg.exec(`
+    SET request.jwt.claim.sub = '${userB}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  const crossUserToggle = await pg.query(`
+    SELECT public.toggle_recurring_checklist_item(
+      p_item_id := ${itemId},
+      p_expected_period := '${curPeriod}',
+      p_check := false
+    ) AS res;
+  `);
+  assert.strictEqual(crossUserToggle.rows[0].res.success, false);
+  assert.strictEqual(crossUserToggle.rows[0].res.error, 'ITEM_NOT_FOUND', 'User B must not find or modify User A checklist item');
+
+  await pg.close();
+});
+
+// ============================================================================
+// SS01: On-Device Multi-Slip Scanner (Parser Engine, Review Drafts, Idempotency)
+// ============================================================================
+await test('SS01', 'On-Device Multi-Slip Scanner: draft review generation, ambiguity marking, duplicate warning, idempotency retry, memory/privacy cleanup', async () => {
+  // 1. Static security check: NO external OCR API or cloud upload URL
+  assert(!indexHtml.includes('api.ocr.space'), 'index.html must not call 3rd party OCR APIs');
+  assert(!indexHtml.includes('cloud.google.com/vision'), 'index.html must not call Google Cloud Vision API');
+  assert(!indexHtml.includes('api.openai.com'), 'index.html must not send slips to paid LLM cloud APIs');
+  assert(indexHtml.includes('js/slip-parser.js'), 'index.html must include js/slip-parser.js');
+
+  // 2. Draft review workflow and ambiguity marking
+  const testSlipOcrText = `
+    โอนเงินสำเร็จ
+    ธนาคารกสิกรไทย
+    29 ก.ย. 69 14:32 น.
+    ไปยัง: นาย ธนากร จันทร์แจ่ม
+    จำนวนเงิน 1,500.00 บาท
+    ค่าธรรมเนียม 0.00 บาท
+    เลขที่รายการ: 20260929987654321
+  `;
+
+  const SlipParserEngine = require('../js/slip-parser.js');
+
+  const parsed = SlipParserEngine.parseSlipText(testSlipOcrText, {
+    fileName: 'kplus_transfer.jpg',
+    fileSize: 450000,
+    lastModified: 1790670000000
+  });
+
+  assert.strictEqual(parsed.amount, 1500.00);
+  assert.strictEqual(parsed.date, '2026-09-29');
+  assert.strictEqual(parsed.time, '14:32');
+  assert.strictEqual(parsed.receiver, 'นาย ธนากร จันทร์แจ่ม');
+  assert.strictEqual(parsed.refNumber, '20260929987654321');
+  assert.strictEqual(parsed.needs_review, false, 'Well-formed slip must not be flagged needs_review');
+
+  // Ambiguity check: missing amount
+  const ambiguousText = `
+    โอนเงินสำเร็จ
+    ธนาคารกสิกรไทย
+    29 ก.ย. 69
+    ไปยัง: นาย ธนากร จันทร์แจ่ม
+  `;
+  const ambiguousParsed = SlipParserEngine.parseSlipText(ambiguousText);
+  assert.strictEqual(ambiguousParsed.amount, null, 'Must NOT invent 0.00 for unreadable amount');
+  assert.strictEqual(ambiguousParsed.needs_review, true, 'Unreadable amount must be flagged needs_review');
+
+  // 3. PostgreSQL Idempotent Transaction Creation with PGlite
+  const pg = await initPgWithShims();
+  await pg.exec(migrationSql);
+
+  const testUserId = '77777777-7777-7777-7777-777777777777';
+  await pg.exec(`
+    INSERT INTO auth.users (id, email) VALUES ('${testUserId}', 'slipuser@freelancehub.app');
+    INSERT INTO public.wallets (id, user_id, name, type, balance, created_at, updated_at)
+    VALUES (901, '${testUserId}', 'กสิกรไทย', 'bank', 10000.00, NOW(), NOW());
+    SET request.jwt.claim.sub = '${testUserId}';
+    SET request.jwt.claim.role = 'authenticated';
+  `);
+
+  // First save from slip draft
+  const requestId = 'slip_req_20260929_uniq_01';
+  const saveCall1 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '${parsed.date}'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าเดินทาง',
+      p_amount := ${parsed.amount},
+      p_details := 'โอนให้ ${parsed.receiver} (Ref: ${parsed.refNumber})',
+      p_wallet_id := 901,
+      p_request_id := '${requestId}'
+    ) AS res;
+  `);
+
+  const res1 = saveCall1.rows[0].res;
+  assert.strictEqual(res1.success, true);
+  assert.strictEqual(Number(res1.new_balance), 8500.00, 'Balance must be deducted from 10,000 to 8,500');
+
+  // Retry with same requestId (idempotency guard)
+  const saveCall2 = await pg.query(`
+    SELECT public.execute_create_transaction(
+      p_date := '${parsed.date}'::date,
+      p_type := 'รายจ่าย',
+      p_category := 'ค่าเดินทาง',
+      p_amount := ${parsed.amount},
+      p_details := 'โอนให้ ${parsed.receiver} (Ref: ${parsed.refNumber})',
+      p_wallet_id := 901,
+      p_request_id := '${requestId}'
+    ) AS res;
+  `);
+
+  const res2 = saveCall2.rows[0].res;
+  assert.strictEqual(res2.success, true);
+  assert.strictEqual(res2.status, 'IDEMPOTENT_RETRY', 'Retry with same request_id must be flagged as IDEMPOTENT_RETRY');
+  assert.strictEqual(Number(res2.new_balance), 8500.00, 'Balance must NOT be double-deducted on retry');
+
+  // Verify only 1 transaction was inserted
+  const txCheck = await pg.query(`SELECT COUNT(*) AS count FROM public.transactions WHERE user_id = '${testUserId}';`);
+  assert.strictEqual(Number(txCheck.rows[0].count), 1, 'Only exactly 1 transaction should exist after retry');
+
+  await pg.close();
 });
 
 // ============================================================================

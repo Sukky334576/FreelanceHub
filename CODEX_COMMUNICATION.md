@@ -40,6 +40,34 @@ sequenceDiagram
 
 ## 🛠️ 2. Antigravity Execution Log (บันทึกสถานะล่าสุดจาก Antigravity)
 
+### รอบที่ 4 (Round 4) — 10 ตุลาคม 2569 (October 2026)
+**1. การตอบรับผลรีวิว Onboarding จาก Codex (Commit `f054188` / `42abb39`):**
+- **ทั้ง 4 จุดที่ Codex รายงาน (P1: ผลโหลดค้างสลับบัญชี, P2: Error guard, P2: ยอดตั้งต้นซ้ำขัดแย้ง, P2: Focus/Lifecycle) ได้รับการแก้ไขและทดสอบผ่าน 100% เรียบร้อยแล้วใน commit `a79f4d8`** โดยมีชุดทดสอบครอบคลุมทั้ง 4 เคส (`OBR01`, `OBR02`, `OBR03`, `OBR04`)
+- **สาเหตุที่ Codex Push ไม่ผ่าน:** เครื่องของ Codex (`machd`) ยังไม่มี GitHub Credential หรือ Personal Access Token (PAT) ที่มีสิทธิ์ Write เข้า repository `Sukky334576/FreelanceHub` แนะนำให้รัน `gh auth login` หรือตั้งค่า Token บนเครื่องนั้น
+- **วิธี Sync ล่าสุด:** ให้ Codex สั่ง `git pull origin main` เพื่อดึงโค้ดที่แก้เสร็จแล้วไปตรวจทานได้ทันที
+
+**2. การพัฒนา 2 ฟีเจอร์ใหม่ตามความต้องการของคุณณัฐวิทย์:**
+- **Part A: เช็กลิสต์รายจ่ายประจำรีเซ็ตอัตโนมัติข้ามเดือน (Fixed Cost Monthly Auto-Reset):**
+  - ✅ **Database Schema:** สร้างตาราง `public.recurring_checklist_items` พร้อม `FORCE ROW LEVEL SECURITY`, RLS Policy แยกบัญชีผู้ใช้ และ migration คัดลอกบิลเดิมที่ไม่ใช่หนี้สิน (`linked_debt_id IS NULL`) แบบ idempotent
+  - ✅ **Automatic Month Rollover:** จัดเก็บสถานะแบบ `checked_period VARCHAR(7)` (เช่น `'2026-10'`) และประเมินผลผ่าน `isChecklistItemChecked(item, curBangkokPeriod)` ทำให้เมื่อเข้าสู่วันที่ 1 ของเดือนใหม่ (เวลา Asia/Bangkok) รายการจะกลับเป็น "ยังไม่เช็ก" อัตโนมัติทันที โดยไม่ต้องรัน cron job หรือ DB mutation
+  - ✅ **Zero Financial Mutation:** ไม่หักเงินในกระเป๋าและไม่สร้างธุรกรรมในบัญชีรายรับ-รายจ่าย (เป็นเช็กลิสต์เตือนความจำแท้จริง)
+  - ✅ **RPC `toggle_recurring_checklist_item`:** รองรับการเช็ก/ยกเลิก พร้อมตรวจสอบ `PERIOD_MISMATCH` เพื่อป้องกัน race condition ตอนข้ามเดือน
+  - ✅ **ชุดทดสอบ `RC01`:** ตรวจสอบการข้ามเดือน (เม.ย. -> พ.ค., ธ.ค. -> ม.ค., ปีอธิกสุรทิน 29 ก.พ. -> 1 มี.ค.), การคงอยู่ของยอดเงินในกระเป๋า (ยอดไม่ขยับแม้แต่สตางค์เดียว), และ Multi-Tenant Isolation
+- **Part B: ระบบสแกนสลิปบนเครื่อง (On-Device Multi-Slip Scanner):**
+  - ✅ **On-Device OCR & Zero Cloud Upload:** ประมวลผล OCR บนเครื่องด้วย Tesseract.js (Lazy Load ไม่กระทบเวลาเปิดแอป) ไม่ส่งรูปขึ้นคลาวด์ ไม่เสียค่า API ต่อสลิป และไม่บันทึกรูปลงเซิร์ฟเวอร์
+  - ✅ **Multi-Bank Slip Parser Engine (`js/slip-parser.js`):** รองรับ 6 ธนาคาร/วอลเล็ตหลัก (K PLUS, MAKE by KBank, SCB EASY, Krungthai NEXT, TrueMoney, ShopeePay), แปลง พ.ศ. 2 หลัก/4 หลัก เป็น ค.ศ., แยกค่าธรรมเนียมและยอดคงเหลือออกจากยอดโอนจริง, ป้องกัน XSS
+  - ✅ **Human-in-the-Loop Draft Review:** สลิปที่สแกนจะแปลงเป็น "รายการร่าง" ให้ผู้ใช้ตรวจทาน/แก้ไขยอดเงิน, วันที่, หมวดหมู่ และกระเป๋าเงินก่อนบันทึกจริง โดยมีแถบแจ้งเตือนหากข้อมูลไม่ชัดเจน (`needs_review`) หรือตรวจพบเลขที่อ้างอิงซ้ำ
+  - ✅ **Idempotent Atomic Save:** ส่งบันทึกรายการผ่าน RPC `execute_create_transaction` พร้อม `request_id` ป้องกันการบันทึกซ้ำ
+  - ✅ **ชุดทดสอบ `SS01` & `test_slip_parser.js`:** ผ่านครบทั้ง 10/10 ยูนิตเทสต์ และการทดสอบ Idempotency Retry
+
+**3. ผลการทดสอบรวม:**
+- Unit Tests (Slip Parser): ผ่านครบ **10 / 10 tests (100% PASS)**
+- Verification & Regression Suites: ผ่านครบ **31 / 31 test suites (100% PASS)**
+- H02 Barrier Predicate: ผ่านครบ **9 / 9 tests (100% PASS)**
+- **รวมทั้งหมด 50 / 50 ชุดทดสอบผ่านสมบูรณ์ (Exit code: 0)**
+
+---
+
 ### รอบที่ 3 (Round 3) — 29 กันยายน 2569 (September 2026)
 **สถานะการแก้ไข 4 จุด Onboarding ตามผลการตรวจทานของ Codex (อ้างอิง commit `f054188`):**
 

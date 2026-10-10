@@ -25,6 +25,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Financial Core Business Rules & Pure Calculations -->
   <script src="js/financial-core.js"></script>
+  <!-- On-Device Slip Parser Engine -->
+  <script src="js/slip-parser.js"></script>
 
   <style>
 
@@ -2631,8 +2633,11 @@
            ======================================================= -->
       <section id="tab-transactions" class="tab-view active">
         <div class="page-container">
-          <div class="page-header">
-            <h2 class="page-title">บันทึกเงิน</h2>
+          <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 class="page-title" style="margin-bottom: 0;">บันทึกเงิน</h2>
+            <button type="button" class="btn-secondary" onclick="openSlipScannerModal()" style="padding: 6px 12px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px; font-weight: 700; border-color: var(--color-primary); color: var(--color-primary-dark); cursor: pointer; border-radius: var(--radius-md);">
+              <i class="fa-solid fa-camera-retro"></i> สแกนสลิป
+            </button>
           </div>
 
           <!-- Scope Switcher: สตูดิโอ / ส่วนตัว / ทั้งหมด -->
@@ -2961,6 +2966,9 @@
               <button class="action-pill" onclick="openAddBillModal()">
                 <i class="fa-solid fa-receipt" style="color: #D97706;"></i> เพิ่มบิลรายเดือน
               </button>
+              <button class="action-pill" onclick="openSlipScannerModal()" style="border-color: var(--color-primary-dark); background: rgba(22, 142, 161, 0.08);">
+                <i class="fa-solid fa-camera-retro" style="color: var(--color-primary);"></i> สแกนสลิปโอนเงิน
+              </button>
               <button class="action-pill" onclick="openPDFModal()">
                 <i class="fa-solid fa-file-lines" style="color: #7E22CE;"></i> ออกใบเสนอราคา/แจ้งหนี้
               </button>
@@ -3139,37 +3147,56 @@
       </section>
 
       <!-- =======================================================
-           TAB 6: บิลรายเดือน (MONTHLY BILLS)
+           TAB 6: เช็กลิสต์รายจ่ายประจำ (RECURRING FIXED COST CHECKLIST)
            ======================================================= -->
       <section id="tab-bills" class="tab-view">
         <div class="page-container">
-          <div class="page-header">
-            <h2 class="page-title">บิลรายเดือน</h2>
-            <button class="btn-secondary" onclick="openAddBillModal()" style="padding: 6px 14px; font-size: 0.8rem; border-radius: var(--radius-md); background: var(--accent-primary); border: none; color: #fff; cursor: pointer; font-weight: 700;">
-              + เพิ่มบิล
+          <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <div>
+              <h2 class="page-title" style="margin-bottom: 2px;">เช็กลิสต์รายจ่ายประจำ</h2>
+              <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span class="status-badge" id="checklistMonthBadge" style="background: rgba(22, 142, 161, 0.12); color: var(--color-primary-dark); border-color: rgba(22, 142, 161, 0.25); font-weight: 700;">ประจำเดือน ...</span>
+                <span>• ใช้เตือนความจำ ไม่บันทึกรายจ่าย</span>
+              </div>
+            </div>
+            <button class="btn-secondary" onclick="openAddChecklistItemModal()" style="padding: 7px 14px; font-size: 0.8rem; border-radius: var(--radius-md); background: var(--accent-primary); border: none; color: #fff; cursor: pointer; font-weight: 700; white-space: nowrap;">
+              + เพิ่มรายการเตือน
             </button>
           </div>
 
-          <!-- Bills Summary -->
-          <div class="summary-grid">
+          <!-- Checklist Summary -->
+          <div class="summary-grid" style="margin-bottom: 14px;">
             <div class="summary-col">
-              <div class="summary-label">ยอดบิลรอชำระ</div>
-              <div class="summary-val expense" id="billUnpaidTotal">฿0</div>
+              <div class="summary-label">สถานะการเช็กเดือนนี้</div>
+              <div class="summary-val" id="checklistProgressVal" style="color: var(--accent-income);">0 / 0 ข้อ</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">รีเซ็ตเป็นยังไม่เช็กอัตโนมัติทุกวันที่ 1</div>
             </div>
             <div class="summary-col">
-              <div class="summary-label">ยอดบิลทั้งหมด/เดือน</div>
-              <div class="summary-val" id="billOverallTotal" style="color: var(--text-primary);">฿0</div>
+              <div class="summary-label">ยอดประมาณการรวม / เดือน</div>
+              <div class="summary-val" id="checklistTotalVal" style="color: var(--text-primary);">฿0.00</div>
+              <div style="font-size: 0.7rem; color: var(--accent-warning); margin-top: 2px;" id="checklistUncheckedAmountVal">ยังไม่เช็ก ฿0.00</div>
             </div>
           </div>
 
           <!-- Filter Pills -->
           <div class="segmented-control" style="margin-bottom: 14px;">
-            <button class="segmented-btn active" id="pillBillAll" onclick="setBillFilter('all')">ทั้งหมด</button>
-            <button class="segmented-btn" id="pillBillUnpaid" onclick="setBillFilter('unpaid')">รอชำระ</button>
-            <button class="segmented-btn" id="pillBillPaid" onclick="setBillFilter('paid')">ชำระแล้ว</button>
+            <button class="segmented-btn active" id="pillChecklistAll" onclick="setChecklistFilter('all')">ทั้งหมด</button>
+            <button class="segmented-btn" id="pillChecklistUnchecked" onclick="setChecklistFilter('unchecked')">ยังไม่เช็ก</button>
+            <button class="segmented-btn" id="pillChecklistChecked" onclick="setChecklistFilter('checked')">เช็กแล้ว</button>
           </div>
 
-          <div id="billsFullList"></div>
+          <!-- Checklist Render Target -->
+          <div id="checklistFullList"></div>
+
+          <!-- Legacy Compatibility Elements -->
+          <div style="display: none;">
+            <span id="billUnpaidTotal">฿0</span>
+            <span id="billOverallTotal">฿0</span>
+            <button id="pillBillAll" onclick="setBillFilter('all')"></button>
+            <button id="pillBillUnpaid" onclick="setBillFilter('unpaid')"></button>
+            <button id="pillBillPaid" onclick="setBillFilter('paid')"></button>
+            <div id="billsFullList"></div>
+          </div>
         </div>
       </section>
 
@@ -3592,7 +3619,145 @@
   </div>
 
   <!-- =========================================================
-       MODAL 4: ฟอร์มเพิ่ม/แก้ไขบิล (BILL DRAWER)
+       MODAL: ฟอร์มเพิ่ม/แก้ไขเช็กลิสต์รายจ่ายประจำ (CHECKLIST DRAWER)
+       ========================================================= -->
+  <div id="checklistDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
+    <div class="drawer-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title"><span id="checklistDrawerTitle">เพิ่มรายการเตือนความจำ</span></div>
+        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="sheet-body">
+        <form id="checklistForm" onsubmit="handleSaveChecklistItem(event)">
+          <input type="hidden" id="checklistEditId">
+          <div class="form-group">
+            <label class="form-label">ชื่อรายการรายจ่ายประจำ</label>
+            <input type="text" id="checklistTitle" class="form-input" placeholder="เช่น ค่าเน็ตสตูดิโอ, ค่าไฟ, ค่าเช่าสตูดิโอ" required>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">เตือนทุกวันที่ (ของเดือน)</label>
+              <input type="number" id="checklistDueDay" class="form-input" min="1" max="31" placeholder="เช่น 1, 5, 25" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ยอดประมาณการ (บาท)</label>
+              <input type="number" id="checklistAmount" class="form-input" placeholder="0.00" step="any" inputmode="decimal" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">หมายเหตุ (ถ้ามี)</label>
+            <input type="text" id="checklistNote" class="form-input" placeholder="เช่น สัญญาถึงสิ้นปี, ตัดผ่านบัญชี">
+          </div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; background: var(--color-surface-muted); padding: 8px 10px; border-radius: var(--radius-sm);">
+            <i class="fa-solid fa-circle-info" style="color: var(--color-primary);"></i> รายการนี้ใช้เป็นเช็กลิสต์เตือนความจำเท่านั้น เมื่อติ๊กจะไม่หักเงินจากกระเป๋าและไม่บันทึกบัญชีรายจ่าย
+          </div>
+          <button type="submit" id="btnChecklistSubmit" class="btn-submit-main">บันทึกรายการ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: สแกนสลิปโอนเงินหลายรูปบนอุปกรณ์ (SLIP SCANNER DRAWER)
+       ========================================================= -->
+  <div id="slipScannerDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeSlipScannerModal()">
+    <div class="drawer-sheet" style="max-width: 720px; max-height: 92vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header" style="border-bottom: 1px solid var(--color-border); padding-bottom: 12px;">
+        <div>
+          <div class="sheet-title" style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-receipt" style="color: var(--color-primary);"></i>
+            <span>สแกนสลิปโอนเงิน (อ่านบนอุปกรณ์)</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">
+            🔒 ประมวลผลบนเครื่องของคุณ ไม่ส่งรูปขึ้นเซิร์ฟเวอร์ ไม่บันทึกรูปถาวร
+          </div>
+        </div>
+        <button class="sheet-close-btn" onclick="closeSlipScannerModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="sheet-body" style="overflow-y: auto; flex: 1; padding: 16px;">
+        
+        <!-- Step 1: File Dropzone & Status -->
+        <div id="slipUploadSection" style="margin-bottom: 16px;">
+          <div id="slipDropzone" style="border: 2px dashed var(--color-border); border-radius: var(--radius-lg); padding: 24px 16px; text-align: center; background: var(--color-surface-muted); cursor: pointer; transition: all 0.2s ease;" onclick="document.getElementById('slipFileInput').click()">
+            <input type="file" id="slipFileInput" multiple accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="handleSlipFilesSelected(this.files)">
+            <div style="font-size: 2.2rem; color: var(--color-primary); margin-bottom: 8px;">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--color-text-primary); margin-bottom: 4px;">
+              เลือกรูปสลิปจากอัลบั้ม หรือ ลากไฟล์มาวางที่นี่
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">
+              รองรับ K PLUS, MAKE, SCB EASY, Krungthai NEXT, TrueMoney, ShopeePay (เฉลี่ย 20 รูป)
+            </div>
+            <div style="font-size: 0.7rem; color: var(--accent-warning); margin-top: 6px;">
+              * หากเป็นไฟล์ HEIC จาก iPhone กรุณาเลือกส่งเป็น JPEG หรือถ่ายภาพหน้าจอ (Screenshot)
+            </div>
+          </div>
+        </div>
+
+        <!-- Scanning Progress Indicator -->
+        <div id="slipScanProgressBox" style="display: none; margin-bottom: 16px; padding: 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.84rem; font-weight: 700; color: var(--color-text-primary);">
+              <i class="fa-solid fa-spinner fa-spin" style="color: var(--color-primary);"></i>
+              <span id="slipScanProgressText">กำลังเริ่มตัวอ่าน OCR บนเครื่อง...</span>
+            </div>
+            <button type="button" class="btn-secondary" onclick="cancelSlipProcessing()" style="padding: 3px 8px; font-size: 0.72rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface);">
+              ยกเลิก
+            </button>
+          </div>
+          <div style="height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden;">
+            <div id="slipScanProgressBar" style="width: 0%; height: 100%; background: var(--color-primary); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Step 2: Drafts Review Controls & List -->
+        <div id="slipDraftsContainer" style="display: none;">
+          
+          <!-- Filter and Bulk Action Toolbar -->
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 12px; background: var(--color-surface-muted); border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.82rem; font-weight: 700;" id="slipDraftsCountBadge">0 รายการร่าง</span>
+              <button type="button" class="segmented-btn active" id="btnSlipFilterAll" onclick="setSlipDraftFilter('all')" style="padding: 4px 10px; font-size: 0.74rem;">ทั้งหมด</button>
+              <button type="button" class="segmented-btn" id="btnSlipFilterReview" onclick="setSlipDraftFilter('needs_review')" style="padding: 4px 10px; font-size: 0.74rem;">ต้องตรวจแก้</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select id="slipBulkWalletSelect" class="form-input" style="padding: 4px 8px; font-size: 0.75rem; width: auto;" onchange="applyBulkWalletToSlips(this.value)">
+                <option value="">-- ตั้งกระเป๋าเดียวกันทั้งหมด --</option>
+              </select>
+              <select id="slipBulkCatSelect" class="form-input" style="padding: 4px 8px; font-size: 0.75rem; width: auto;" onchange="applyBulkCategoryToSlips(this.value)">
+                <option value="">-- ตั้งหมวดเดียวกันทั้งหมด --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Cards Container -->
+          <div id="slipDraftsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+
+      </div>
+
+      <!-- Sheet Footer: Summary & Confirm -->
+      <div id="slipSheetFooter" class="sheet-footer" style="display: none; border-top: 1px solid var(--color-border); padding: 14px 16px; background: var(--color-surface); justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 0.74rem; color: var(--text-muted);">ยอดรวมรายการที่เลือก</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--color-text-primary);" id="slipSelectedTotalAmount">฿0.00</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-secondary" onclick="closeSlipScannerModal()" style="padding: 8px 16px; font-size: 0.85rem;">ยกเลิก</button>
+          <button type="button" id="btnConfirmSaveSlips" class="btn-submit-main" onclick="confirmAndSaveSlipDrafts()" style="padding: 8px 20px; font-size: 0.85rem; width: auto; background: var(--color-primary); color: #fff; font-weight: 700;">
+            ยืนยันบันทึก <span id="slipConfirmCountText">(0)</span> รายการ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL 4: ฟอร์มเพิ่ม/แก้ไขบิล (BILL DRAWER - LEGACY COMPAT)
        ========================================================= -->
   <div id="billDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeAllDrawers()">
     <div class="drawer-sheet" onclick="event.stopPropagation()">
@@ -4653,7 +4818,8 @@
           wallets: appData.wallets || [],
           debts: appData.debts || [],
           debt_payments: appData.debt_payments || [],
-          cards: appData.cards || []
+          cards: appData.cards || [],
+          checklist_items: appData.checklist_items || []
         };
         localStorage.setItem(key, JSON.stringify(snapshot));
       } catch (err) {
@@ -4680,6 +4846,7 @@
         if (Array.isArray(snapshot.debts)) appData.debts = snapshot.debts;
         if (Array.isArray(snapshot.debt_payments)) appData.debt_payments = snapshot.debt_payments;
         if (Array.isArray(snapshot.cards)) appData.cards = snapshot.cards;
+        if (Array.isArray(snapshot.checklist_items)) appData.checklist_items = snapshot.checklist_items;
 
         if (typeof calculateWalletBalances === 'function') calculateWalletBalances();
         if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
@@ -4725,7 +4892,8 @@
         wallets: [],
         debts: [],
         debt_payments: [],
-        cards: []
+        cards: [],
+        checklist_items: []
       };
       if (typeof updateAuthUI === 'function') updateAuthUI();
       var renderers = [
@@ -4735,6 +4903,7 @@
         renderTodos,
         renderProjectsHub,
         renderBills,
+        renderChecklist,
         renderEquipment,
         renderDebts,
         renderCards,
@@ -4883,7 +5052,8 @@
           db.from('equipment').select('*').order('created_at', { ascending: false }),
           loadWallets(),
           loadDebts(),
-          loadCards()
+          loadCards(),
+          loadRecurringChecklistItems()
         ]);
 
         if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
@@ -4928,6 +5098,7 @@
       renderDashboard();
       renderTodos();
       renderBills();
+      renderChecklist();
       renderEquipment();
       renderProjectsHub();
       updateSettingsCounts();
@@ -4965,7 +5136,7 @@
         'dashboard': { title: 'ภาพรวม', sub: 'สรุปการเงิน คิวงาน และเรื่องเร่งด่วน', btn: 'บันทึกเงิน' },
         'todos': { title: 'สิ่งที่ต้องทำ', sub: 'รายการ To-Do Checklist ประจำวัน', btn: 'เพิ่มสิ่งที่ต้องทำ' },
         'projects': { title: 'โปรเจกต์', sub: 'รวบรวมคิวงานและการเงินตามโปรเจกต์', btn: 'สร้างโปรเจกต์' },
-        'bills': { title: 'บิลรายเดือน', sub: 'รายการบิลประจำที่ต้องจ่ายในแต่ละเดือน', btn: 'เพิ่มบิล' },
+        'bills': { title: 'เช็กลิสต์รายจ่ายประจำ', sub: 'รายการเช็กลิสต์เตือนความจำประจำเดือน (ไม่บันทึกบัญชี)', btn: 'เพิ่มรายการเตือน' },
         'equipment': { title: 'คลังอุปกรณ์', sub: 'กล้อง เลนส์ ไฟ และการติดตามอุปกรณ์', btn: 'เพิ่มอุปกรณ์' },
         'export': { title: 'รายงาน & ส่งออก', sub: 'ส่งออก Google Sheets / Excel และ PDF', btn: 'ส่งออก Excel' },
         'settings': { title: 'ตั้งค่าระบบ', sub: 'จัดการหมวดหมู่และข้อมูลความปลอดภัย', btn: 'เพิ่มหมวดหมู่' }
@@ -4997,7 +5168,7 @@
       if (currentTab === 'calendar') openAddJobModal();
       else if (currentTab === 'todos') openAddTodoModal();
       else if (currentTab === 'projects') openAddJobModal();
-      else if (currentTab === 'bills') openAddBillModal();
+      else if (currentTab === 'bills') openAddChecklistItemModal();
       else if (currentTab === 'equipment') openAddEqModal();
       else if (currentTab === 'export') exportAllDataToExcel();
       else if (currentTab === 'settings') openCategoryManager();
@@ -6474,11 +6645,35 @@
       if (kpiUnpaidEl) kpiUnpaidEl.textContent = '฿' + totalUnpaidFromJobs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (kpiUnpaidSub) kpiUnpaidSub.textContent = pendingJobsCount + ' งานรองวดเงิน';
 
-      // Unpaid Bills this month
+      // Unpaid Bills & Recurring Checklist this month
       var unpaidBills = appData.bills.filter(function(b) { return !b.is_paid; });
       var sumUnpaidBills = unpaidBills.reduce(function(acc, b) { return acc + (parseFloat(b.amount) || 0); }, 0);
-      if (kpiBillsEl) kpiBillsEl.textContent = unpaidBills.length + ' บิล';
-      if (kpiBillsSub) kpiBillsSub.textContent = 'ยอดรอชำระ ฿' + sumUnpaidBills.toLocaleString(undefined, { minimumFractionDigits: 2 });
+      var curPeriod = (typeof getCurrentBangkokPeriod === 'function') ? getCurrentBangkokPeriod() : '';
+      var checklistItems = appData.checklist_items || [];
+      var uncheckedList = checklistItems.filter(function(item) {
+        return (typeof isChecklistItemChecked === 'function') ? !isChecklistItemChecked(item, curPeriod) : true;
+      });
+      var checkedCount = checklistItems.length - uncheckedList.length;
+      var sumUnchecked = uncheckedList.reduce(function(acc, item) {
+        return acc + (parseFloat(item.amount) || 0);
+      }, 0);
+
+      if (kpiBillsEl) {
+        if (checklistItems.length > 0) {
+          kpiBillsEl.textContent = 'เช็กแล้ว ' + checkedCount + '/' + checklistItems.length;
+          kpiBillsEl.style.color = (uncheckedList.length === 0) ? 'var(--color-success)' : 'var(--color-warning)';
+        } else {
+          kpiBillsEl.textContent = unpaidBills.length + ' บิล';
+          kpiBillsEl.style.color = (unpaidBills.length === 0) ? 'var(--color-success)' : 'var(--color-danger)';
+        }
+      }
+      if (kpiBillsSub) {
+        if (checklistItems.length > 0) {
+          kpiBillsSub.textContent = 'ยังไม่เช็ก ฿' + sumUnchecked.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        } else {
+          kpiBillsSub.textContent = 'ยอดรอชำระ ฿' + sumUnpaidBills.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        }
+      }
 
       // Monthly Debt Commitments (Calculated from Debts subsystem + Installment Bills)
       var totalMonthlyDebt = 0;
@@ -6512,10 +6707,28 @@
       renderDebts();
       renderCards();
 
-      // 4. Critical Agenda: Upcoming Bills List
+      // 4. Critical Agenda: Upcoming Bills List / Recurring Checklist
       var billsListEl = document.getElementById('dashBillsList');
       if (billsListEl) {
-        if (unpaidBills.length === 0) {
+        if (checklistItems.length > 0) {
+          if (uncheckedList.length === 0) {
+            billsListEl.innerHTML = '<div style="text-align:center; padding:18px 12px; color:var(--color-success); font-size:0.84rem; font-weight:700;">' +
+              '<i class="fa-solid fa-circle-check" style="font-size:1.2rem; margin-bottom:6px; display:block;"></i> เช็กรายจ่ายประจำเดือนนี้ครบถ้วนแล้ว 🎉</div>';
+          } else {
+            billsListEl.innerHTML = uncheckedList.slice(0, 3).map(function(item) {
+              return '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-surface-muted); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:10px 14px;">' +
+                '<div>' +
+                  '<strong style="font-size:0.88rem; color:var(--color-text-primary);">' + escapeHtml(item.title) + '</strong>' +
+                  '<div style="font-size:0.72rem; color:var(--accent-warning); font-weight:600;">เตือนทุกวันที่ ' + item.due_day + ' ของเดือน</div>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:8px;">' +
+                  '<span class="tabular-nums" style="font-size:0.95rem; font-weight:800; color:var(--color-text-primary);">฿' + (parseFloat(item.amount)||0).toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</span>' +
+                  '<button type="button" onclick="toggleChecklistItem(' + item.id + ', true)" style="padding:5px 12px; font-size:0.75rem; font-weight:700; border-radius:var(--radius-full); background:var(--color-success-soft); border:1px solid rgba(11,157,131,0.3); color:var(--color-success); cursor:pointer;">เช็กแล้ว</button>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+          }
+        } else if (unpaidBills.length === 0) {
           billsListEl.innerHTML = '<div style="text-align:center; padding:18px 12px; color:var(--color-success); font-size:0.84rem; font-weight:700;">' +
             '<i class="fa-solid fa-circle-check" style="font-size:1.2rem; margin-bottom:6px; display:block;"></i> ชำระบิลประจำเดือนนี้ครบถ้วนแล้ว 🎉</div>';
         } else {
@@ -10047,6 +10260,791 @@
         deleteCard(id);
       }
     }
+
+    // =========================================================
+    // SUBSYSTEM 5: RECURRING FIXED COST CHECKLIST (เช็กลิสต์รายจ่ายประจำ)
+    // =========================================================
+    var currentChecklistFilter = 'all'; // 'all', 'unchecked', 'checked'
+
+    async function loadRecurringChecklistItems() {
+      var expectedGeneration = currentSessionGeneration;
+      var expectedUserId = currentUser ? currentUser.id : null;
+      try {
+        var res = await db.from('recurring_checklist_items').select('*').order('due_day', { ascending: true });
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
+        if (res && res.data) {
+          appData.checklist_items = res.data;
+        }
+      } catch (e) {
+        if (expectedGeneration !== currentSessionGeneration || (currentUser ? currentUser.id : null) !== expectedUserId) return;
+        console.warn('Notice loading recurring_checklist_items:', e);
+      }
+    }
+
+    function getCurrentBangkokPeriod() {
+      try {
+        var fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit' });
+        return fmt.format(new Date()).slice(0, 7);
+      } catch (e) {
+        var d = new Date();
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        return y + '-' + m;
+      }
+    }
+
+    function isChecklistItemChecked(item, period) {
+      if (!item) return false;
+      var p = period || getCurrentBangkokPeriod();
+      return item.checked_period === p;
+    }
+
+    function getBangkokMonthDisplayName(period) {
+      var p = period || getCurrentBangkokPeriod();
+      var parts = p.split('-');
+      var y = parseInt(parts[0], 10);
+      var m = parseInt(parts[1], 10);
+      var thaiMonth = thaiMonthsFull[m - 1] || '';
+      return thaiMonth + ' ' + (y + 543);
+    }
+
+    function setChecklistFilter(filter) {
+      currentChecklistFilter = filter;
+      var pills = ['pillChecklistAll', 'pillChecklistUnchecked', 'pillChecklistChecked'];
+      pills.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
+      if (filter === 'all') document.getElementById('pillChecklistAll')?.classList.add('active');
+      else if (filter === 'unchecked') document.getElementById('pillChecklistUnchecked')?.classList.add('active');
+      else if (filter === 'checked') document.getElementById('pillChecklistChecked')?.classList.add('active');
+      renderChecklist();
+    }
+
+    function renderChecklist() {
+      var box = document.getElementById('checklistFullList');
+      if (!box) return;
+
+      var curPeriod = getCurrentBangkokPeriod();
+      var items = appData.checklist_items || [];
+      var badgeEl = document.getElementById('checklistMonthBadge');
+      if (badgeEl) {
+        badgeEl.textContent = 'ประจำเดือน ' + getBangkokMonthDisplayName(curPeriod);
+      }
+
+      var totalItems = items.length;
+      var checkedCount = 0;
+      var totalAmount = 0;
+      var uncheckedAmount = 0;
+
+      items.forEach(function(item) {
+        var amt = parseFloat(item.amount) || 0;
+        totalAmount += amt;
+        var isChk = isChecklistItemChecked(item, curPeriod);
+        if (isChk) {
+          checkedCount++;
+        } else {
+          uncheckedAmount += amt;
+        }
+      });
+
+      var progEl = document.getElementById('checklistProgressVal');
+      var totEl = document.getElementById('checklistTotalVal');
+      var unchkEl = document.getElementById('checklistUncheckedAmountVal');
+
+      if (progEl) {
+        progEl.textContent = checkedCount + ' / ' + totalItems + ' ข้อ';
+        progEl.style.color = (totalItems > 0 && checkedCount === totalItems) ? 'var(--accent-income)' : 'var(--accent-warning)';
+      }
+      if (totEl) {
+        totEl.textContent = '฿' + totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      if (unchkEl) {
+        unchkEl.textContent = 'ยังไม่เช็ก ฿' + uncheckedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        unchkEl.style.color = (uncheckedAmount === 0) ? 'var(--accent-income)' : 'var(--accent-warning)';
+      }
+
+      var filtered = items.filter(function(item) {
+        var isChk = isChecklistItemChecked(item, curPeriod);
+        if (currentChecklistFilter === 'unchecked') return !isChk;
+        if (currentChecklistFilter === 'checked') return isChk;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        box.innerHTML = '<div class="card-surface" style="text-align:center; padding:32px 16px; color:var(--text-muted);">' +
+          '<i class="fa-solid fa-clipboard-check" style="font-size:2rem; margin-bottom:8px; display:block; opacity:0.5;"></i>' +
+          (items.length === 0 ? 'ยังไม่มีรายการเตือนความจำ กดปุ่ม "+ เพิ่มรายการเตือน" ด้านบนเพื่อเริ่มใช้งาน' : 'ไม่มีรายการในหมวดที่เลือก') +
+          '</div>';
+        return;
+      }
+
+      box.innerHTML = filtered.map(function(item) {
+        var isChk = isChecklistItemChecked(item, curPeriod);
+        var amt = parseFloat(item.amount) || 0;
+        var dueDayText = 'เตือนทุกวันที่ ' + item.due_day + ' ของเดือน';
+        return '<div class="tx-row" style="transition: all 0.2s ease; ' + (isChk ? 'opacity: 0.72; background: rgba(0,0,0,0.02);' : '') + '">' +
+          '<div class="tx-left" style="cursor:pointer;" onclick="toggleChecklistItem(' + item.id + ', ' + (!isChk) + ')">' +
+            '<div style="font-size:1.35rem; color:' + (isChk ? 'var(--accent-income)' : 'var(--text-muted)') + '; transition: color 0.2s ease;">' +
+              '<i class="' + (isChk ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle') + '"></i>' +
+            '</div>' +
+            '<div class="tx-details">' +
+              '<div class="tx-title" style="' + (isChk ? 'text-decoration: line-through; color: var(--text-muted);' : 'font-weight: 700;') + '">' + escapeHtml(item.title) + '</div>' +
+              '<div class="tx-sub" style="font-size: 0.72rem;">' +
+                '<span class="status-badge" style="padding: 1px 6px; font-size: 0.68rem; margin-right: 4px; background: rgba(0,0,0,0.05);">' + dueDayText + '</span>' +
+                (item.note ? '<span>• ' + escapeHtml(item.note) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:10px;">' +
+            '<div style="text-align:right;">' +
+              '<strong style="font-size:0.95rem; ' + (isChk ? 'color:var(--text-muted); text-decoration: line-through;' : 'color:var(--color-text-primary);') + '">฿' + amt.toLocaleString(undefined, { minimumFractionDigits: 2 }) + '</strong>' +
+              '<div style="font-size:0.7rem; font-weight: 600; color:' + (isChk ? 'var(--accent-income)' : 'var(--accent-warning)') + ';">' + (isChk ? 'เช็กแล้ว' : 'ยังไม่เช็ก') + '</div>' +
+            '</div>' +
+            '<button type="button" onclick="openEditChecklistItemModal(' + item.id + ')" title="แก้ไข" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:5px; font-size:0.85rem;"><i class="fa-solid fa-pen-to-square"></i></button>' +
+            '<button type="button" onclick="deleteChecklistItem(' + item.id + ')" title="ลบ" style="background:none; border:none; color:var(--accent-expense); opacity:0.7; cursor:pointer; padding:5px; font-size:0.85rem;"><i class="fa-solid fa-trash"></i></button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function toggleChecklistItem(id, nextState) {
+      id = parseInt(id, 10);
+      var item = (appData.checklist_items || []).find(function(it) { return it.id === id; });
+      if (!item) return;
+
+      var curPeriod = getCurrentBangkokPeriod();
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
+      try {
+        setSyncStatus('saving');
+        var res = await db.rpc('toggle_recurring_checklist_item', {
+          p_item_id: id,
+          p_expected_period: curPeriod,
+          p_check: !!nextState
+        });
+
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+
+        if (res.error) throw res.error;
+        if (res.data && res.data.success === false) {
+          if (res.data.error === 'PERIOD_MISMATCH') {
+            alert('ระบบข้ามสู่เดือนใหม่แล้ว กำลังอัปเดตสถานะเช็กลิสต์');
+            await loadAllData();
+            return;
+          }
+          throw new Error(res.data.message || res.data.error);
+        }
+
+        // Optimistically update local item
+        item.checked_period = nextState ? curPeriod : null;
+        item.checked_at = nextState ? new Date().toISOString() : null;
+
+        renderChecklist();
+        renderDashboard();
+        saveAppDataSnapshot();
+        setSyncStatus('synced');
+        showToast(nextState ? 'เช็กรายการแล้ว ✔️' : 'ยกเลิกการเช็กแล้ว ↩️');
+      } catch (err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+        console.error('Error toggling checklist item:', err);
+        setSyncStatus('error');
+        alert('เกิดข้อผิดพลาดในการปรับสถานะ: ' + (err.message || err));
+      }
+    }
+
+    function openAddChecklistItemModal() {
+      var idEl = document.getElementById('checklistEditId');
+      if (idEl) idEl.value = '';
+      var titleEl = document.getElementById('checklistTitle');
+      if (titleEl) titleEl.value = '';
+      var dayEl = document.getElementById('checklistDueDay');
+      if (dayEl) dayEl.value = '1';
+      var amtEl = document.getElementById('checklistAmount');
+      if (amtEl) amtEl.value = '';
+      var noteEl = document.getElementById('checklistNote');
+      if (noteEl) noteEl.value = '';
+      var titleHeader = document.getElementById('checklistDrawerTitle');
+      if (titleHeader) titleHeader.textContent = 'เพิ่มรายการเตือนความจำ';
+      var modal = document.getElementById('checklistDrawer');
+      if (modal) modal.classList.add('active');
+    }
+
+    function openEditChecklistItemModal(id) {
+      id = parseInt(id, 10);
+      var item = (appData.checklist_items || []).find(function(it) { return it.id === id; });
+      if (!item) return;
+
+      var idEl = document.getElementById('checklistEditId');
+      if (idEl) idEl.value = item.id;
+      var titleEl = document.getElementById('checklistTitle');
+      if (titleEl) titleEl.value = item.title || '';
+      var dayEl = document.getElementById('checklistDueDay');
+      if (dayEl) dayEl.value = item.due_day || 1;
+      var amtEl = document.getElementById('checklistAmount');
+      if (amtEl) amtEl.value = item.amount || '';
+      var noteEl = document.getElementById('checklistNote');
+      if (noteEl) noteEl.value = item.note || '';
+      var titleHeader = document.getElementById('checklistDrawerTitle');
+      if (titleHeader) titleHeader.textContent = 'แก้ไขรายการเตือนความจำ';
+      var modal = document.getElementById('checklistDrawer');
+      if (modal) modal.classList.add('active');
+    }
+
+    async function handleSaveChecklistItem(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      var editIdVal = document.getElementById('checklistEditId')?.value;
+      var titleVal = document.getElementById('checklistTitle')?.value.trim();
+      var dueDayVal = parseInt(document.getElementById('checklistDueDay')?.value, 10) || 1;
+      var amountVal = parseFloat(document.getElementById('checklistAmount')?.value) || 0;
+      var noteVal = document.getElementById('checklistNote')?.value.trim() || null;
+
+      if (!titleVal) {
+        alert('กรุณาระบุชื่อรายการ');
+        return;
+      }
+      if (dueDayVal < 1 || dueDayVal > 31) {
+        alert('กรุณาระบุวันที่เตือนระหว่าง 1 ถึง 31');
+        return;
+      }
+
+      var payload = {
+        title: titleVal,
+        due_day: dueDayVal,
+        amount: amountVal,
+        note: noteVal,
+        updated_at: new Date().toISOString()
+      };
+
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
+      try {
+        setSyncStatus('saving');
+        if (editIdVal) {
+          var res = await db.from('recurring_checklist_items').update(payload).eq('id', parseInt(editIdVal, 10));
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+          if (res.error) throw res.error;
+          showToast('แก้ไขรายการเตือนความจำแล้ว 🎉');
+        } else {
+          payload.user_id = currentUser ? currentUser.id : null;
+          payload.created_at = new Date().toISOString();
+          var res = await db.from('recurring_checklist_items').insert([payload]);
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+          if (res.error) throw res.error;
+          showToast('เพิ่มรายการเตือนความจำแล้ว 🎉');
+        }
+
+        closeAllDrawers();
+        await loadAllData();
+      } catch (err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+        console.error('Error saving checklist item:', err);
+        setSyncStatus('error');
+        alert('เกิดข้อผิดพลาดในการบันทึกรายการ: ' + (err.message || err));
+      }
+    }
+
+    async function deleteChecklistItem(id) {
+      id = parseInt(id, 10);
+      var item = (appData.checklist_items || []).find(function(it) { return it.id === id; });
+      var title = item ? item.title : 'รายการนี้';
+      if (!confirm('ต้องการลบรายการเตือนความจำ "' + title + '" ใช่หรือไม่?')) return;
+
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
+      try {
+        setSyncStatus('saving');
+        var res = await db.from('recurring_checklist_items').delete().eq('id', id);
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+        if (res.error) throw res.error;
+        showToast('ลบรายการแล้ว 🗑️');
+        await loadAllData();
+      } catch (err) {
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+        console.error('Error deleting checklist item:', err);
+        setSyncStatus('error');
+        alert('เกิดข้อผิดพลาดในการลบรายการ: ' + (err.message || err));
+      }
+    }
+
+    // =========================================================
+    // SUBSYSTEM 6: ON-DEVICE MULTI-SLIP SCANNER (สแกนสลิปบนอุปกรณ์)
+    // =========================================================
+    var slipDrafts = [];
+    var isScanningSlips = false;
+    var slipScanAbort = false;
+    var slipDraftFilter = 'all'; // 'all', 'needs_review'
+    var _tesseractWorker = null;
+
+    function openSlipScannerModal() {
+      var wSel = document.getElementById('slipBulkWalletSelect');
+      if (wSel) {
+        wSel.innerHTML = '<option value="">-- ตั้งกระเป๋าเดียวกันทั้งหมด --</option>' +
+          (appData.wallets || []).map(function(w) {
+            return '<option value="' + w.id + '">' + escapeHtml(w.name) + '</option>';
+          }).join('');
+      }
+
+      var cSel = document.getElementById('slipBulkCatSelect');
+      if (cSel) {
+        var expCats = (appData.categories || []).filter(function(c) { return c.type === 'รายจ่าย'; });
+        cSel.innerHTML = '<option value="">-- ตั้งหมวดเดียวกันทั้งหมด --</option>' +
+          expCats.map(function(c) {
+            return '<option value="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</option>';
+          }).join('');
+      }
+
+      var modal = document.getElementById('slipScannerDrawer');
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeSlipScannerModal() {
+      if (isScanningSlips) {
+        slipScanAbort = true;
+      }
+      var modal = document.getElementById('slipScannerDrawer');
+      if (modal) modal.classList.remove('active');
+    }
+
+    function cancelSlipProcessing() {
+      slipScanAbort = true;
+      var box = document.getElementById('slipScanProgressBox');
+      if (box) box.style.display = 'none';
+      isScanningSlips = false;
+      showToast('ยกเลิกการอ่านสลิปแล้ว');
+    }
+
+    async function loadTesseractEngine() {
+      if (_tesseractWorker) return _tesseractWorker;
+      if (typeof Tesseract === 'undefined') {
+        await new Promise(function(resolve, reject) {
+          var s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+          s.onload = resolve;
+          s.onerror = function() { reject(new Error('ไม่สามารถโหลด Tesseract OCR engine จาก CDN ได้')); };
+          document.head.appendChild(s);
+        });
+      }
+      _tesseractWorker = await Tesseract.createWorker(['tha', 'eng']);
+      return _tesseractWorker;
+    }
+
+    async function preprocessImageToCanvas(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var maxDim = 1600;
+            var w = img.width;
+            var h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+
+            try {
+              var imgData = ctx.getImageData(0, 0, w, h);
+              var data = imgData.data;
+              for (var i = 0; i < data.length; i += 4) {
+                var v = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                v = (v - 128) * 1.25 + 128;
+                if (v < 0) v = 0;
+                if (v > 255) v = 255;
+                data[i] = v;
+                data[i + 1] = v;
+                data[i + 2] = v;
+              }
+              ctx.putImageData(imgData, 0, 0);
+            } catch (err) {}
+
+            resolve(canvas);
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleSlipFilesSelected(files) {
+      if (!files || files.length === 0) return;
+      var fileArray = Array.from(files).slice(0, 20);
+      isScanningSlips = true;
+      slipScanAbort = false;
+
+      var progressBox = document.getElementById('slipScanProgressBox');
+      var progressText = document.getElementById('slipScanProgressText');
+      var progressBar = document.getElementById('slipScanProgressBar');
+
+      if (progressBox) progressBox.style.display = 'block';
+
+      try {
+        if (progressText) progressText.textContent = 'กำลังเตรียมโมเดล OCR บนอุปกรณ์ (ภาษาไทย/อังกฤษ)...';
+        if (progressBar) progressBar.style.width = '10%';
+
+        var worker = null;
+        try {
+          worker = await loadTesseractEngine();
+        } catch (engineErr) {
+          console.warn('Tesseract worker init issue, fallback to parser check:', engineErr);
+        }
+
+        var defaultWalletId = (appData.wallets && appData.wallets.length > 0) ? appData.wallets[0].id : null;
+        var existingRefs = new Set((appData.transactions || []).map(function(t) {
+          var m = (t.details || '').match(/Ref:?\s*([A-Za-z0-9_-]+)/i);
+          return m ? m[1].toLowerCase() : null;
+        }).filter(Boolean));
+
+        for (var idx = 0; idx < fileArray.length; idx++) {
+          if (slipScanAbort) break;
+
+          var file = fileArray[idx];
+          var pct = Math.round(15 + ((idx + 1) / fileArray.length) * 80);
+          if (progressBar) progressBar.style.width = pct + '%';
+          if (progressText) progressText.textContent = 'กำลังอ่านสลิปที่ ' + (idx + 1) + ' จาก ' + fileArray.length + ' (' + escapeHtml(file.name) + ')...';
+
+          var ocrText = '';
+          if (worker) {
+            try {
+              var canvas = await preprocessImageToCanvas(file);
+              var ocrResult = await worker.recognize(canvas);
+              ocrText = (ocrResult && ocrResult.data) ? ocrResult.data.text : '';
+            } catch (scanErr) {
+              console.warn('OCR error on file ' + file.name + ':', scanErr);
+            }
+          }
+
+          var metadata = {
+            fileName: file.name,
+            fileSize: file.size,
+            lastModified: file.lastModified
+          };
+
+          var parsed = (window.SlipParserEngine && window.SlipParserEngine.parseSlipText) ?
+            window.SlipParserEngine.parseSlipText(ocrText, metadata) :
+            {
+              amount: null,
+              date: getTodayDateStr(),
+              time: null,
+              receiver: null,
+              refNumber: null,
+              bankSource: 'Unknown',
+              suggestedCategory: 'ค่าใช้จ่ายทั่วไป',
+              needs_review: true,
+              reviewReasons: ['ตัววิเคราะห์สลิปยังไม่พร้อม']
+            };
+
+          var isDup = false;
+          if (parsed.refNumber && existingRefs.has(parsed.refNumber.toLowerCase())) {
+            isDup = true;
+            parsed.needs_review = true;
+            if (!parsed.reviewReasons) parsed.reviewReasons = [];
+            parsed.reviewReasons.push('พบเลขอ้างอิงซ้ำในระบบแล้ว');
+          }
+          if (parsed.refNumber) existingRefs.add(parsed.refNumber.toLowerCase());
+
+          var matchedCat = parsed.suggestedCategory || 'ค่าใช้จ่ายทั่วไป';
+          var catExists = (appData.categories || []).some(function(c) { return c.name === matchedCat && c.type === 'รายจ่าย'; });
+          if (!catExists) {
+            var anyExp = (appData.categories || []).find(function(c) { return c.type === 'รายจ่าย'; });
+            if (anyExp) matchedCat = anyExp.name;
+          }
+
+          var draft = {
+            id: 'slip_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            requestId: 'slip_req_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substring(2, 7),
+            fileName: file.name,
+            amount: parsed.amount,
+            date: parsed.date || getTodayDateStr(),
+            time: parsed.time || '12:00',
+            receiver: parsed.receiver || '',
+            refNumber: parsed.refNumber || '',
+            bankSource: parsed.bankSource || 'ไม่ระบุธนาคาร',
+            category: matchedCat,
+            walletId: defaultWalletId,
+            needs_review: parsed.needs_review,
+            reviewReasons: parsed.reviewReasons || [],
+            isDuplicate: isDup,
+            selected: true
+          };
+
+          slipDrafts.push(draft);
+        }
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressText) progressText.textContent = 'อ่านสลิปเสร็จสิ้น!';
+        setTimeout(function() {
+          if (progressBox) progressBox.style.display = 'none';
+        }, 500);
+
+      } catch (err) {
+        console.error('Error scanning slips:', err);
+        alert('เกิดข้อผิดพลาดในการอ่านสลิป: ' + (err.message || err));
+        if (progressBox) progressBox.style.display = 'none';
+      } finally {
+        isScanningSlips = false;
+        var container = document.getElementById('slipDraftsContainer');
+        var footer = document.getElementById('slipSheetFooter');
+        if (container) container.style.display = 'block';
+        if (footer) footer.style.display = 'flex';
+        renderSlipDrafts();
+      }
+    }
+
+    function setSlipDraftFilter(filter) {
+      slipDraftFilter = filter;
+      var bAll = document.getElementById('btnSlipFilterAll');
+      var bRev = document.getElementById('btnSlipFilterReview');
+      if (bAll) bAll.classList.toggle('active', filter === 'all');
+      if (bRev) bRev.classList.toggle('active', filter === 'needs_review');
+      renderSlipDrafts();
+    }
+
+    function renderSlipDrafts() {
+      var listEl = document.getElementById('slipDraftsList');
+      var badgeEl = document.getElementById('slipDraftsCountBadge');
+      var totalAmtEl = document.getElementById('slipSelectedTotalAmount');
+      var confirmCountEl = document.getElementById('slipConfirmCountText');
+      var confirmBtn = document.getElementById('btnConfirmSaveSlips');
+
+      if (!listEl) return;
+
+      var activeDrafts = slipDrafts.filter(function(d) {
+        if (slipDraftFilter === 'needs_review') return d.needs_review;
+        return true;
+      });
+
+      if (badgeEl) {
+        var needRevCount = slipDrafts.filter(function(d) { return d.needs_review; }).length;
+        badgeEl.textContent = slipDrafts.length + ' รายการ' + (needRevCount > 0 ? ' (' + needRevCount + ' รายการต้องตรวจแก้)' : '');
+      }
+
+      var selectedTotal = 0;
+      var selectedCount = 0;
+      slipDrafts.forEach(function(d) {
+        if (d.selected) {
+          selectedCount++;
+          selectedTotal += (parseFloat(d.amount) || 0);
+        }
+      });
+
+      if (totalAmtEl) {
+        totalAmtEl.textContent = '฿' + selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      if (confirmCountEl) {
+        confirmCountEl.textContent = '(' + selectedCount + ')';
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = (selectedCount === 0);
+      }
+
+      if (activeDrafts.length === 0) {
+        listEl.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted);">' +
+          (slipDrafts.length === 0 ? 'ยังไม่มีรายการร่างสลิป' : 'ไม่มีรายการในตัวกรองนี้') +
+          '</div>';
+        return;
+      }
+
+      var expCats = (appData.categories || []).filter(function(c) { return c.type === 'รายจ่าย'; });
+      var wallets = appData.wallets || [];
+
+      listEl.innerHTML = activeDrafts.map(function(d) {
+        var hasReview = d.needs_review;
+        var reasonsText = (d.reviewReasons && d.reviewReasons.length > 0) ? d.reviewReasons.join(' • ') : '';
+
+        return '<div class="card-surface" style="padding: 14px; border: 1px solid ' + (hasReview ? 'var(--accent-warning)' : 'var(--color-border)') + '; border-radius: var(--radius-md); background: ' + (hasReview ? 'rgba(217, 119, 6, 0.04)' : 'var(--color-surface)') + ';">' +
+          '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px;">' +
+            '<div style="display: flex; align-items: center; gap: 8px;">' +
+              '<input type="checkbox" ' + (d.selected ? 'checked' : '') + ' onchange="updateSlipDraft(\'' + d.id + '\', \'selected\', this.checked)" style="transform: scale(1.15); cursor: pointer;">' +
+              '<span class="status-badge" style="font-weight: 700; background: rgba(22, 142, 161, 0.12); color: var(--color-primary-dark);">' + escapeHtml(d.bankSource) + '</span>' +
+              '<span style="font-size: 0.72rem; color: var(--text-muted);">' + escapeHtml(d.fileName) + '</span>' +
+            '</div>' +
+            '<button type="button" onclick="removeSlipDraft(\'' + d.id + '\')" title="ลบรายการนี้" style="background: none; border: none; color: var(--accent-expense); cursor: pointer; padding: 2px 6px; font-size: 0.85rem;"><i class="fa-solid fa-trash"></i></button>' +
+          '</div>' +
+          (hasReview ? '<div style="font-size: 0.72rem; color: var(--accent-warning); margin-bottom: 8px; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(reasonsText) + '</div>' : '') +
+          '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ยอดเงิน (บาท) *</label>' +
+              '<input type="number" step="any" class="form-input" value="' + (d.amount !== null && d.amount !== undefined ? d.amount : '') + '" placeholder="0.00" style="padding: 5px 8px; font-size: 0.82rem; font-weight: 700; ' + (d.amount === null ? 'border-color: var(--accent-warning);' : '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'amount\', parseFloat(this.value) || null)">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">วันที่ *</label>' +
+              '<input type="date" class="form-input" value="' + (d.date || '') + '" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'date\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">เวลา</label>' +
+              '<input type="time" class="form-input" value="' + (d.time || '12:00') + '" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'time\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">โอนให้ / ผู้รับ</label>' +
+              '<input type="text" class="form-input" value="' + escapeHtml(d.receiver || '') + '" placeholder="ชื่อผู้รับเงิน" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'receiver\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ตัดจากกระเป๋า *</label>' +
+              '<select class="form-input" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'walletId\', parseInt(this.value, 10))">' +
+                wallets.map(function(w) {
+                  return '<option value="' + w.id + '" ' + (d.walletId === w.id ? 'selected' : '') + '>' + escapeHtml(w.name) + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">หมวดหมู่ *</label>' +
+              '<select class="form-input" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'category\', this.value)">' +
+                expCats.map(function(c) {
+                  return '<option value="' + escapeHtml(c.name) + '" ' + (d.category === c.name ? 'selected' : '') + '>' + escapeHtml(c.name) + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function updateSlipDraft(id, field, value) {
+      var d = slipDrafts.find(function(it) { return it.id === id; });
+      if (!d) return;
+      d[field] = value;
+      if (field === 'amount') {
+        if (d.amount !== null && !isNaN(d.amount) && d.amount > 0) {
+          d.reviewReasons = (d.reviewReasons || []).filter(function(r) { return !r.includes('ยอดเงิน'); });
+        }
+      }
+      if (field === 'date') {
+        if (d.date) {
+          d.reviewReasons = (d.reviewReasons || []).filter(function(r) { return !r.includes('วันที่'); });
+        }
+      }
+      d.needs_review = (d.reviewReasons && d.reviewReasons.length > 0) || !d.amount || !d.date;
+      renderSlipDrafts();
+    }
+
+    function removeSlipDraft(id) {
+      slipDrafts = slipDrafts.filter(function(it) { return it.id !== id; });
+      renderSlipDrafts();
+    }
+
+    function applyBulkWalletToSlips(walletId) {
+      if (!walletId) return;
+      var wId = parseInt(walletId, 10);
+      slipDrafts.forEach(function(d) { d.walletId = wId; });
+      renderSlipDrafts();
+    }
+
+    function applyBulkCategoryToSlips(catName) {
+      if (!catName) return;
+      slipDrafts.forEach(function(d) { d.category = catName; });
+      renderSlipDrafts();
+    }
+
+    async function confirmAndSaveSlipDrafts() {
+      var toSave = slipDrafts.filter(function(d) { return d.selected; });
+      if (toSave.length === 0) {
+        alert('กรุณาเลือกอย่างน้อย 1 รายการเพื่อบันทึก');
+        return;
+      }
+
+      var invalidDraft = toSave.find(function(d) {
+        return !d.amount || isNaN(d.amount) || d.amount <= 0 || !d.date || !d.walletId;
+      });
+      if (invalidDraft) {
+        alert('มีบางรายการที่ยังไม่ได้ระบุยอดเงิน, วันที่ หรือกระเป๋าเงิน กรุณาตรวจสอบก่อนบันทึก');
+        return;
+      }
+
+      var confirmMsg = 'ต้องการบันทึกรายการรายจ่ายจากสลิปจำนวน ' + toSave.length + ' รายการ ใช่หรือไม่? ยอดเงินจะถูกหักจากกระเป๋าเงินที่เลือกโดยอัตโนมัติ';
+      if (!confirm(confirmMsg)) return;
+
+      var mutationToken = currentSessionGeneration;
+      var mutationUserId = currentUser ? currentUser.id : null;
+
+      setSyncStatus('saving');
+      var successCount = 0;
+      var failCount = 0;
+
+      for (var i = 0; i < toSave.length; i++) {
+        var d = toSave[i];
+        var detailsText = (d.receiver ? 'โอนให้ ' + d.receiver : 'สแกนสลิป') + (d.refNumber ? ' (Ref: ' + d.refNumber + ')' : '');
+        var rpcParams = {
+          p_date: d.date,
+          p_type: 'รายจ่าย',
+          p_category: d.category || 'ค่าใช้จ่ายทั่วไป',
+          p_amount: d.amount,
+          p_details: detailsText,
+          p_related_job: null,
+          p_wallet_id: d.walletId,
+          p_card_id: null,
+          p_job_id: null,
+          p_request_id: d.requestId
+        };
+
+        try {
+          var rpcRes = await db.rpc('execute_create_transaction', rpcParams);
+          if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+          if (rpcRes.error) {
+            failCount++;
+            console.error('Failed saving slip draft:', d, rpcRes.error);
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          console.error('Exception saving slip draft:', d, err);
+        }
+      }
+
+      var savedRequestIds = new Set(toSave.map(function(d) { return d.requestId; }));
+      slipDrafts = slipDrafts.filter(function(d) { return !savedRequestIds.has(d.requestId); });
+
+      closeSlipScannerModal();
+      await loadAllData();
+
+      if (failCount > 0) {
+        alert('บันทึกสำเร็จ ' + successCount + ' รายการ, ไม่สำเร็จ ' + failCount + ' รายการ');
+      } else {
+        showToast('บันทึกรายจ่ายจากสลิป ' + successCount + ' รายการสำเร็จ 🎉');
+      }
+    }
+
+    // Export functions to window for tests and inline handlers
+    window.loadRecurringChecklistItems = loadRecurringChecklistItems;
+    window.getCurrentBangkokPeriod = getCurrentBangkokPeriod;
+    window.isChecklistItemChecked = isChecklistItemChecked;
+    window.getBangkokMonthDisplayName = getBangkokMonthDisplayName;
+    window.setChecklistFilter = setChecklistFilter;
+    window.renderChecklist = renderChecklist;
+    window.toggleChecklistItem = toggleChecklistItem;
+    window.openAddChecklistItemModal = openAddChecklistItemModal;
+    window.openEditChecklistItemModal = openEditChecklistItemModal;
+    window.handleSaveChecklistItem = handleSaveChecklistItem;
+    window.deleteChecklistItem = deleteChecklistItem;
+
+    window.openSlipScannerModal = openSlipScannerModal;
+    window.closeSlipScannerModal = closeSlipScannerModal;
+    window.cancelSlipProcessing = cancelSlipProcessing;
+    window.loadTesseractEngine = loadTesseractEngine;
+    window.handleSlipFilesSelected = handleSlipFilesSelected;
+    window.setSlipDraftFilter = setSlipDraftFilter;
+    window.renderSlipDrafts = renderSlipDrafts;
+    window.updateSlipDraft = updateSlipDraft;
+    window.removeSlipDraft = removeSlipDraft;
+    window.applyBulkWalletToSlips = applyBulkWalletToSlips;
+    window.applyBulkCategoryToSlips = applyBulkCategoryToSlips;
+    window.confirmAndSaveSlipDrafts = confirmAndSaveSlipDrafts;
 
     // =========================================================
     // SOFT KEYBOARD DETECTION (MOBILE ERGONOMICS)
