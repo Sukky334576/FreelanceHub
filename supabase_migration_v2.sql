@@ -1898,4 +1898,135 @@ $$;
 REVOKE ALL ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.complete_onboarding(TEXT, TEXT, TEXT, TEXT, NUMERIC, DATE) TO authenticated;
 
+-- ============================================================================
+-- RECURRING CHECKLIST ITEMS (เช็กลิสต์รายจ่ายประจำ - เตือนความจำรายเดือน)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.recurring_checklist_items (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL DEFAULT 0.00,
+  due_day INT NOT NULL DEFAULT 1 CHECK (due_day >= 1 AND due_day <= 31),
+  note TEXT,
+  checked_period VARCHAR(7), -- Format: 'YYYY-MM' in Asia/Bangkok time
+  checked_at TIMESTAMPTZ,
+  source_bill_id INT, -- Source tracking to prevent duplicate migration from legacy bills
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_checklist_user_period
+  ON public.recurring_checklist_items (user_id, checked_period);
+
+ALTER TABLE public.recurring_checklist_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_checklist_items FORCE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'recurring_checklist_items' AND policyname = 'recurring_checklist_items_owner_policy'
+  ) THEN
+    CREATE POLICY "recurring_checklist_items_owner_policy"
+      ON public.recurring_checklist_items
+      FOR ALL
+      TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+REVOKE ALL ON TABLE public.recurring_checklist_items FROM PUBLIC, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.recurring_checklist_items TO authenticated;
+GRANT USAGE, SELECT ON SEQUENCE public.recurring_checklist_items_id_seq TO authenticated;
+
+-- Migration from legacy bills: copy non-debt reminder bills into recurring checklist (idempotent)
+INSERT INTO public.recurring_checklist_items (user_id, title, amount, due_day, note, source_bill_id, checked_period, created_at)
+SELECT
+  b.user_id,
+  COALESCE(NULLIF(TRIM(b.item), ''), 'รายจ่ายประจำ'),
+  COALESCE(b.amount, 0.00),
+  CASE WHEN b.due_date BETWEEN 1 AND 31 THEN b.due_date ELSE 1 END,
+  COALESCE(b.notes, b.note),
+  b.id,
+  NULL, -- Starts unchecked per spec
+  COALESCE(b.created_at, NOW())
+FROM public.bills b
+WHERE b.user_id IS NOT NULL
+  AND b.linked_debt_id IS NULL -- Exclude debt-linked items
+  AND NOT EXISTS (
+    SELECT 1 FROM public.recurring_checklist_items r
+    WHERE r.user_id = b.user_id AND r.source_bill_id = b.id
+  );
+
+-- RPC: toggle_recurring_checklist_item
+CREATE OR REPLACE FUNCTION public.toggle_recurring_checklist_item(
+  p_item_id BIGINT,
+  p_expected_period VARCHAR(7),
+  p_check BOOLEAN
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_item RECORD;
+  v_current_period VARCHAR(7);
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'UNAUTHORIZED');
+  END IF;
+
+  -- Compute current month in Asia/Bangkok
+  v_current_period := to_char(timezone('Asia/Bangkok', NOW()), 'YYYY-MM');
+
+  -- Verify client expected period if provided to guard month boundary rollover
+  IF p_expected_period IS NOT NULL AND p_expected_period <> '' AND p_expected_period <> v_current_period THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'PERIOD_MISMATCH',
+      'current_period', v_current_period,
+      'message', 'Month has rolled over, please refresh checklist'
+    );
+  END IF;
+
+  SELECT * INTO v_item
+  FROM public.recurring_checklist_items
+  WHERE id = p_item_id AND user_id = v_user_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'ITEM_NOT_FOUND');
+  END IF;
+
+  IF p_check THEN
+    UPDATE public.recurring_checklist_items
+    SET checked_period = v_current_period,
+        checked_at = NOW(),
+        updated_at = NOW()
+    WHERE id = p_item_id AND user_id = v_user_id;
+  ELSE
+    UPDATE public.recurring_checklist_items
+    SET checked_period = NULL,
+        checked_at = NULL,
+        updated_at = NOW()
+    WHERE id = p_item_id AND user_id = v_user_id;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'item_id', p_item_id,
+    'checked', p_check,
+    'checked_period', CASE WHEN p_check THEN v_current_period ELSE NULL END,
+    'current_period', v_current_period
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.toggle_recurring_checklist_item(BIGINT, VARCHAR, BOOLEAN) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.toggle_recurring_checklist_item(BIGINT, VARCHAR, BOOLEAN) TO authenticated;
+
+
 
