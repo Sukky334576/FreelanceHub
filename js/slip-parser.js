@@ -56,20 +56,73 @@
   function sanitizeText(str) {
     if (!str) return '';
     return String(str)
+      .replace(/\u0e4d\u0e32/g, '\u0e33')
       .replace(/[<>]/g, '')
       .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g, '')
       .trim();
   }
 
-  function detectBank(text) {
-    var lower = (text || '').toLowerCase();
-    if (lower.includes('make by kbank') || lower.includes('make by k')) return 'make';
-    if (lower.includes('k plus') || lower.includes('kplus') || lower.includes('kbank') || lower.includes('กสิกรไทย')) return 'kbank';
-    if (lower.includes('scb easy') || lower.includes('scb') || lower.includes('ไทยพาณิชย์')) return 'scb';
-    if (lower.includes('krungthai next') || lower.includes('krungthai') || lower.includes('กรุงไทย') || lower.includes('ktb')) return 'ktb';
-    if (lower.includes('truemoney') || lower.includes('true wallet') || lower.includes('ทรูมันนี่')) return 'truemoney';
-    if (lower.includes('shopeepay') || lower.includes('ช้อปปี้เพย์') || lower.includes('airpay')) return 'shopeepay';
+  var BANK_LABELS = {
+    make: 'MAKE by KBank', kbank: 'K PLUS / กสิกรไทย', scb: 'SCB / ไทยพาณิชย์',
+    ktb: 'Krungthai / กรุงไทย', paotang: 'เป๋าตัง / G-Wallet',
+    truemoney: 'TrueMoney Wallet', shopeepay: 'ShopeePay', unknown: 'ไม่ระบุธนาคาร'
+  };
+
+  function matchBrand(text) {
+    var t = text.toLowerCase().replace(/\s+/g, '');
+    if (/make(?:by)?kbank/.test(t)) return 'make';
+    if (/เป๋าตัง|g-wallet/.test(t)) return 'paotang';
+    if (/truemoney|truewallet|ทรูมันนี่/.test(t)) return 'truemoney';
+    if (/shopeepay|ช้อปปี้เพย์|airpay/.test(t)) return 'shopeepay';
+    if (/kplus|kbank|กสิกรไทย/.test(t)) return 'kbank';
+    if (/scb|ไทยพาณิชย์/.test(t)) return 'scb';
+    if (/krungthai|กรุงไทย|\bktb\b/.test(t)) return 'ktb';
     return 'unknown';
+  }
+
+  function detectBank(text) {
+    // Identify the issuer before the recipient block, never from a recipient bank or memo.
+    var lines = String(text || '').split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var prefix = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (/^(?:ไปยัง|ผู้รับ|เข้าบัญชี|to\b|recipient\b|บันทึกช่วยจำ|หมายเหตุ)/i.test(lines[i])) break;
+      prefix.push(lines[i]);
+    }
+    var head = prefix.join('\n');
+    // MAKE logo and “by KBank” can be separate OCR lines.
+    if (/(?:make|["']ake)[\s\S]{0,90}by\s*kbank/i.test(head)) return 'make';
+    for (var j = 0; j < prefix.length; j++) {
+      if (/^[-\s]*scr$/i.test(prefix[j])) return 'scb'; // OCR confusion on standalone SCB logo only
+      var brand = matchBrand(prefix[j]);
+      if (brand !== 'unknown') return brand;
+    }
+    return 'unknown';
+  }
+
+  function extractCaption(text, bank) {
+    var lines = String(text || '').split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var stop = /^(?:ผู้รับเงินสามารถ|ตรวจสอบสถานะ|สแกน|scan|qr|รหัสอ้างอิง|เลขที่รายการ|ค่าธรรมเนียม|จำนวนเงิน|วันที่ทำรายการ)/i;
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^(?:[บป]ันทึกช่วยจำ|บันทึกช่วยจํา|หมายเหตุ|ข้อความถึงผู้รับ|ข้อความเพิ่มเติม|memo|note|remark)\s*[:：-]?\s*(.*)$/i);
+      if (m) {
+        var parts = m[1] ? [m[1]] : [];
+        if (!parts.length && lines[i + 1] && !stop.test(lines[i + 1])) parts.push(lines[i + 1]);
+        return sanitizeText(parts.join('\n'));
+      }
+    }
+    // MAKE has an unlabelled message box after the transaction reference.
+    if (bank === 'make') {
+      var refIndex = lines.findIndex(function(l) { return /^(?:เลขที่รายการ|รหัสอ้างอิง)\s*[:：]?/.test(l); });
+      if (refIndex >= 0) {
+        var tail = lines.slice(refIndex + 1);
+        if (tail.length && /^[A-Za-z0-9_-]{8,}$/.test(tail[0])) tail.shift();
+        tail = tail.filter(function(l) { return !/^(?:สแกนเพื่อตรวจสอบ|scan to verify|qr code)$/i.test(l); });
+        if (tail.length && !stop.test(tail[0]) && /[ก-๙A-Za-z]{2}/.test(tail[0])) {
+          return sanitizeText(tail[0]);
+        }
+      }
+    }
+    return '';
   }
 
   function normalizeYear(rawYear) {
@@ -167,6 +220,9 @@
   function extractAmount(text) {
     if (!text) return null;
 
+    // Subsidised receipts: use the amount actually paid, including integer baht.
+    var paid = text.match(/(?:จำนวน(?:เงิน|เจงิน)ที่ชำระ|ยอดชำระทั้งหมด)\s*[:：]?\s*(?:฿|THB)?\s*(\d[\d,]*(?:\.\d{2})?)/i);
+    if (paid) return Number(paid[1].replace(/,/g, ''));
     var lines = text.split('\n');
     var candidates = [];
 
@@ -253,8 +309,8 @@
     var lines = text.split('\n');
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i].trim();
-      var m = line.match(/(?:ไปยัง|ผู้รับเงิน|เข้าบัญชี|To|Recipient)\s*[:]?\s*(.*)/i);
-      if (m && m[1]) {
+      var m = line.match(/^(?:ไปยัง|ผู้รับเงิน|เข้าบัญชี|To\b|Recipient\b)\s*[:]?\s*(.*)/i);
+      if (m) {
         var receiver = m[1].trim();
         // If receiver is empty on this line, check next line
         if (!receiver && i + 1 < lines.length) {
@@ -314,7 +370,14 @@
     var raw = ocrText || '';
     var clean = sanitizeText(raw);
 
-    var bank = detectBank(clean);
+    var bank = detectBank(sanitizeText(options.headerText || ''));
+    if (bank === 'unknown') bank = detectBank(clean);
+    var caption = extractCaption(clean, bank);
+    if (bank === 'make' && caption && /[ก-๙]/.test(options.captionText || '')) {
+      var captionLines = sanitizeText(options.captionText).split('\n');
+      caption = captionLines.find(function(l) { return /[ก-๙]{2}/.test(l); }) || caption;
+      caption = caption.replace(/^[|\s]+/, '');
+    }
     var amount = extractAmount(clean);
     var dateTimeInfo = extractDateAndTime(clean);
     var receiver = extractReceiver(clean);
@@ -322,6 +385,8 @@
 
     var needsReview = false;
     var reviewReasons = [];
+    if (caption) { needsReview = true; reviewReasons.push('กรุณาตรวจแคปชั่นจาก OCR ก่อนบันทึก'); }
+    if (bank === 'unknown') { needsReview = true; reviewReasons.push('ไม่สามารถระบุแอปต้นทางได้จากข้อความ'); }
 
     if (amount === null || typeof amount === 'undefined' || amount <= 0) {
       needsReview = true;
@@ -335,15 +400,18 @@
 
     // Default note
     var noteParts = [];
+    if (caption) noteParts.push(caption);
     if (receiver) noteParts.push(receiver);
     if (refNumber) noteParts.push('Ref: ' + refNumber);
     var suggestedNote = noteParts.join(' • ');
 
-    var suggestedCat = suggestCategory(receiver);
+    var suggestedCat = suggestCategory(caption || receiver);
 
     return {
       success: true,
       bank: bank,
+      bankSource: BANK_LABELS[bank],
+      caption: caption,
       amount: amount !== null ? amount : null,
       date: dateTimeInfo.date,
       time: dateTimeInfo.time || null,
@@ -379,6 +447,7 @@
     parse: parse,
     parseSlipText: parse,
     detectBank: detectBank,
+    extractCaption: extractCaption,
     extractAmount: extractAmount,
     extractDateAndTime: extractDateAndTime,
     extractReceiver: extractReceiver,

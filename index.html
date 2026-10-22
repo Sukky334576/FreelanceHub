@@ -10638,7 +10638,7 @@
         reader.onload = function(e) {
           var img = new Image();
           img.onload = function() {
-            var maxDim = 1600;
+            var maxDim = 2800; // Preserve small Thai memo text and coloured issuer logos.
             var w = img.width;
             var h = img.height;
             if (w > maxDim || h > maxDim) {
@@ -10655,21 +10655,6 @@
             canvas.height = h;
             var ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, w, h);
-
-            try {
-              var imgData = ctx.getImageData(0, 0, w, h);
-              var data = imgData.data;
-              for (var i = 0; i < data.length; i += 4) {
-                var v = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-                v = (v - 128) * 1.25 + 128;
-                if (v < 0) v = 0;
-                if (v > 255) v = 255;
-                data[i] = v;
-                data[i + 1] = v;
-                data[i + 2] = v;
-              }
-              ctx.putImageData(imgData, 0, 0);
-            } catch (err) {}
 
             resolve(canvas);
           };
@@ -10719,17 +10704,75 @@
           if (progressText) progressText.textContent = 'กำลังอ่านสลิปที่ ' + (idx + 1) + ' จาก ' + fileArray.length + ' (' + escapeHtml(file.name) + ')...';
 
           var ocrText = '';
+          var headerText = '';
+          var captionText = '';
           if (worker) {
             try {
               var canvas = await preprocessImageToCanvas(file);
               var ocrResult = await worker.recognize(canvas);
               ocrText = (ocrResult && ocrResult.data) ? ocrResult.data.text : '';
+              // Read logos separately: full-page segmentation often misses stylised headings.
+              var readRegion = async function(left, top, width, height, mode, enhance) {
+                var crop = document.createElement('canvas');
+                crop.width = Math.round(canvas.width * width);
+                crop.height = Math.round(canvas.height * height);
+                crop.getContext('2d').drawImage(canvas, Math.round(canvas.width * left), Math.round(canvas.height * top), crop.width, crop.height, 0, 0, crop.width, crop.height);
+                if (enhance) {
+                  var scaled = document.createElement('canvas');
+                  scaled.width = 1200;
+                  scaled.height = Math.round(crop.height * 1200 / crop.width);
+                  var cx = scaled.getContext('2d');
+                  cx.drawImage(crop, 0, 0, scaled.width, scaled.height);
+                  crop.width = crop.height = 0;
+                  crop = scaled;
+                  var pixels = cx.getImageData(0, 0, crop.width, crop.height);
+                  var hist = new Array(256).fill(0);
+                  for (var pi = 0; pi < pixels.data.length; pi += 4) {
+                    var grey = Math.round(0.2126 * pixels.data[pi] + 0.7152 * pixels.data[pi + 1] + 0.0722 * pixels.data[pi + 2]);
+                    pixels.data[pi] = pixels.data[pi + 1] = pixels.data[pi + 2] = grey;
+                    hist[grey]++;
+                  }
+                  var total = crop.width * crop.height, count = 0, lo = 0, hi = 255;
+                  for (var v = 0; v < 256; v++) { count += hist[v]; if (count <= total * 0.01) lo = v; if (count < total * 0.99) hi = v; }
+                  if (hi > lo) for (var px = 0; px < pixels.data.length; px += 4) {
+                    var value = Math.max(0, Math.min(255, (pixels.data[px] - lo) * 255 / (hi - lo)));
+                    pixels.data[px] = pixels.data[px + 1] = pixels.data[px + 2] = value;
+                  }
+                  cx.putImageData(pixels, 0, 0);
+                }
+                try {
+                  await worker.setParameters({ tessedit_pageseg_mode: mode });
+                  var result = await worker.recognize(crop);
+                  return result.data.text || '';
+                } finally { crop.width = crop.height = 0; }
+              };
+              try {
+                headerText = await readRegion(0, 0, 1, 0.22, '11');
+                var source = window.SlipParser.detectBank(headerText);
+                if (source === 'unknown') source = window.SlipParser.detectBank(ocrText);
+                if (source === 'unknown') {
+                  try {
+                    await worker.reinitialize('eng');
+                    headerText += '\n' + await readRegion(0.31, 0.036, 0.357, 0.081, '7', true);
+                  } finally { await worker.reinitialize(['tha', 'eng']); }
+                  source = window.SlipParser.detectBank(headerText);
+                }
+                if (source === 'make') captionText = await readRegion(0.04, 0.89, 0.78, 0.08, '6');
+              } catch (regionError) {
+                // Keep the full-page result available if a supplemental pass fails.
+              } finally {
+                await worker.setParameters({ tessedit_pageseg_mode: '3' });
+                canvas.width = canvas.height = 0;
+              }
+
             } catch (scanErr) {
               console.warn('OCR error on file ' + file.name + ':', scanErr);
             }
           }
 
           var metadata = {
+            headerText: headerText,
+            captionText: captionText,
             fileName: file.name,
             fileSize: file.size,
             lastModified: file.lastModified
@@ -10773,6 +10816,7 @@
             date: parsed.date || getTodayDateStr(),
             time: parsed.time || '12:00',
             receiver: parsed.receiver || '',
+            caption: parsed.caption || '',
             refNumber: parsed.refNumber || '',
             bankSource: parsed.bankSource || 'ไม่ระบุธนาคาร',
             category: matchedCat,
@@ -10895,6 +10939,14 @@
               '<input type="text" class="form-input" value="' + escapeHtml(d.receiver || '') + '" placeholder="ชื่อผู้รับเงิน" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'receiver\', this.value)">' +
             '</div>' +
             '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ธนาคาร / แอปต้นทาง (ตรวจแก้ได้)</label>' +
+              '<input type="text" class="form-input" aria-label="ธนาคาร / แอปต้นทาง" value="' + escapeHtml(d.bankSource || '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'bankSource\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">แคปชั่น / บันทึกช่วยจำ</label>' +
+              '<textarea class="form-input" aria-label="แคปชั่น / บันทึกช่วยจำ" placeholder="ตรวจข้อความเพิ่มเติมบนสลิป" onchange="updateSlipDraft(\'' + d.id + '\', \'caption\', this.value)">' + escapeHtml(d.caption || '') + '</textarea>' +
+            '</div>' +
+            '<div>' +
               '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ตัดจากกระเป๋า *</label>' +
               '<select class="form-input" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'walletId\', parseInt(this.value, 10))">' +
                 wallets.map(function(w) {
@@ -10978,7 +11030,7 @@
 
       for (var i = 0; i < toSave.length; i++) {
         var d = toSave[i];
-        var detailsText = (d.receiver ? 'โอนให้ ' + d.receiver : 'สแกนสลิป') + (d.refNumber ? ' (Ref: ' + d.refNumber + ')' : '');
+        var detailsText = (d.caption ? d.caption + ' • ' : '') + (d.receiver ? 'โอนให้ ' + d.receiver : 'สแกนสลิป') + (d.refNumber ? ' (Ref: ' + d.refNumber + ')' : '');
         var rpcParams = {
           p_date: d.date,
           p_type: 'รายจ่าย',

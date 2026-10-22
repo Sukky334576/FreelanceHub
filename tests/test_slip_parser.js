@@ -205,6 +205,56 @@ runTest('File Fingerprinting: Stable deterministic hash from file properties', (
   assert.notStrictEqual(fp1, fp3, 'Different files must produce different fingerprints');
 });
 
+// Synthetic, anonymised text fixtures based on the supplied layouts (not OCR accuracy tests).
+runTest('Issuer precedes destination bank; caption supports inline and next-line layouts', () => {
+  for (const [issuer, bank, caption] of [['Krungthai\nกรุงไทย', 'ktb', 'ทดสอบแคปชั่น'], ['SCB', 'scb', 'ทดสอบข้อความ']]) {
+    const r = SlipParser.parse(`${issuer}\nโอนเงินสำเร็จ\n21 ต.ค. 2569 12:53\nจาก\nผู้ส่งทดสอบ\nไปยัง\nผู้รับทดสอบ\nกสิกรไทย\nจำนวนเงิน 5.00\nบันทึกช่วยจำ\n${caption}\nผู้รับเงินสามารถสแกนคิวอาร์โค้ดนี้เพื่อ\nตรวจสอบสถานะการโอนเงิน`);
+    assert.equal(r.bank, bank);
+    assert.notEqual(r.bankSource, 'ไม่ระบุธนาคาร');
+    assert.equal(r.caption, caption);
+    assert.equal(r.receiver, 'ผู้รับทดสอบ');
+    assert(r.note.includes(caption));
+  }
+  assert.equal(SlipParser.parse('Krungthai\nบันทึกช่วยจำ ค่าเดินทาง').caption, 'ค่าเดินทาง');
+});
+runTest('MAKE split logo and unlabelled footer caption preserve digits', () => {
+  for (const caption of ['พร้อมอาหาร', 'เบิกล่วงหน้า1000']) {
+    const r = SlipParser.parse(`make\nby KBank\nโอนเงินสำเร็จ\n21 ก.พ. 2569 22:38\nPrompt Pay\nจำนวนเงิน 3,000.00 บาท\nค่าธรรมเนียม 0.00 บาท\nสแกนเพื่อตรวจสอบ\nเลขที่รายการ: TESTREF12345678\n${caption}`);
+    assert.equal(r.bank, 'make');
+    assert.equal(r.bankSource, 'MAKE by KBank');
+    assert.equal(r.caption, caption);
+    assert.equal(r.amount, 3000);
+  }
+});
+runTest('Paotang identifies actual out of pocket amount instead of subsidised price', () => {
+  const r = SlipParser.parse('เป๋าตัง\n21 ต.ค. 2569 10:32\nG-Wallet ID: xxxx\nค่าสินค้า/บริการ 80 บาท\nสิทธิไทยช่วยไทยพลัส -48 บาท\nจำนวนเงินที่ชำระ 32 บาท');
+  assert.equal(r.bank, 'paotang');
+  assert.equal(r.amount, 32);
+  assert.equal(r.caption, '');
+});
+runTest('TrueMoney transfer and Pay Next merchant layouts do not invent captions', () => {
+  for (const text of ['true money\nTHB 50.00\nช่องทางการโอนเงิน ทรูมันนี่ วอลเล็ต', 'truemoney\nร้านทดสอบ\nช่องทางการชำระเงิน Ascend Pay Next 2088\nยอดชำระทั้งหมด ฿40.00']) {
+    const r = SlipParser.parse(text);
+    assert.equal(r.bank, 'truemoney');
+    assert.equal(r.caption, '');
+    assert([40, 50].includes(r.amount));
+  }
+});
+runTest('Do not infer issuer from recipient or memo, or fabricate MAKE footer', () => {
+  assert.equal(SlipParser.detectBank('โอนเงินสำเร็จ\nไปยัง\nกสิกรไทย'), 'unknown');
+  assert.equal(SlipParser.detectBank('โอนเงินสำเร็จ\nบันทึกช่วยจำ เติม TrueMoney'), 'unknown');
+  assert.equal(SlipParser.parse('MAKE by KBank\nเลขที่รายการ: TESTREF12345678\nสแกนเพื่อตรวจสอบ').caption, '');
+});
+
+runTest('Supplemental header and Thai OCR variants reach the UI contract', () => {
+  const r = SlipParser.parse('โอนเงินสําเร็จ\nปันทึกช่วยจํา\nทดสอบแคปชั่น\nผู้รับเงินสามารถสแกน', {headerText:'YSCB..'});
+  assert.equal(r.bank, 'scb');
+  assert.equal(r.caption, 'ทดสอบแคปชั่น');
+  assert(r.needs_review);
+  assert.equal(SlipParser.parse('จํานวนเจงินที่ชําระ 32 บาท').amount, 32);
+  assert.equal(SlipParser.detectBank('โอนเงินสำเร็จ\n"ake\n21 ก.พ. 2569\nby KBank'), 'make');
+});
+
 console.log(`\n=======================================================`);
 console.log(`🏁 Slip Parser Results: ${passedTests} / ${totalTests} test suites PASSED`);
 console.log(`=======================================================\n`);
