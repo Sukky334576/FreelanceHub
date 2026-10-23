@@ -3,12 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/test_slip_parser.js && node tests/test_slip_caption_ui.js && node tests/verify_financial_fixes.js && node tests/test_barrier_predicate.js",
+    "test": "node tests/test_slip_parser.js && node tests/test_slip_caption_ui.js && node tests/verify_financial_fixes.js && node tests/test_barrier_predicate.js && npm run test:build",
     "test:predicate": "node tests/test_barrier_predicate.js",
-    "test:concurrency": "node tests/test_concurrency_multiconn.js"
+    "test:concurrency": "node tests/test_concurrency_multiconn.js",
+    "test:build": "node tests/test_build_site.js && node tests/test_deploy_site.js",
+    "build": "node scripts/build-site.js",
+    "cloudflare:login": "wrangler login --use-keyring --scopes account:read user:read pages:write",
+    "deploy": "npm test && npm run build && node scripts/deploy-site.js && npm run verify:live",
+    "verify:live": "node scripts/verify-live.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "wrangler": "4.152.0"
   }
 }

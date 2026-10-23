@@ -8,6 +8,8 @@
 
 ## 📌 1. กฎกติกาและกระบวนการทำงานร่วมกัน (Communication Protocol)
 
+**อัปเดตตามคำขอผู้ใช้ 23 ตุลาคม 2569:** Codex สามารถเผยแพร่เว็บเดิม `natthawit-studio` ไปยัง Cloudflare Pages โดยตรงได้ ไม่ต้องรอ Antigravity เป็นผู้ deploy ทุกครั้ง ใช้ขั้นตอน Direct Deployment ด้านล่าง ส่วนการรีวิว/ส่งต่อรายละเอียดระหว่างทีมยังใช้ไฟล์นี้ได้ตามเดิม
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -157,6 +159,22 @@ sequenceDiagram
 ---
 
 ## 💬 3. Codex Response Area (พื้นที่สำหรับ Codex พิมพ์ตอบกลับ)
+
+### 23 ตุลาคม 2569 — Direct Deployment จากเครื่องที่ทำงาน
+
+เพิ่มทางเผยแพร่เว็บไปที่ `https://natthawit-studio.pages.dev/` โดยตรงด้วย Wrangler รุ่นที่ตรึงใน package-lock ใช้ Node.js 22 ขึ้นไป
+
+**ครั้งแรกต่อเครื่อง:** `npm ci` แล้ว `npm run cloudflare:login` โดยล็อกอินบัญชี Cloudflare ที่มีสิทธิ์ Pages ของโปรเจกต์เดิม เครื่องมือนี้ขอเฉพาะ `account:read`, `user:read`, `pages:write` และเก็บ OAuth ผ่าน OS keychain การมีสิทธิ์ GitHub อย่างเดียวไม่พอ และไม่ต้องส่ง API token หรือรหัสผ่านเข้า Git
+
+**เผยแพร่แต่ละครั้ง:** ใช้โค้ด main ล่าสุดที่ตรวจทานแล้ว รัน `npm run deploy` คำสั่งนี้จะทดสอบทั้งหมด → สร้าง `dist/` → อัปโหลดไปยัง Pages project `natthawit-studio` branch `main` → ตรวจไฟล์เว็บจริงครบ 10 ไฟล์เทียบกับชุดที่อัปโหลด จะแจ้งสำเร็จก็ต่อเมื่อเว็บจริงตรงกัน หากการตรวจเว็บล้มเหลวหลัง upload ต้องตรวจสถานะ deployment ก่อนสั่งส่งซ้ำ
+
+ก่อนอัปโหลดมี guard บังคับ clean `main` และตรวจว่าบัญชี Cloudflare เข้าถึง project เดิมที่มีโดเมน `natthawit-studio.pages.dev` จริง หากไม่พบจะหยุด ไม่สร้างโปรเจกต์ใหม่ หากเข้าถึงหลายบัญชีให้เลือกบัญชีเจ้าของเว็บผ่าน `CLOUDFLARE_ACCOUNT_ID` ให้ตรงก่อน deploy
+
+**สถานะส่งมอบ:** ติดตั้งและเชื่อม Wrangler บนเครื่อง Codex สำเร็จ แต่บัญชีที่ใช้ยังไม่เห็น Pages project เดิม ผู้ใช้เลือกให้เจ้าของเพิ่มสิทธิ์สมาชิก Cloudflare ให้บัญชีนี้ จึงยังไม่ได้เผยแพร่เว็บจากเครื่อง Codex รอการเชิญใน Cloudflare (แยกจากสิทธิ์ GitHub) พร้อมสิทธิ์เผยแพร่ Pages แล้วตรวจบัญชี/โดเมนให้ตรงก่อนรัน `npm run deploy`
+
+`npm run build` ใช้รายการไฟล์สาธารณะอย่างชัดเจน ได้แก่ HTML, JavaScript ที่ browser ใช้, manifest และไอคอน ไม่ส่ง SQL, เอกสารรีวิว, tests, node_modules, Git metadata, รูปสลิปส่วนตัว หรือ CNAME ของ Surge เดิมขึ้นเว็บไซต์ หากเพิ่มไฟล์ frontend ให้เพิ่มและตรวจรายการ `PUBLIC_FILES` ใน `scripts/build-site.js` ด้วย
+
+การเผยแพร่นี้เปลี่ยนเฉพาะไฟล์เว็บ ไม่รัน migration หรือแก้ฐานข้อมูล Supabase และยังไม่ตั้งการเผยแพร่อัตโนมัติทุกครั้งที่ push
 
 ### 23 ตุลาคม 2569 — แก้ช่องกรอกสลิปทับกันบนมือถือ (พร้อมเผยแพร่)
 
