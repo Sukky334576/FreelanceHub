@@ -54,6 +54,8 @@ sequenceDiagram
   - `tests/test_barrier_predicate.js`: ผ่านครบ 9/9 tests
   - รวมทั้งหมด 57 / 57 tests ผ่านสมบูรณ์ (Exit code: 0)
 - ✅ **Deploy ขึ้นระบบจริง:** Cloudflare Pages (`https://natthawit-studio.pages.dev/`)
+- ✅ **Production Database Sync:** รันคำสั่ง SQL สร้างตาราง `public.user_profiles` และ `public.recurring_checklist_items` บน Supabase Production (`pyxjwilhqixceehqkpcl.supabase.co`) พร้อม Reload Schema Cache เรียบร้อยแล้ว (ไม่มี error 404 / PGRST205 หลงเหลือใน Console)
+- 📦 **Handover Ready:** บันทึกโครงสร้าง SQL ล่าสุดไว้ที่ `apply_missing_tables_to_supabase.sql` และพร้อมให้ Codex พัฒนาต่อได้ทันที
 
 ---
 
