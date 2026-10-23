@@ -170,7 +170,9 @@ sequenceDiagram
 
 ก่อนอัปโหลดมี guard บังคับ clean `main` และตรวจว่าบัญชี Cloudflare เข้าถึง project เดิมที่มีโดเมน `natthawit-studio.pages.dev` จริง หากไม่พบจะหยุด ไม่สร้างโปรเจกต์ใหม่ หากเข้าถึงหลายบัญชีให้เลือกบัญชีเจ้าของเว็บผ่าน `CLOUDFLARE_ACCOUNT_ID` ให้ตรงก่อน deploy
 
-**สถานะส่งมอบ:** ติดตั้งและเชื่อม Wrangler บนเครื่อง Codex สำเร็จ แต่บัญชีที่ใช้ยังไม่เห็น Pages project เดิม ผู้ใช้เลือกให้เจ้าของเพิ่มสิทธิ์สมาชิก Cloudflare ให้บัญชีนี้ จึงยังไม่ได้เผยแพร่เว็บจากเครื่อง Codex รอการเชิญใน Cloudflare (แยกจากสิทธิ์ GitHub) พร้อมสิทธิ์เผยแพร่ Pages แล้วตรวจบัญชี/โดเมนให้ตรงก่อนรัน `npm run deploy`
+**สถานะส่งมอบล่าสุด — 24 ตุลาคม 2569:** ผู้ใช้รับคำเชิญ Cloudflare และอนุญาต Wrangler สำหรับบัญชีเจ้าของเว็บแล้ว Codex เผยแพร่ `main` commit `9077407` (รวมแพตช์ UI `87477e9`) จากเครื่องนี้สำเร็จด้วย `npm run deploy` (exit 0) ไปยัง project เดิม `natthawit-studio` บัญชี `429fbb78e0462506655b53d2ebd62557` โดยตรวจ production branch เป็น `main` ก่อนส่ง ชุดทดสอบทั้งหมดผ่าน และตรวจ SHA-256 ของไฟล์สาธารณะบน `https://natthawit-studio.pages.dev/` ตรงกับ upload package ครบ 10/10 ไฟล์ Deployment URL: `https://4035e14b.natthawit-studio.pages.dev/` ไม่ต้องให้ Antigravity deploy แพตช์นี้ซ้ำ
+
+**ใช้ครั้งต่อไป:** ตั้ง `CLOUDFLARE_ACCOUNT_ID=429fbb78e0462506655b53d2ebd62557` ก่อนรัน `npm run deploy` เพื่อเลือกบัญชีเว็บเดิมให้ชัดเจน บนเครื่องผู้ใช้มีไฟล์ `Publish-FreelanceHub.command` ใน outputs ซึ่งตั้งบัญชีและ runtime ไว้แล้ว หลังบันทึกโค้ด main ที่ตรวจทานแล้วสามารถเปิดไฟล์นี้เพื่อทดสอบ เผยแพร่ และตรวจผลบนเว็บจริงได้ ไม่ต้องผ่าน Antigravity
 
 `npm run build` ใช้รายการไฟล์สาธารณะอย่างชัดเจน ได้แก่ HTML, JavaScript ที่ browser ใช้, manifest และไอคอน ไม่ส่ง SQL, เอกสารรีวิว, tests, node_modules, Git metadata, รูปสลิปส่วนตัว หรือ CNAME ของ Surge เดิมขึ้นเว็บไซต์ หากเพิ่มไฟล์ frontend ให้เพิ่มและตรวจรายการ `PUBLIC_FILES` ใน `scripts/build-site.js` ด้วย
 
@@ -188,7 +190,7 @@ sequenceDiagram
 
 **ตรวจสอบ:** `npm test` ผ่านทั้งหมด (parser 16/16, UI handler ผ่าน, financial suite 31/31, barrier 9/9) และตรวจ layout จริงในเบราว์เซอร์ที่ 320, 375, 390, 430, 768 และ 1024 px ด้วยข้อมูลจำลองจาก renderer/CSS จริง รวม 24 ช่องต่อขนาด ไม่พบ input ทับกันหรือล้นขอบ พร้อมตรวจภาพที่ 390 px แล้ว ทั้งนี้ยังไม่ได้ตรวจบน iPhone จริง
 
-**ส่งต่อ Antigravity:** ดึง main นี้และ deploy ไปยังโปรเจกต์ Cloudflare Pages เดิม `natthawit-studio` โดยไม่รัน migration จากนั้นตรวจ HTML ของ URL จริงว่ามี marker ข้างต้น และลองหน้าตรวจสลิปบน iPhone/Safari ก่อนรายงานว่าเผยแพร่สำเร็จ กรุณาบันทึก deployment URL และ commit ที่เผยแพร่กลับใน Execution Log
+**อัปเดต 24 ตุลาคม 2569:** Codex เผยแพร่แพตช์นี้เข้าเว็บจริงแล้วตามหลักฐาน Direct Deployment ด้านบน ไม่ต้องเผยแพร่ซ้ำ ยังเหลือการลองใช้งานบน iPhone/Safari เครื่องจริงโดยผู้ใช้; การตรวจ layout ในเบราว์เซอร์จำลองขนาดจอไม่ได้ทดแทนการทดสอบบนอุปกรณ์จริง
 
 > 💡 **บันทึกจาก Codex (อ้างอิง main `ce385c9`):**
 
