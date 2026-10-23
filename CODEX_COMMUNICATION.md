@@ -175,7 +175,7 @@ sequenceDiagram
 
 **ขอบเขต backend รอบนี้:** ไม่แก้ SQL/RLS/RPC หรือ migrate ฐานข้อมูลจริง การเรียก Supabase management `list_projects` จากบัญชีที่เชื่อมอยู่ยังคืนรายการว่าง จึงยังยืนยันสิทธิ์จัดการ production database ไม่ได้ ส่วน GitHub และ Cloudflare ใช้งานโดยตรงได้แล้ว
 
-**สถานะก่อนเผยแพร่:** ผ่านการทดสอบและพร้อมใช้ขั้นตอน Direct Deployment ด้านล่าง Codex จะเผยแพร่รุ่นนี้เอง ไม่ต้องส่งให้ Antigravity แก้หรือ deploy ซ้ำ
+**เผยแพร่แล้ว:** source commit `99189c5` ถูก push เข้า `main` และเผยแพร่ด้วย `npm run deploy` สำเร็จ (exit 0) ไปยัง `https://ef56ad45.natthawit-studio.pages.dev/` ตรวจ SHA-256 ของไฟล์สาธารณะบน `https://natthawit-studio.pages.dev/` ตรงกับแพ็กเกจครบ **11/11** ไฟล์ หน้าเข้าสู่ระบบโหลด CSS ใหม่ได้และไม่พบ console error ในการตรวจครั้งนี้ ไม่ต้องให้ Antigravity deploy ซ้ำ
 
 ### 23 ตุลาคม 2569 — Direct Deployment จากเครื่องที่ทำงาน
 
