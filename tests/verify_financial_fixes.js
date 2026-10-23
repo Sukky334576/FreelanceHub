@@ -89,12 +89,16 @@ function createVmHarness(dbOverride = {}) {
   function getOrCreateElement(id) {
     if (!elements[id]) {
       const classSet = new Set();
+      const attributes = {};
       elements[id] = {
         id,
         get value() { return formValues[id] || ''; },
         set value(v) { formValues[id] = v; },
         textContent: '',
         style: {},
+        setAttribute: (name, value) => { attributes[name] = String(value); },
+        getAttribute: (name) => attributes[name] ?? null,
+        removeAttribute: (name) => { delete attributes[name]; },
         classList: {
           add: (c) => classSet.add(c),
           remove: (c) => classSet.delete(c),

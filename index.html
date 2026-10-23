@@ -2559,6 +2559,7 @@
     }
 
 </style>
+  <link rel="stylesheet" href="css/app-ui.css">
 </head>
 <body>
 
@@ -2580,7 +2581,7 @@
           <label class="form-label" for="gateEmail">อีเมล (Email)</label>
           <div class="login-input-wrap">
             <i class="fa-solid fa-envelope login-input-icon"></i>
-            <input type="email" id="gateEmail" class="login-gate-input" placeholder="natthawitstudio@gmail.com" required autocomplete="email">
+            <input type="email" id="gateEmail" class="login-gate-input" placeholder="you@example.com" required autocomplete="email">
           </div>
         </div>
 
@@ -2592,7 +2593,7 @@
           <div class="login-input-wrap">
             <i class="fa-solid fa-lock login-input-icon"></i>
             <input type="password" id="gatePassword" class="login-gate-input" placeholder="••••••••" required autocomplete="current-password">
-            <button type="button" class="login-pwd-toggle" onclick="toggleGatePasswordVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
+            <button type="button" class="login-pwd-toggle" aria-label="แสดงหรือซ่อนรหัสผ่าน" onclick="toggleGatePasswordVisibility()" title="แสดง/ซ่อนรหัสผ่าน">
               <i id="gatePwdEyeIcon" class="fa-solid fa-eye"></i>
             </button>
           </div>
@@ -2607,7 +2608,7 @@
 
       <div class="login-footer-badge">
         <i class="fa-solid fa-shield-halved" style="color: var(--color-primary);"></i>
-        <span>ระบบความปลอดภัย Row Level Security (RLS)</span>
+        <span>เข้าสู่ระบบเพื่อดูข้อมูลของคุณ</span>
       </div>
     </div>
   </div>
@@ -2624,37 +2625,21 @@
           <p><i class="fa-solid fa-circle" style="font-size: 0.5rem;"></i> การเงิน &amp; คิวงาน</p>
         </div>
       </div>
-      <nav class="sidebar-menu">
-        <button class="sidebar-item active" data-tab="transactions" onclick="switchTab('transactions')">
-          <i class="fa-solid fa-wallet"></i> บันทึกเงิน
-        </button>
-        <button class="sidebar-item" data-tab="calendar" onclick="switchTab('calendar')">
-          <i class="fa-solid fa-calendar-days"></i> ตารางงาน
-        </button>
-        <button class="sidebar-item" data-tab="dashboard" onclick="switchTab('dashboard')">
-          <i class="fa-solid fa-chart-pie"></i> ภาพรวม
-        </button>
-        <button class="sidebar-item" data-tab="todos" onclick="switchTab('todos')">
-          <i class="fa-solid fa-list-check"></i> สิ่งที่ต้องทำ
-        </button>
-        <button class="sidebar-item" data-tab="projects" onclick="switchTab('projects')">
-          <i class="fa-solid fa-folder-open"></i> โปรเจกต์
-        </button>
-        <button class="sidebar-item" data-tab="bills" onclick="switchTab('bills')">
-          <i class="fa-solid fa-credit-card"></i> บิลรายเดือน
-        </button>
-        <button class="sidebar-item" data-tab="equipment" onclick="switchTab('equipment')">
-          <i class="fa-solid fa-video"></i> อุปกรณ์
-        </button>
-        <button class="sidebar-item" data-tab="export" onclick="switchTab('export')">
-          <i class="fa-solid fa-file-excel"></i> รายงาน & ส่งออก
-        </button>
-        <button class="sidebar-item" data-tab="settings" onclick="switchTab('settings')">
-          <i class="fa-solid fa-gear"></i> ตั้งค่า
-        </button>
+      <nav class="sidebar-menu" aria-label="เมนูหลัก">
+        <button class="sidebar-item" data-tab="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> ภาพรวม</button>
+        <button class="sidebar-item" data-tab="transactions" onclick="switchTab('transactions')"><i class="fa-solid fa-wallet"></i> บันทึกเงิน</button>
+        <button class="sidebar-item" data-tab="calendar" onclick="switchTab('calendar')"><i class="fa-solid fa-calendar-days"></i> ตารางงาน</button>
+        <button class="sidebar-item" data-tab="projects" onclick="switchTab('projects')"><i class="fa-solid fa-folder-open"></i> โปรเจกต์</button>
+        <div class="sidebar-group-label">จัดการงานประจำวัน</div>
+        <button class="sidebar-item" data-tab="todos" onclick="switchTab('todos')"><i class="fa-solid fa-list-check"></i> สิ่งที่ต้องทำ</button>
+        <button class="sidebar-item" data-tab="bills" onclick="switchTab('bills')"><i class="fa-solid fa-clipboard-check"></i> เช็กลิสต์รายเดือน</button>
+        <button class="sidebar-item" data-tab="equipment" onclick="switchTab('equipment')"><i class="fa-solid fa-video"></i> อุปกรณ์</button>
+        <div class="sidebar-group-label">ข้อมูลและบัญชี</div>
+        <button class="sidebar-item" data-tab="export" onclick="switchTab('export')"><i class="fa-solid fa-file-export"></i> รายงานและส่งออก</button>
+        <button class="sidebar-item" data-tab="settings" onclick="switchTab('settings')"><i class="fa-solid fa-gear"></i> ตั้งค่า</button>
       </nav>
-      <div style="padding-top: 16px; border-top: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-muted); text-align: center;">
-        FreelanceHub v2.5
+      <div class="sidebar-footer">
+        การเงินและงาน ในที่เดียว
       </div>
     </aside>
 
@@ -2668,7 +2653,7 @@
           <span id="syncStatusBadge" class="status-badge">
             <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> บันทึกแล้ว
           </span>
-          <button id="mobileAuthBtn" class="status-badge" onclick="openAuthModal()" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); color: var(--text-secondary); padding: 4px 8px;" title="บัญชีผู้ใช้งาน">
+          <button id="mobileAuthBtn" aria-label="บัญชีผู้ใช้" class="status-badge" onclick="currentUser ? switchTab('settings') : openAuthModal()" style="cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); color: var(--text-secondary); padding: 4px 8px;" title="บัญชีผู้ใช้งาน">
             <i class="fa-solid fa-user"></i>
           </button>
           <div class="mobile-avatar" onclick="openMoreDrawer()" title="เมนูเพิ่มเติม">
@@ -2684,9 +2669,9 @@
           <p id="desktopPageSub" style="font-size: 0.8rem; color: var(--text-secondary);">จัดการกระแสเงินสดและธุรกรรมสตูดิโอ</p>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <span id="desktopAuthBadge" class="status-badge" onclick="openAuthModal()" style="cursor: pointer; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); padding: 6px 12px;" title="จัดการบัญชีผู้ใช้งาน">
+          <button type="button" id="desktopAuthBadge" class="status-badge" onclick="currentUser ? switchTab('settings') : openAuthModal()" style="cursor: pointer; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); padding: 6px 12px;" title="จัดการบัญชีผู้ใช้งาน">
             <i class="fa-solid fa-user"></i> <span id="desktopAuthText">เข้าสู่ระบบ</span>
-          </span>
+          </button>
           <span id="desktopSyncBadge" class="status-badge">
             <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> บันทึกแล้ว
           </span>
@@ -2699,7 +2684,7 @@
       <!-- =======================================================
            TAB 1: บันทึกเงิน (TRANSACTIONS) - PRIMARY DEFAULT TAB
            ======================================================= -->
-      <section id="tab-transactions" class="tab-view active">
+      <section id="tab-transactions" class="tab-view">
         <div class="page-container">
           <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h2 class="page-title" style="margin-bottom: 0;">บันทึกเงิน</h2>
@@ -2916,6 +2901,23 @@
             </div>
           </div>
 
+          <div class="quick-actions-wrap">
+            <div class="quick-actions-bar" aria-label="ทำรายการด่วน">
+              <button class="action-pill primary" onclick="openSlipScannerModal()"><i class="fa-solid fa-camera-retro"></i> อ่านสลิป</button>
+              <button class="action-pill" onclick="openAddTxModalWithType('รายจ่าย')"><i class="fa-solid fa-minus"></i> บันทึกรายจ่าย</button>
+              <button class="action-pill" onclick="openAddTxModalWithType('รายรับ')"><i class="fa-solid fa-plus"></i> บันทึกรายรับ</button>
+              <button class="action-pill" onclick="openAddJobModal()"><i class="fa-solid fa-calendar-plus"></i> เพิ่มคิวงาน</button>
+            </div>
+            <details class="secondary-actions">
+              <summary>เครื่องมือเพิ่มเติม</summary>
+              <div>
+                <button class="action-pill" onclick="openReconModal()"><i class="fa-solid fa-calculator"></i> ตรวจสอบยอดเงิน</button>
+                <button class="action-pill" onclick="openAddChecklistItemModal()"><i class="fa-solid fa-list-check"></i> เพิ่มรายการเตือน</button>
+                <button class="action-pill" onclick="openPDFModal()"><i class="fa-solid fa-file-lines"></i> ออกเอกสาร</button>
+              </div>
+            </details>
+          </div>
+
           <!-- My Wallets Section -->
           <div class="section-header-row">
             <div class="section-title">
@@ -2990,16 +2992,16 @@
             </div>
 
             <!-- 5. บิลรอชำระ -->
-            <div class="kpi-card" onclick="goToPendingBills()" role="button" tabindex="0" title="คลิกไปหน้าบิลรายเดือน">
+            <div class="kpi-card" onclick="goToPendingBills()" role="button" tabindex="0" title="เปิดเช็กลิสต์รายเดือน">
               <div class="kpi-card-header">
-                <span class="kpi-title">บิลรอชำระเดือนนี้</span>
+                <span class="kpi-title">เช็กลิสต์เดือนนี้</span>
                 <div class="kpi-icon-box" style="background: var(--color-danger-soft); color: var(--color-danger);">
                   <i class="fa-solid fa-file-invoice-dollar"></i>
                 </div>
               </div>
               <div id="dashKpiBills" class="kpi-num tabular-nums" style="color: var(--color-danger);">0 บิล</div>
               <div class="kpi-sub" id="dashKpiBillsSub">ยอดรวม ฿0.00</div>
-              <div class="kpi-drilldown-hint" style="color:var(--color-danger);">ไปหน้าบิลรอชำระ <i class="fa-solid fa-chevron-right"></i></div>
+              <div class="kpi-drilldown-hint" style="color:var(--color-danger);">ดูรายการเตือน <i class="fa-solid fa-chevron-right"></i></div>
             </div>
 
             <!-- 6. ค่างวดหนี้ / ภาระผูกพัน -->
@@ -3013,33 +3015,6 @@
               <div id="dashKpiDebts" class="kpi-num tabular-nums" style="color: #7E22CE;">฿0.00</div>
               <div class="kpi-sub" id="dashKpiDebtsSub">ค่างวดผ่อนประจำเดือน</div>
               <div class="kpi-drilldown-hint" style="color:#7E22CE;">ดูรายการผ่อนชำระ <i class="fa-solid fa-chevron-right"></i></div>
-            </div>
-          </div>
-
-          <!-- Quick Actions Bar (Horizontal Scrollable Capsule Pills) -->
-          <div class="quick-actions-wrap">
-            <div class="quick-actions-bar">
-              <button class="action-pill primary" onclick="openAddTxModalWithType('รายรับ')">
-                <i class="fa-solid fa-plus"></i> บันทึกรายรับ
-              </button>
-              <button class="action-pill" onclick="openAddTxModalWithType('รายจ่าย')">
-                <i class="fa-solid fa-minus" style="color: var(--color-danger);"></i> บันทึกรายจ่าย
-              </button>
-              <button class="action-pill" onclick="openAddJobModal()">
-                <i class="fa-solid fa-calendar-plus" style="color: var(--color-primary);"></i> เพิ่มคิวงาน
-              </button>
-              <button class="action-pill" onclick="openReconModal()">
-                <i class="fa-solid fa-calculator" style="color: var(--color-primary-dark);"></i> ตรวจสอบยอดเงิน
-              </button>
-              <button class="action-pill" onclick="openAddBillModal()">
-                <i class="fa-solid fa-receipt" style="color: #D97706;"></i> เพิ่มบิลรายเดือน
-              </button>
-              <button class="action-pill" onclick="openSlipScannerModal()" style="border-color: var(--color-primary-dark); background: rgba(22, 142, 161, 0.08);">
-                <i class="fa-solid fa-camera-retro" style="color: var(--color-primary);"></i> สแกนสลิปโอนเงิน
-              </button>
-              <button class="action-pill" onclick="openPDFModal()">
-                <i class="fa-solid fa-file-lines" style="color: #7E22CE;"></i> ออกใบเสนอราคา/แจ้งหนี้
-              </button>
             </div>
           </div>
 
@@ -3120,9 +3095,9 @@
               <div class="agenda-card-header">
                 <div class="agenda-card-title">
                   <i class="fa-solid fa-receipt" style="color: var(--color-danger);"></i>
-                  <span>บิลที่ต้องชำระในเดือนนี้</span>
+                  <span>รายการเตือนประจำเดือน</span>
                 </div>
-                <span class="agenda-link" onclick="switchTab('bills')">จัดการบิล <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i></span>
+                <span class="agenda-link" onclick="switchTab('bills')">ดูทั้งหมด <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i></span>
               </div>
               <div id="dashBillsList" class="agenda-list">
                 <div style="text-align:center; padding:16px; color:var(--color-text-muted); font-size:0.84rem;">กำลังโหลดข้อมูลบิล...</div>
@@ -3183,11 +3158,11 @@
 
           <!-- Filter Pills -->
           <div class="segmented-control" style="margin-bottom: 14px; overflow-x: auto;">
-            <button class="segmented-btn active" id="pillTodoToday" onclick="setTodoFilter('today')">📌 วันนี้</button>
-            <button class="segmented-btn" id="pillTodoTomorrow" onclick="setTodoFilter('tomorrow')">📅 พรุ่งนี้</button>
-            <button class="segmented-btn" id="pillTodoWeek" onclick="setTodoFilter('week')">🗓️ สัปดาห์นี้</button>
-            <button class="segmented-btn" id="pillTodoAll" onclick="setTodoFilter('all')">📁 ทั้งหมด</button>
-            <button class="segmented-btn" id="pillTodoDone" onclick="setTodoFilter('completed')">✅ เสร็จแล้ว</button>
+            <button class="segmented-btn active" id="pillTodoToday" onclick="setTodoFilter('today')">วันนี้</button>
+            <button class="segmented-btn" id="pillTodoTomorrow" onclick="setTodoFilter('tomorrow')">พรุ่งนี้</button>
+            <button class="segmented-btn" id="pillTodoWeek" onclick="setTodoFilter('week')">สัปดาห์นี้</button>
+            <button class="segmented-btn" id="pillTodoAll" onclick="setTodoFilter('all')">ทั้งหมด</button>
+            <button class="segmented-btn" id="pillTodoDone" onclick="setTodoFilter('completed')">เสร็จแล้ว</button>
           </div>
 
           <!-- To-Do Items List -->
@@ -3293,9 +3268,9 @@
           </div>
           
           <div class="card-surface" style="padding: 20px;">
-            <div style="font-size: 1.2rem; margin-bottom: 8px;">📊 ส่งออกข้อมูล Google Sheets / Excel (.xlsx)</div>
+            <div style="font-size: 1.2rem; margin-bottom: 8px;">📊 ดาวน์โหลดข้อมูล Excel</div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-              ดาวน์โหลดข้อมูลระบบทั้งหมด 8 ชีต (ธุรกรรม, งาน, บัญชี/กระเป๋าเงิน, หนี้สิน, ประวัติชำระหนี้, บัตรเครดิต, บิลรายเดือน, หมวดหมู่และสิ่งที่ต้องทำ) ไปเปิดใน Google Sheets หรือ Microsoft Excel ได้ทันที
+              ดาวน์โหลดรายการเงิน งาน กระเป๋า หนี้สิน และข้อมูลอื่นในบัญชี เป็นไฟล์ Excel สำหรับเก็บสำเนาหรือเปิดใน Google Sheets
             </p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button class="btn-submit-main" onclick="exportAllDataToExcel()" style="width: auto; padding: 0 24px;">
@@ -3305,7 +3280,7 @@
           </div>
 
           <div class="card-surface" style="padding: 20px;">
-            <div style="font-size: 1.2rem; margin-bottom: 8px;">📄 ออกเอกสารใบเสนอราคา / ใบแจ้งหนี้ (PDF)</div>
+            <div style="font-size: 1.2rem; margin-bottom: 8px;">📄 ใบเสนอราคาและใบแจ้งหนี้</div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
               สร้างเอกสารสรุปยอดค่าบริการสำหรับส่งให้ลูกค้าผ่าน LINE หรือบันทึกเป็น PDF
             </p>
@@ -3326,14 +3301,14 @@
           </div>
 
           <div class="card-surface" style="margin-bottom: 16px;">
-            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">🔐 บัญชีผู้ใช้งานและความปลอดภัย (Account & Security)</div>
+            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">บัญชีและการเข้าสู่ระบบ</div>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-              ระบบแยกสิทธิ์ข้อมูลเฉพาะผู้ใช้ตามมาตรฐาน Row Level Security (RLS) ปกป้องข้อมูลทางการเงินอย่างเข้มงวด
+              จัดการบัญชีที่ใช้เข้าสู่ระบบ และเปลี่ยนรหัสผ่านของคุณ
             </p>
             <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 14px;">
               • สถานะ: <strong id="settingsAuthStatus" style="color: var(--text-muted);">ยังไม่ได้เข้าสู่ระบบ</strong><br>
               • อีเมล: <strong id="settingsAuthEmail">-</strong><br>
-              • สิทธิ์การเข้าถึง: <span id="settingsAuthRole" class="status-badge" style="font-size: 0.75rem; padding: 2px 8px;">Anonymous / Guest</span>
+              • สิทธิ์การเข้าถึง: <span id="settingsAuthRole" class="status-badge" style="font-size: 0.75rem; padding: 2px 8px;">ยังไม่ได้เข้าสู่ระบบ</span>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button id="settingsBtnSignIn" class="btn-primary" onclick="openAuthModal('signin')" style="padding: 8px 18px; font-size: 0.85rem; cursor: pointer;">
@@ -3349,9 +3324,9 @@
           </div>
 
           <div class="card-surface">
-            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">🏷️ จัดการและลบหมวดหมู่ (Categories)</div>
+            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">หมวดหมู่รายการเงิน</div>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
-              สามารถลบหมวดหมู่ที่ไม่ได้ใช้งานออกจากตัวเลือกได้ โดยประวัติธุรกรรมเดิมจะยังคงอยู่ปลอดภัย 100%
+              จัดหมวดหมู่ให้เหมาะกับการใช้งาน ประวัติรายการเงินเดิมยังคงอยู่เมื่อลบหมวดหมู่
             </p>
             <button class="btn-secondary" onclick="openCategoryManager()" style="padding: 8px 16px; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--accent-primary); border-radius: var(--radius-md); font-weight: 700; cursor: pointer;">
               ⚙️ เปิดหน้าต่างจัดการหมวดหมู่
@@ -3359,15 +3334,15 @@
           </div>
 
           <div class="card-surface">
-            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">🛡️ ข้อมูลฐานข้อมูล (Database Status)</div>
+            <div style="font-size: 1rem; font-weight: 800; margin-bottom: 4px;">ข้อมูลในบัญชี</div>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
-              Supabase PostgreSQL (Cloud Database)
+              จำนวนรายการที่โหลดในบัญชีนี้
             </p>
             <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.8;">
               • รายการเงิน: <strong id="settingsTxCount">0</strong> รายการ<br>
               • คิวงาน: <strong id="settingsJobCount">0</strong> คิว<br>
-              • บิลรายเดือน: <strong id="settingsBillCount">0</strong> บิล<br>
-              • สำรองข้อมูลล่าสุด: ปลอดภัยที่เซิร์ฟเวอร์
+              • เช็กลิสต์รายเดือน: <strong id="settingsBillCount">0</strong> รายการ<br>
+              ดาวน์โหลดสำเนาข้อมูลได้ที่หน้า “รายงานและส่งออก”
             </div>
           </div>
         </div>
@@ -3378,7 +3353,7 @@
     <!-- =======================================================
          MOBILE BOTTOM NAVIGATION (4 TABS)
          ======================================================= -->
-    <nav class="mobile-bottom-nav">
+    <nav class="mobile-bottom-nav" aria-label="เมนูหลัก">
       <button class="nav-tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
         <i class="fa-solid fa-chart-pie"></i>
         <span>ภาพรวม</span>
@@ -3414,7 +3389,7 @@
           <i class="fa-solid fa-wallet" style="color: var(--accent-primary);"></i>
           <span id="txDrawerTitle">บันทึกรายการเงิน</span>
         </div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="txForm" onsubmit="handleSaveTx(event)">
@@ -3441,11 +3416,11 @@
           <!-- Date and Time Row -->
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">วันที่</label>
+              <label class="form-label" for="txDate">วันที่</label>
               <input type="date" id="txDate" class="form-input" required>
             </div>
             <div class="form-group">
-              <label class="form-label">เวลา</label>
+              <label class="form-label" for="txTime">เวลา</label>
               <input type="time" id="txTime" class="form-input">
             </div>
           </div>
@@ -3462,7 +3437,7 @@
 
           <!-- Account Dropdown -->
           <div class="form-group">
-            <label class="form-label">บัญชี</label>
+            <label class="form-label" for="txAccount">บัญชี</label>
             <select id="txAccount" class="form-select">
               <option value="บัญชีสตูดิโอ">บัญชีสตูดิโอ</option>
               <option value="บัญชีส่วนตัว">บัญชีส่วนตัว</option>
@@ -3487,7 +3462,7 @@
 
           <!-- Project / Related Job (Optional) -->
           <div class="form-group">
-            <label class="form-label">โปรเจกต์ / คิวงานที่เกี่ยวข้อง (ไม่บังคับ)</label>
+            <label class="form-label" for="txRelatedJob">โปรเจกต์ / คิวงานที่เกี่ยวข้อง (ไม่บังคับ)</label>
             <select id="txRelatedJob" class="form-select">
               <option value="">-- ไม่ระบุโปรเจกต์ --</option>
             </select>
@@ -3495,7 +3470,7 @@
 
           <!-- Details / Note -->
           <div class="form-group">
-            <label class="form-label">รายละเอียดเพิ่มเติม (ไม่บังคับ)</label>
+            <label class="form-label" for="txDetails">รายละเอียดเพิ่มเติม (ไม่บังคับ)</label>
             <input type="text" id="txDetails" class="form-input" placeholder="เช่น ค่าอาหารกองถ่าย, ค่าอุปกรณ์...">
           </div>
 
@@ -3526,19 +3501,19 @@
           <i class="fa-solid fa-calendar-plus" style="color: var(--accent-primary);"></i>
           <span id="jobDrawerTitle">ลงคิวงานใหม่</span>
         </div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="jobForm" onsubmit="handleSaveJob(event)">
           <input type="hidden" id="jobEditId">
 
           <div class="form-group">
-            <label class="form-label">ชื่องาน / ลูกค้า</label>
+            <label class="form-label" for="jobTitle">ชื่องาน / ลูกค้า</label>
             <input type="text" id="jobTitle" class="form-input" placeholder="เช่น ถ่าย MV เพลงใหม่, ถ่ายสินค้าแบรนด์ A" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">ประเภทคิวงาน</label>
+            <label class="form-label" for="jobType">ประเภทคิวงาน</label>
             <select id="jobType" class="form-select" required>
               <option value="วันถ่ายงาน">🎬 ถ่ายงาน</option>
               <option value="วันตัดงาน">💻 ตัดต่อ</option>
@@ -3552,11 +3527,11 @@
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">วันที่เริ่ม</label>
+              <label class="form-label" for="jobDate">วันที่เริ่ม</label>
               <input type="date" id="jobDate" class="form-input" required onchange="checkJobConflicts()">
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่สิ้นสุด (ถ้ามี)</label>
+              <label class="form-label" for="jobEndDate">วันที่สิ้นสุด (ถ้ามี)</label>
               <input type="date" id="jobEndDate" class="form-input">
             </div>
           </div>
@@ -3564,11 +3539,11 @@
           <!-- Start & End Time -->
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">เวลาเริ่ม</label>
+              <label class="form-label" for="jobStartTime">เวลาเริ่ม</label>
               <input type="time" id="jobStartTime" class="form-input" value="09:00" onchange="checkJobConflicts()">
             </div>
             <div class="form-group">
-              <label class="form-label">เวลาเสร็จสิ้น</label>
+              <label class="form-label" for="jobEndTime">เวลาเสร็จสิ้น</label>
               <input type="time" id="jobEndTime" class="form-input" value="18:00" onchange="checkJobConflicts()">
             </div>
           </div>
@@ -3580,28 +3555,28 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">สถานที่ปฏิบัติงาน</label>
+            <label class="form-label" for="jobLocation">สถานที่ปฏิบัติงาน</label>
             <input type="text" id="jobLocation" class="form-input" placeholder="เช่น สตูดิโอ A, สยามสแควร์, ออนไลน์">
           </div>
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">งบประมาณ (บาท)</label>
+              <label class="form-label" for="jobBudget">งบประมาณ (บาท)</label>
               <input type="number" id="jobBudget" class="form-input" placeholder="0.00" step="any" inputmode="decimal">
             </div>
             <div class="form-group">
-              <label class="form-label">กำไรประมาณการ (บาท)</label>
+              <label class="form-label" for="jobProfit">กำไรประมาณการ (บาท)</label>
               <input type="number" id="jobProfit" class="form-input" placeholder="0.00" step="any" inputmode="decimal">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">รายละเอียด / อุปกรณ์ที่ใช้</label>
+            <label class="form-label" for="jobDescription">รายละเอียด / อุปกรณ์ที่ใช้</label>
             <textarea id="jobDescription" class="form-textarea" placeholder="ระบุสิ่งที่ต้องเตรียม หรือทีมงาน..."></textarea>
           </div>
 
           <div class="form-group">
-            <label class="form-label">หมายเหตุเพิ่มเติม</label>
+            <label class="form-label" for="jobRemark">หมายเหตุเพิ่มเติม</label>
             <input type="text" id="jobRemark" class="form-input" placeholder="โน้ตสั้นๆ">
           </div>
 
@@ -3630,19 +3605,19 @@
           <i class="fa-solid fa-grip" style="color: var(--accent-primary);"></i>
           <span>เมนูเพิ่มเติม</span>
         </div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <div class="more-grid">
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('todos');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('todos');">
             <div class="more-tile-icon" style="background: var(--accent-income-bg); color: var(--accent-income);">
               <i class="fa-solid fa-list-check"></i>
             </div>
             <div class="more-tile-title">สิ่งที่ต้องทำ</div>
-            <div class="more-tile-sub">To-Do List รายวัน</div>
+            <div class="more-tile-sub">รายการที่ต้องทำประจำวัน</div>
           </div>
 
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('projects');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('projects');">
             <div class="more-tile-icon" style="background: var(--accent-primary-bg); color: var(--accent-primary);">
               <i class="fa-solid fa-folder-open"></i>
             </div>
@@ -3650,15 +3625,15 @@
             <div class="more-tile-sub">คิวงานและการเงิน</div>
           </div>
 
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('bills');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('bills');">
             <div class="more-tile-icon" style="background: var(--accent-expense-bg); color: var(--accent-expense);">
               <i class="fa-solid fa-credit-card"></i>
             </div>
-            <div class="more-tile-title">บิลรายเดือน</div>
-            <div class="more-tile-sub">บิลประจำที่ต้องจ่าย</div>
+            <div class="more-tile-title">เช็กลิสต์รายเดือน</div>
+            <div class="more-tile-sub">เตือนความจำ ไม่ลงบัญชี</div>
           </div>
 
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('equipment');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('equipment');">
             <div class="more-tile-icon" style="background: var(--accent-cyan-bg); color: var(--accent-cyan);">
               <i class="fa-solid fa-video"></i>
             </div>
@@ -3666,19 +3641,19 @@
             <div class="more-tile-sub">กล้อง เลนส์ ไฟ</div>
           </div>
 
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('export');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('export');">
             <div class="more-tile-icon" style="background: rgba(16, 185, 129, 0.14); color: #10b981;">
               <i class="fa-solid fa-file-excel"></i>
             </div>
-            <div class="more-tile-title">ส่งออก Excel</div>
-            <div class="more-tile-sub">Google Sheets (.xlsx)</div>
+            <div class="more-tile-title">รายงานและส่งออก</div>
+            <div class="more-tile-sub">Excel และเอกสาร PDF</div>
           </div>
 
-          <div class="more-tile" onclick="closeAllDrawers(); switchTab('settings');">
+          <div class="more-tile" role="button" tabindex="0" onclick="closeAllDrawers(); switchTab('settings');">
             <div class="more-tile-icon" style="background: rgba(168, 85, 247, 0.14); color: #a855f7;">
               <i class="fa-solid fa-gear"></i>
             </div>
-            <div class="more-tile-title">ตั้งค่า & หมวดหมู่</div>
+            <div class="more-tile-title">ตั้งค่า</div>
             <div class="more-tile-sub">จัดการหมวดหมู่เงิน</div>
           </div>
         </div>
@@ -3694,27 +3669,27 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span id="checklistDrawerTitle">เพิ่มรายการเตือนความจำ</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="checklistForm" onsubmit="handleSaveChecklistItem(event)">
           <input type="hidden" id="checklistEditId">
           <div class="form-group">
-            <label class="form-label">ชื่อรายการรายจ่ายประจำ</label>
+            <label class="form-label" for="checklistTitle">ชื่อรายการรายจ่ายประจำ</label>
             <input type="text" id="checklistTitle" class="form-input" placeholder="เช่น ค่าเน็ตสตูดิโอ, ค่าไฟ, ค่าเช่าสตูดิโอ" required>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">เตือนทุกวันที่ (ของเดือน)</label>
+              <label class="form-label" for="checklistDueDay">เตือนทุกวันที่ (ของเดือน)</label>
               <input type="number" id="checklistDueDay" class="form-input" min="1" max="31" placeholder="เช่น 1, 5, 25" required>
             </div>
             <div class="form-group">
-              <label class="form-label">ยอดประมาณการ (บาท)</label>
+              <label class="form-label" for="checklistAmount">ยอดประมาณการ (บาท)</label>
               <input type="number" id="checklistAmount" class="form-input" placeholder="0.00" step="any" inputmode="decimal" required>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">หมายเหตุ (ถ้ามี)</label>
+            <label class="form-label" for="checklistNote">หมายเหตุ (ถ้ามี)</label>
             <input type="text" id="checklistNote" class="form-input" placeholder="เช่น สัญญาถึงสิ้นปี, ตัดผ่านบัญชี">
           </div>
           <div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; background: var(--color-surface-muted); padding: 8px 10px; border-radius: var(--radius-sm);">
@@ -3784,6 +3759,7 @@
 
         <!-- Step 2: Drafts Review Controls & List -->
         <div id="slipDraftsContainer" style="display: none;">
+          <div id="slipSaveStatus" role="status" aria-live="polite" hidden></div>
           
           <div class="slip-toolbar">
             <div class="slip-toolbar-heading">
@@ -3829,27 +3805,27 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span id="billDrawerTitle">เพิ่มบิลประจำ</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="billForm" onsubmit="handleSaveBill(event)">
           <input type="hidden" id="billEditId">
           <div class="form-group">
-            <label class="form-label">ชื่อบิล / บริการ</label>
+            <label class="form-label" for="billItem">ชื่อบิล / บริการ</label>
             <input type="text" id="billItem" class="form-input" placeholder="เช่น ค่าไฟสตูดิโอ, ค่าเน็ต, ผ่อนกล้อง" required>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">วันครบกำหนด (ทุกวันที่)</label>
+              <label class="form-label" for="billDueDate">วันครบกำหนด (ทุกวันที่)</label>
               <input type="number" id="billDueDate" class="form-input" min="1" max="31" placeholder="เช่น 5, 25" required>
             </div>
             <div class="form-group">
-              <label class="form-label">ยอดเงิน (บาท)</label>
+              <label class="form-label" for="billAmount">ยอดเงิน (บาท)</label>
               <input type="number" id="billAmount" class="form-input" placeholder="0.00" step="any" inputmode="decimal" required>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">หมายเหตุ</label>
+            <label class="form-label" for="billNote">หมายเหตุ</label>
             <input type="text" id="billNote" class="form-input" placeholder="ระบุเลขสัญญา หรืออื่นๆ">
           </div>
           <button type="submit" id="btnBillSubmit" class="btn-submit-main">บันทึกบิล</button>
@@ -3866,27 +3842,27 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span id="todoDrawerTitle">เพิ่มสิ่งที่ต้องทำ</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="todoForm" onsubmit="handleSaveTodo(event)">
           <input type="hidden" id="todoEditId">
           <div class="form-group">
-            <label class="form-label">ชื่องานที่ต้องทำ</label>
+            <label class="form-label" for="todoTitle">ชื่องานที่ต้องทำ</label>
             <input type="text" id="todoTitle" class="form-input" placeholder="เช่น ส่งดราฟต์ให้ลูกค้าตรวจ, ซื้อแบตกล้อง" required>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">วันที่กำหนด</label>
+              <label class="form-label" for="todoDate">วันที่กำหนด</label>
               <input type="date" id="todoDate" class="form-input" required>
             </div>
             <div class="form-group">
-              <label class="form-label">ช่วงเวลา</label>
+              <label class="form-label" for="todoTimeSlot">ช่วงเวลา</label>
               <input type="text" id="todoTimeSlot" class="form-input" placeholder="เช่น 09:00 - 11:30 น.">
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">โปรเจกต์ / หมวดหมู่</label>
+            <label class="form-label" for="todoTag">โปรเจกต์ / หมวดหมู่</label>
             <input type="text" id="todoTag" class="form-input" placeholder="เช่น งานตัดต่อ, จัดการสตูดิโอ">
           </div>
           <button type="submit" id="btnTodoSubmit" class="btn-submit-main">บันทึกสิ่งที่ต้องทำ</button>
@@ -3903,22 +3879,22 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span id="eqDrawerTitle">ลงทะเบียนอุปกรณ์</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="eqForm" onsubmit="handleSaveEq(event)">
           <input type="hidden" id="eqEditId">
           <div class="form-group">
-            <label class="form-label">ชื่ออุปกรณ์ / รหัส</label>
+            <label class="form-label" for="eqName">ชื่ออุปกรณ์ / รหัส</label>
             <input type="text" id="eqName" class="form-input" placeholder="เช่น กล้อง Sony FX3, เลนส์ 24-70 GM II" required>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">ราคาทุนที่ซื้อ (บาท)</label>
+              <label class="form-label" for="eqCost">ราคาทุนที่ซื้อ (บาท)</label>
               <input type="number" id="eqCost" class="form-input" placeholder="0.00" step="any" inputmode="decimal" required>
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่ซื้อ</label>
+              <label class="form-label" for="eqDate">วันที่ซื้อ</label>
               <input type="date" id="eqDate" class="form-input" required>
             </div>
           </div>
@@ -3936,7 +3912,7 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span>🏷️ จัดการและลบหมวดหมู่</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <div class="segmented-control" style="margin-bottom: 12px;">
@@ -3962,27 +3938,27 @@
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title"><span>📄 ออกเอกสาร PDF</span></div>
-        <button class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="pdfForm" onsubmit="handleGeneratePDF(event)">
           <div class="form-group">
-            <label class="form-label">ประเภทเอกสาร</label>
+            <label class="form-label" for="pdfDocType">ประเภทเอกสาร</label>
             <select id="pdfDocType" class="form-select">
               <option value="quotation">ใบเสนอราคา (Quotation)</option>
               <option value="invoice">ใบแจ้งหนี้ (Invoice)</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">ชื่องาน</label>
+            <label class="form-label" for="pdfJobTitle">ชื่องาน</label>
             <input type="text" id="pdfJobTitle" class="form-input" required>
           </div>
           <div class="form-group">
-            <label class="form-label">ชื่อลูกค้า / บริษัท</label>
+            <label class="form-label" for="pdfClientName">ชื่อลูกค้า / บริษัท</label>
             <input type="text" id="pdfClientName" class="form-input" required>
           </div>
           <div class="form-group">
-            <label class="form-label">ยอดเงินรวม (บาท)</label>
+            <label class="form-label" for="pdfAmount">ยอดเงินรวม (บาท)</label>
             <input type="number" id="pdfAmount" class="form-input" required step="any" inputmode="decimal">
           </div>
           <button type="submit" class="btn-submit-main">ออกเอกสาร</button>
@@ -4020,7 +3996,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">ยอดเงินจริงในบัญชี/กระเป๋าเงิน (บาท) *:</label>
+            <label class="form-label" for="reconActualInput">ยอดเงินจริงในบัญชี/กระเป๋าเงิน (บาท) *:</label>
             <input id="reconActualInput" type="number" step="0.01" class="form-input" placeholder="0.00" required oninput="calculateReconDiff()">
           </div>
 
@@ -4032,12 +4008,12 @@
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
-            <label class="form-label">วันที่ตรวจสอบ:</label>
+            <label class="form-label" for="reconDateInput">วันที่ตรวจสอบ:</label>
             <input id="reconDateInput" type="date" class="form-input" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">เหตุผลหรือหมายเหตุ (เช่น ดอกเบี้ยธนาคาร, ตกหล่น):</label>
+            <label class="form-label" for="reconReasonInput">เหตุผลหรือหมายเหตุ (เช่น ดอกเบี้ยธนาคาร, ตกหล่น):</label>
             <input id="reconReasonInput" type="text" class="form-input" placeholder="เช่น กระทบยอดประจำเดือน, ปรับยอดเศษสตางค์">
           </div>
 
@@ -4064,7 +4040,7 @@
           <i class="fa-solid fa-arrow-trend-up" style="color: var(--color-success);"></i>
           <span>สรุปรายรับตามงาน / โปรเจกต์</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <!-- Summary Banner -->
@@ -4113,7 +4089,7 @@
           <i class="fa-solid fa-arrow-trend-down" style="color: var(--color-danger);"></i>
           <span>สัดส่วนและอันดับรายจ่าย</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <!-- Summary Banner -->
@@ -4160,7 +4136,7 @@
           <i class="fa-solid fa-scale-balanced" style="color: var(--color-primary);"></i>
           <span>ส่วนต่างรับ–จ่าย (Net Cashflow)</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <div style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: 600; margin-bottom: 8px;" id="netModalPeriodLabel">
@@ -4212,7 +4188,7 @@
           <i class="fa-solid fa-hand-holding-dollar" style="color: #B45309;"></i>
           <span>เงินค้างรับจากลูกค้า (ลูกหนี้ค้างชำระ)</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <div class="breakdown-summary-banner" style="background: #FEF3C7; border-color: rgba(217, 119, 6, 0.2);">
@@ -4244,19 +4220,19 @@
           <i class="fa-solid fa-wallet" style="color: var(--color-primary);"></i>
           <span id="walletModalTitle">เพิ่มกระเป๋าเงินใหม่</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="walletForm" onsubmit="handleSaveWallet(event)">
           <input type="hidden" id="walletEditId" value="">
           
           <div class="form-group">
-            <label class="form-label">ชื่อกระเป๋าเงิน / บัญชี *:</label>
+            <label class="form-label" for="walletNameInput">ชื่อกระเป๋าเงิน / บัญชี *:</label>
             <input id="walletNameInput" type="text" class="form-input" placeholder="เช่น บัญชีสตูดิโอ (ไทยพาณิชย์), เงินสดกองถ่าย" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">ประเภทกระเป๋าเงิน:</label>
+            <label class="form-label" for="walletTypeInput">ประเภทกระเป๋าเงิน:</label>
             <select id="walletTypeInput" class="form-select">
               <option value="bank">บัญชีธนาคาร (Bank)</option>
               <option value="cash">เงินสด (Cash)</option>
@@ -4275,7 +4251,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">ยอดเงินตั้งต้น (บาท):</label>
+            <label class="form-label" for="walletOpeningInput">ยอดเงินตั้งต้น (บาท):</label>
             <input id="walletOpeningInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
             <div style="font-size: 0.72rem; color: var(--color-text-muted);">* ยอดตั้งต้นนี้จะไม่ถูกนับเป็นรายรับของเดือน</div>
           </div>
@@ -4289,7 +4265,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">หมายเหตุเพิ่มเติม:</label>
+            <label class="form-label" for="walletNotesInput">หมายเหตุเพิ่มเติม:</label>
             <input id="walletNotesInput" type="text" class="form-input" placeholder="เช่น เลขที่บัญชี หรือวัตถุประสงค์การใช้งาน">
           </div>
 
@@ -4315,31 +4291,31 @@
           <i class="fa-solid fa-money-bill-transfer" style="color: var(--color-primary);"></i>
           <span>โอนเงินระหว่างกระเป๋า</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="transferForm" onsubmit="handleInternalTransfer(event)">
           <div class="form-group">
-            <label class="form-label">กระเป๋าต้นทาง (เงินออก) *:</label>
+            <label class="form-label" for="transferFromWallet">กระเป๋าต้นทาง (เงินออก) *:</label>
             <select id="transferFromWallet" class="form-select" required onchange="validateTransferWallets(); updateTransferPreview();">
               <!-- Dynamic options -->
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">กระเป๋าปลายทาง (เงินเข้า) *:</label>
+            <label class="form-label" for="transferToWallet">กระเป๋าปลายทาง (เงินเข้า) *:</label>
             <select id="transferToWallet" class="form-select" required onchange="validateTransferWallets(); updateTransferPreview();">
               <!-- Dynamic options -->
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">จำนวนเงินที่โอน (บาท) *:</label>
+            <label class="form-label" for="transferAmountInput">จำนวนเงินที่โอน (บาท) *:</label>
             <input id="transferAmountInput" type="number" step="0.01" min="0.01" class="form-input" placeholder="0.00" required oninput="updateTransferPreview()">
           </div>
 
           <div class="form-group">
-            <label class="form-label">ค่าธรรมเนียมการโอนถ้ามี (บาท):</label>
+            <label class="form-label" for="transferFeeInput">ค่าธรรมเนียมการโอนถ้ามี (บาท):</label>
             <input id="transferFeeInput" type="number" step="0.01" min="0" class="form-input" placeholder="0.00" value="0.00" oninput="updateTransferPreview()">
             <div style="font-size: 0.72rem; color: var(--color-text-muted);">* ค่าธรรมเนียมจะถูกบันทึกเป็นรายจ่ายในระบบเพียงอย่างเดียว</div>
           </div>
@@ -4358,12 +4334,12 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">วันที่โอน:</label>
+            <label class="form-label" for="transferDateInput">วันที่โอน:</label>
             <input id="transferDateInput" type="date" class="form-input" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">บันทึกช่วยจำ:</label>
+            <label class="form-label" for="transferNoteInput">บันทึกช่วยจำ:</label>
             <input id="transferNoteInput" type="text" class="form-input" placeholder="เช่น ย้ายเงินเข้าบัญชีกองถ่าย, เติมเงินสด">
           </div>
 
@@ -4390,36 +4366,36 @@
           <i class="fa-solid fa-credit-card" style="color: #7E22CE;"></i>
           <span id="debtModalTitle">เพิ่มรายการหนี้ / การผ่อนชำระ</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="debtForm" onsubmit="handleSaveDebt(event)">
           <input type="hidden" id="debtEditId" value="">
 
           <div class="form-group">
-            <label class="form-label">ชื่อรายการหนี้ / สินค้าที่ผ่อน *:</label>
+            <label class="form-label" for="debtNameInput">ชื่อรายการหนี้ / สินค้าที่ผ่อน *:</label>
             <input id="debtNameInput" type="text" class="form-input" placeholder="เช่น Shopee SPayLater - เลนส์ 24-70mm, ผ่อนรถยนต์" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">เจ้าหนี้ / สถาบันการเงิน:</label>
+            <label class="form-label" for="debtLenderInput">เจ้าหนี้ / สถาบันการเงิน:</label>
             <input id="debtLenderInput" type="text" class="form-input" placeholder="เช่น Shopee, Toyota Leasing, ธนาคารไทยพาณิชย์">
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">เงินต้นเดิม (บาท) *:</label>
+              <label class="form-label" for="debtOriginalInput">เงินต้นเดิม (บาท) *:</label>
               <input id="debtOriginalInput" type="number" step="0.01" class="form-input" placeholder="0.00" required oninput="autoFillRemaining()">
             </div>
             <div class="form-group">
-              <label class="form-label">เงินต้นคงเหลือ (บาท) *:</label>
+              <label class="form-label" for="debtRemainingInput">เงินต้นคงเหลือ (บาท) *:</label>
               <input id="debtRemainingInput" type="number" step="0.01" class="form-input" placeholder="0.00" required>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">วิธีคิดดอกเบี้ย:</label>
+              <label class="form-label" for="debtInterestMethodInput">วิธีคิดดอกเบี้ย:</label>
               <select id="debtInterestMethodInput" class="form-select" onchange="updateDebtMethodNotice()">
                 <option value="zero">0% ไม่มีดอกเบี้ย</option>
                 <option value="reducing">ลดต้นลดดอก (Effective Rate)</option>
@@ -4428,35 +4404,35 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">อัตราดอกเบี้ย (% ต่อปี):</label>
+              <label class="form-label" for="debtRateInput">อัตราดอกเบี้ย (% ต่อปี):</label>
               <input id="debtRateInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0">
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">ค่างวดต่อเดือน (บาท) *:</label>
+              <label class="form-label" for="debtMonthlyInput">ค่างวดต่อเดือน (บาท) *:</label>
               <input id="debtMonthlyInput" type="number" step="0.01" class="form-input" placeholder="0.00" required>
             </div>
             <div class="form-group">
-              <label class="form-label">วันครบกำหนดจ่าย (ทุกวันที่):</label>
+              <label class="form-label" for="debtDueDayInput">วันครบกำหนดจ่าย (ทุกวันที่):</label>
               <input id="debtDueDayInput" type="number" min="1" max="31" class="form-input" placeholder="1-31" value="1" required>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">จำนวนงวดทั้งหมด (เดือน):</label>
+              <label class="form-label" for="debtTermMonthsInput">จำนวนงวดทั้งหมด (เดือน):</label>
               <input id="debtTermMonthsInput" type="number" min="1" class="form-input" placeholder="เช่น 10" value="10">
             </div>
             <div class="form-group">
-              <label class="form-label">งวดที่จ่ายไปแล้ว (เดือน):</label>
+              <label class="form-label" for="debtPaidMonthsInput">งวดที่จ่ายไปแล้ว (เดือน):</label>
               <input id="debtPaidMonthsInput" type="number" min="0" class="form-input" placeholder="0" value="0">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">กระเป๋าเงินเริ่มต้นสำหรับตัดค่างวด:</label>
+            <label class="form-label" for="debtWalletInput">กระเป๋าเงินเริ่มต้นสำหรับตัดค่างวด:</label>
             <select id="debtWalletInput" class="form-select">
               <!-- Dynamic options -->
             </select>
@@ -4484,7 +4460,7 @@
           <i class="fa-solid fa-money-check-dollar" style="color: #0B9D83;"></i>
           <span>บันทึกชำระค่างวด</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="payDebtForm" onsubmit="handleRecordDebtPayment(event)">
@@ -4497,35 +4473,35 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">จ่ายออกจากกระเป๋าเงิน *:</label>
+            <label class="form-label" for="payDebtWalletSelect">จ่ายออกจากกระเป๋าเงิน *:</label>
             <select id="payDebtWalletSelect" class="form-select" required>
               <!-- Dynamic options -->
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">ยอดเงินที่จ่ายทั้งหมด (บาท) *:</label>
+            <label class="form-label" for="payDebtTotalAmount">ยอดเงินที่จ่ายทั้งหมด (บาท) *:</label>
             <input id="payDebtTotalAmount" type="number" step="0.01" min="0.01" class="form-input" placeholder="0.00" required oninput="autoSplitDebtPayment()">
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">ส่วนตัดเงินต้น (ลดหนี้) *:</label>
+              <label class="form-label" for="payDebtPrincipalPortion">ส่วนตัดเงินต้น (ลดหนี้) *:</label>
               <input id="payDebtPrincipalPortion" type="number" step="0.01" class="form-input" placeholder="0.00" required>
             </div>
             <div class="form-group">
-              <label class="form-label">ส่วนดอกเบี้ย (รายจ่าย):</label>
+              <label class="form-label" for="payDebtInterestPortion">ส่วนดอกเบี้ย (รายจ่าย):</label>
               <input id="payDebtInterestPortion" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">วันที่ชำระ:</label>
+            <label class="form-label" for="payDebtDateInput">วันที่ชำระ:</label>
             <input id="payDebtDateInput" type="date" class="form-input" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label">หมายเหตุ:</label>
+            <label class="form-label" for="payDebtNoteInput">หมายเหตุ:</label>
             <input id="payDebtNoteInput" type="text" class="form-input" placeholder="เช่น ค่างวดประจำเดือนกันยายน">
           </div>
 
@@ -4552,31 +4528,31 @@
           <i class="fa-solid fa-credit-card" style="color: var(--color-primary-dark);"></i>
           <span id="cardModalTitle">เพิ่มบัตรเครดิต / บัตรกดเงินสด</span>
         </div>
-        <button type="button" class="sheet-close-btn" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
+        <button type="button" class="sheet-close-btn" aria-label="ปิดหน้าต่าง" onclick="closeAllDrawers()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="sheet-body">
         <form id="cardForm" onsubmit="handleSaveCard(event)">
           <input type="hidden" id="cardEditId" value="">
 
           <div class="form-group">
-            <label class="form-label">ชื่อเรียกบัตร *:</label>
+            <label class="form-label" for="cardNicknameInput">ชื่อเรียกบัตร *:</label>
             <input id="cardNicknameInput" type="text" class="form-input" placeholder="เช่น KBank OneSiam, SCB Ultra Platinum" required>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">ผู้ออกบัตร / ธนาคาร:</label>
+              <label class="form-label" for="cardIssuerInput">ผู้ออกบัตร / ธนาคาร:</label>
               <input id="cardIssuerInput" type="text" class="form-input" placeholder="เช่น กสิกรไทย, ไทยพาณิชย์, KTC">
             </div>
             <div class="form-group">
-              <label class="form-label">เลขท้าย 4 หลัก (เพื่อแยกบัตร):</label>
+              <label class="form-label" for="cardLastFourInput">เลขท้าย 4 หลัก (เพื่อแยกบัตร):</label>
               <input id="cardLastFourInput" type="text" maxlength="4" class="form-input" placeholder="เช่น 5678">
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">วันตัดรอบบิล (Closing Day):</label>
+              <label class="form-label" for="cardClosingDayInput">วันตัดรอบบิล (Closing Day):</label>
               <select id="cardClosingDayInput" class="form-select">
                 <option value="1">วันที่ 1</option>
                 <option value="5">วันที่ 5</option>
@@ -4588,7 +4564,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">วันครบกำหนดชำระ (Due Day):</label>
+              <label class="form-label" for="cardDueDayInput">วันครบกำหนดชำระ (Due Day):</label>
               <select id="cardDueDayInput" class="form-select">
                 <option value="1">วันที่ 1</option>
                 <option value="5">วันที่ 5</option>
@@ -4603,17 +4579,17 @@
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">วงเงินบัตร (บาท):</label>
+              <label class="form-label" for="cardLimitInput">วงเงินบัตร (บาท):</label>
               <input id="cardLimitInput" type="number" step="0.01" class="form-input" placeholder="0.00">
             </div>
             <div class="form-group">
-              <label class="form-label">ยอดใช้จ่ายปัจจุบัน (ภาระหนี้):</label>
+              <label class="form-label" for="cardBalanceInput">ยอดใช้จ่ายปัจจุบัน (ภาระหนี้):</label>
               <input id="cardBalanceInput" type="number" step="0.01" class="form-input" placeholder="0.00" value="0.00">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">รูปแบบการชำระปกติ:</label>
+            <label class="form-label" for="cardPaymentModeInput">รูปแบบการชำระปกติ:</label>
             <select id="cardPaymentModeInput" class="form-select">
               <option value="full">ชำระเต็มตามใบแจ้งยอด</option>
               <option value="installment">ผ่อนชำระเป็นงวด</option>
@@ -4649,7 +4625,7 @@
       </div>
       <div class="drawer-body">
         <p id="authModalSubtitle" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-          ลงชื่อเข้าใช้เพื่อซิงค์ข้อมูลอย่างปลอดภัยตามมาตรฐาน Row Level Security (RLS)
+          เข้าสู่ระบบเพื่อดูข้อมูลและบันทึกการเปลี่ยนแปลงของคุณ
         </p>
 
         <form id="authForm" onsubmit="event.preventDefault(); handleAuthSubmit();">
@@ -4931,6 +4907,7 @@
 
     function clearAppDataAndScreens() {
       currentSessionGeneration++;
+      if (typeof resetSlipSession === 'function') resetSlipSession();
       if (typeof closeOnboardingWizard === 'function') {
         closeOnboardingWizard();
       }
@@ -5039,7 +5016,15 @@
       var badges = [document.getElementById('syncStatusBadge'), document.getElementById('desktopSyncBadge')];
       badges.forEach(function(b) {
         if (!b) return;
-        if (status === 'saving') {
+        b.setAttribute('role', 'status');
+        b.setAttribute('aria-live', 'polite');
+        if (status === 'loading' || status === 'idle') {
+          b.className = 'status-badge';
+          b.style.color = 'var(--text-secondary)';
+          b.style.background = 'var(--color-surface-muted)';
+          b.style.borderColor = 'var(--color-border)';
+          b.textContent = status === 'loading' ? 'กำลังอัปเดต...' : 'ยังไม่เชื่อมต่อ';
+        } else if (status === 'saving') {
           b.className = 'status-badge';
           b.style.color = 'var(--accent-warning)';
           b.style.background = 'var(--accent-warning-bg)';
@@ -5107,7 +5092,7 @@
       var expectedGeneration = currentSessionGeneration;
       var expectedUserId = currentUser ? currentUser.id : null;
       try {
-        setSyncStatus('saving');
+        setSyncStatus('loading');
         var txPromise = fetchAllTransactions(expectedGeneration, expectedUserId);
         var results = await Promise.all([
           db.from('categories').select('*').order('id', { ascending: true }),
@@ -5186,12 +5171,16 @@
 
       // Update Mobile Nav
       document.querySelectorAll('.mobile-bottom-nav .nav-tab-btn').forEach(function(btn) {
-        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+        var isActive = btn.getAttribute('data-tab') === tabId || (btn.getAttribute('data-tab') === 'more' && ['todos', 'bills', 'equipment', 'export', 'settings'].includes(tabId));
+        btn.classList.toggle('active', isActive);
+        if (isActive) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current');
       });
 
       // Update Desktop Sidebar
       document.querySelectorAll('.sidebar-item').forEach(function(item) {
-        item.classList.toggle('active', item.getAttribute('data-tab') === tabId);
+        var isActive = item.getAttribute('data-tab') === tabId;
+        item.classList.toggle('active', isActive);
+        if (isActive) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
       });
 
       // Update Desktop Topbar Titles
@@ -5199,11 +5188,11 @@
         'transactions': { title: 'บันทึกเงิน', sub: 'จัดการกระแสเงินสดและธุรกรรมสตูดิโอ', btn: 'บันทึกเงิน' },
         'calendar': { title: 'ตารางงาน', sub: 'ปฏิทินงาน ไทม์ไลน์ และนัดหมายสตูดิโอ', btn: 'เพิ่มงาน' },
         'dashboard': { title: 'ภาพรวม', sub: 'สรุปการเงิน คิวงาน และเรื่องเร่งด่วน', btn: 'บันทึกเงิน' },
-        'todos': { title: 'สิ่งที่ต้องทำ', sub: 'รายการ To-Do Checklist ประจำวัน', btn: 'เพิ่มสิ่งที่ต้องทำ' },
+        'todos': { title: 'สิ่งที่ต้องทำ', sub: 'จัดลำดับและติดตามสิ่งที่ต้องทำประจำวัน', btn: 'เพิ่มสิ่งที่ต้องทำ' },
         'projects': { title: 'โปรเจกต์', sub: 'รวบรวมคิวงานและการเงินตามโปรเจกต์', btn: 'สร้างโปรเจกต์' },
         'bills': { title: 'เช็กลิสต์รายจ่ายประจำ', sub: 'รายการเช็กลิสต์เตือนความจำประจำเดือน (ไม่บันทึกบัญชี)', btn: 'เพิ่มรายการเตือน' },
         'equipment': { title: 'คลังอุปกรณ์', sub: 'กล้อง เลนส์ ไฟ และการติดตามอุปกรณ์', btn: 'เพิ่มอุปกรณ์' },
-        'export': { title: 'รายงาน & ส่งออก', sub: 'ส่งออก Google Sheets / Excel และ PDF', btn: 'ส่งออก Excel' },
+        'export': { title: 'รายงาน & ส่งออก', sub: 'ส่งออกข้อมูล Excel และสร้างเอกสาร PDF', btn: 'ส่งออก Excel' },
         'settings': { title: 'ตั้งค่าระบบ', sub: 'จัดการหมวดหมู่และข้อมูลความปลอดภัย', btn: 'เพิ่มหมวดหมู่' }
       };
 
@@ -8065,7 +8054,7 @@
       var bEl = document.getElementById('settingsBillCount');
       if (txEl) txEl.textContent = appData.transactions.length;
       if (jEl) jEl.textContent = appData.jobs.length;
-      if (bEl) bEl.textContent = appData.bills.length;
+      if (bEl) bEl.textContent = (appData.checklist_items || []).length;
     }
 
     // =========================================================
@@ -8219,7 +8208,7 @@
         if (toggleBtn) toggleBtn.textContent = 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบที่นี่';
       } else {
         if (titleEl) titleEl.textContent = '🔐 เข้าสู่ระบบ FreelanceHub';
-        if (subEl) subEl.textContent = 'ลงชื่อเข้าใช้เพื่อซิงค์ข้อมูลอย่างปลอดภัยตามมาตรฐาน Row Level Security (RLS)';
+        if (subEl) subEl.textContent = 'เข้าสู่ระบบเพื่อดูข้อมูลและบันทึกการเปลี่ยนแปลงของคุณ';
         if (submitBtn) submitBtn.textContent = 'เข้าสู่ระบบ';
         if (toggleBtn) toggleBtn.textContent = 'ยังไม่มีบัญชี? สมัครสมาชิกใหม่';
       }
@@ -8323,7 +8312,7 @@
         }
         if (settingsEmail) settingsEmail.textContent = email;
         if (settingsRole) {
-          settingsRole.textContent = 'Owner (Authenticated)';
+          settingsRole.textContent = 'บัญชีของคุณ';
           settingsRole.style.background = 'rgba(16, 185, 129, 0.15)';
           settingsRole.style.color = '#10B981';
         }
@@ -8347,7 +8336,7 @@
         }
         if (settingsEmail) settingsEmail.textContent = '-';
         if (settingsRole) {
-          settingsRole.textContent = 'Guest / Locked';
+          settingsRole.textContent = 'ยังไม่ได้เข้าสู่ระบบ';
           settingsRole.style.background = 'rgba(245, 158, 11, 0.15)';
           settingsRole.style.color = '#F59E0B';
         }
@@ -8724,6 +8713,7 @@
 
           if (prevUserId !== newUserId) {
             currentSessionGeneration++;
+            resetSlipSession();
           }
           currentUser = session ? session.user : null;
           updateAuthUI();
@@ -10639,10 +10629,25 @@
     // SUBSYSTEM 6: ON-DEVICE MULTI-SLIP SCANNER (สแกนสลิปบนอุปกรณ์)
     // =========================================================
     var slipDrafts = [];
+    var isSavingSlips = false;
     var isScanningSlips = false;
     var slipScanAbort = false;
     var slipDraftFilter = 'all'; // 'all', 'needs_review'
     var _tesseractWorker = null;
+
+    function resetSlipSession() {
+      slipScanAbort = true;
+      isSavingSlips = false;
+      isScanningSlips = false;
+      slipDrafts = [];
+      var status = document.getElementById('slipSaveStatus');
+      if (status) { status.hidden = true; status.textContent = ''; }
+      var input = document.getElementById('slipFileInput');
+      if (input) input.value = '';
+      var modal = document.getElementById('slipScannerDrawer');
+      if (modal) modal.classList.remove('active');
+      renderSlipDrafts();
+    }
 
     function openSlipScannerModal() {
       var wSel = document.getElementById('slipBulkWalletSelect');
@@ -10732,8 +10737,11 @@
     }
 
     async function handleSlipFilesSelected(files) {
+      if (isSavingSlips || isScanningSlips || !currentUser) return;
       if (!files || files.length === 0) return;
       var fileArray = Array.from(files).slice(0, 20);
+      var scanGeneration = currentSessionGeneration;
+      var scanUserId = currentUser ? currentUser.id : null;
       isScanningSlips = true;
       slipScanAbort = false;
 
@@ -10763,6 +10771,7 @@
         for (var idx = 0; idx < fileArray.length; idx++) {
           if (slipScanAbort) break;
 
+          if (!isMutationSessionValid(scanGeneration, scanUserId)) return;
           var file = fileArray[idx];
           var pct = Math.round(15 + ((idx + 1) / fileArray.length) * 80);
           if (progressBar) progressBar.style.width = pct + '%';
@@ -10835,6 +10844,7 @@
             }
           }
 
+          if (!isMutationSessionValid(scanGeneration, scanUserId)) return;
           var metadata = {
             headerText: headerText,
             captionText: captionText,
@@ -10895,23 +10905,27 @@
           slipDrafts.push(draft);
         }
 
+        if (!isMutationSessionValid(scanGeneration, scanUserId)) return;
         if (progressBar) progressBar.style.width = '100%';
         if (progressText) progressText.textContent = 'อ่านสลิปเสร็จสิ้น!';
         setTimeout(function() {
-          if (progressBox) progressBox.style.display = 'none';
+          if (isMutationSessionValid(scanGeneration, scanUserId) && progressBox) progressBox.style.display = 'none';
         }, 500);
 
       } catch (err) {
+        if (!isMutationSessionValid(scanGeneration, scanUserId)) return;
         console.error('Error scanning slips:', err);
         alert('เกิดข้อผิดพลาดในการอ่านสลิป: ' + (err.message || err));
         if (progressBox) progressBox.style.display = 'none';
       } finally {
-        isScanningSlips = false;
-        var container = document.getElementById('slipDraftsContainer');
-        var footer = document.getElementById('slipSheetFooter');
-        if (container) container.style.display = 'block';
-        if (footer) footer.style.display = 'flex';
-        renderSlipDrafts();
+        if (isMutationSessionValid(scanGeneration, scanUserId)) {
+          isScanningSlips = false;
+          var container = document.getElementById('slipDraftsContainer');
+          var footer = document.getElementById('slipSheetFooter');
+          if (container) container.style.display = 'block';
+          if (footer) footer.style.display = 'flex';
+          renderSlipDrafts();
+        }
       }
     }
 
@@ -10933,13 +10947,17 @@
 
       if (!listEl) return;
 
+      ['slipBulkWalletSelect', 'slipBulkCatSelect', 'slipFileInput'].forEach(function(id) {
+        var control = document.getElementById(id);
+        if (control) control.disabled = isSavingSlips;
+      });
       var activeDrafts = slipDrafts.filter(function(d) {
-        if (slipDraftFilter === 'needs_review') return d.needs_review;
+        if (slipDraftFilter === 'needs_review') return d.needs_review || d.saveError;
         return true;
       });
 
       if (badgeEl) {
-        var needRevCount = slipDrafts.filter(function(d) { return d.needs_review; }).length;
+        var needRevCount = slipDrafts.filter(function(d) { return d.needs_review || d.saveError; }).length;
         badgeEl.textContent = slipDrafts.length + ' รายการ' + (needRevCount > 0 ? ' (' + needRevCount + ' รายการต้องตรวจแก้)' : '');
       }
 
@@ -10959,7 +10977,8 @@
         confirmCountEl.textContent = '(' + selectedCount + ')';
       }
       if (confirmBtn) {
-        confirmBtn.disabled = (selectedCount === 0);
+        confirmBtn.disabled = (selectedCount === 0 || isSavingSlips || isScanningSlips);
+        confirmBtn.setAttribute('aria-busy', isSavingSlips ? 'true' : 'false');
       }
 
       if (activeDrafts.length === 0) {
@@ -10982,14 +11001,15 @@
         return '<div class="slip-card' + (hasReview ? ' slip-card--review' : '') + '">' +
           '<div class="slip-card-header">' +
             '<label class="slip-card-identity">' +
-              '<input type="checkbox" aria-label="เลือกรายการสลิป" ' + (d.selected ? 'checked' : '') + ' onchange="updateSlipDraft(\'' + d.id + '\', \'selected\', this.checked)">' +
+              '<input type="checkbox" aria-label="เลือกรายการสลิป" ' + (isSavingSlips ? 'disabled ' : '') + (d.selected ? 'checked' : '') + ' onchange="updateSlipDraft(\'' + d.id + '\', \'selected\', this.checked)">' +
               '<span class="slip-card-meta"><span class="slip-source">' + escapeHtml(d.bankSource) + '</span>' +
               '<span class="slip-filename">' + escapeHtml(d.fileName) + '</span></span>' +
             '</label>' +
-            '<button type="button" class="slip-remove" onclick="removeSlipDraft(\'' + d.id + '\')" aria-label="ลบรายการสลิป" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i></button>' +
+            '<button type="button" class="slip-remove" ' + (isSavingSlips ? 'disabled ' : '') + 'onclick="removeSlipDraft(\'' + d.id + '\')" aria-label="ลบรายการสลิป" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i></button>' +
           '</div>' +
           (hasReview ? '<div class="slip-review-message"><strong><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ตรวจสอบก่อนบันทึก</strong>' + (reviewItems ? '<ul>' + reviewItems + '</ul>' : '') + '</div>' : '') +
-          '<div class="slip-fields">' +
+          (d.saveError ? '<div class="slip-save-error" role="alert">' + escapeHtml(d.saveError) + '</div>' : '') +
+          '<fieldset class="slip-fields"' + (isSavingSlips ? ' disabled' : '') + '>' +
             '<div class="slip-field-wide">' +
               '<label for="' + fieldId + 'amount">ยอดเงิน (บาท) *</label>' +
               '<input id="' + fieldId + 'amount" type="number" inputmode="decimal" step="any" class="form-input" value="' + (d.amount !== null && d.amount !== undefined ? d.amount : '') + '" placeholder="0.00" onchange="updateSlipDraft(\'' + d.id + '\', \'amount\', parseFloat(this.value) || null)">' +
@@ -11030,12 +11050,13 @@
                 }).join('') +
               '</select>' +
             '</div>' +
-          '</div>' +
+          '</fieldset>' +
         '</div>';
       }).join('');
     }
 
     function updateSlipDraft(id, field, value) {
+      if (isSavingSlips) return;
       var d = slipDrafts.find(function(it) { return it.id === id; });
       if (!d) return;
       d[field] = value;
@@ -11054,11 +11075,13 @@
     }
 
     function removeSlipDraft(id) {
+      if (isSavingSlips) return;
       slipDrafts = slipDrafts.filter(function(it) { return it.id !== id; });
       renderSlipDrafts();
     }
 
     function applyBulkWalletToSlips(walletId) {
+      if (isSavingSlips) return;
       if (!walletId) return;
       var wId = parseInt(walletId, 10);
       slipDrafts.forEach(function(d) { d.walletId = wId; });
@@ -11066,13 +11089,16 @@
     }
 
     function applyBulkCategoryToSlips(catName) {
+      if (isSavingSlips) return;
       if (!catName) return;
       slipDrafts.forEach(function(d) { d.category = catName; });
       renderSlipDrafts();
     }
 
     async function confirmAndSaveSlipDrafts() {
-      var toSave = slipDrafts.filter(function(d) { return d.selected; });
+      if (isSavingSlips || isScanningSlips) return;
+      if (!currentUser) { alert('กรุณาเข้าสู่ระบบก่อนบันทึก'); return; }
+      var toSave = slipDrafts.filter(function(d) { return d.selected; }).map(function(d) { return Object.assign({}, d); });
       if (toSave.length === 0) {
         alert('กรุณาเลือกอย่างน้อย 1 รายการเพื่อบันทึก');
         return;
@@ -11092,51 +11118,61 @@
       var mutationToken = currentSessionGeneration;
       var mutationUserId = currentUser ? currentUser.id : null;
 
+      isSavingSlips = true;
+      renderSlipDrafts();
       setSyncStatus('saving');
       var successCount = 0;
       var failCount = 0;
-
-      for (var i = 0; i < toSave.length; i++) {
-        var d = toSave[i];
-        var detailsText = (d.caption ? d.caption + ' • ' : '') + (d.receiver ? 'โอนให้ ' + d.receiver : 'สแกนสลิป') + (d.refNumber ? ' (Ref: ' + d.refNumber + ')' : '');
-        var rpcParams = {
-          p_date: d.date,
-          p_type: 'รายจ่าย',
-          p_category: d.category || 'ค่าใช้จ่ายทั่วไป',
-          p_amount: d.amount,
-          p_details: detailsText,
-          p_related_job: null,
-          p_wallet_id: d.walletId,
-          p_card_id: null,
-          p_job_id: null,
-          p_request_id: d.requestId
-        };
-
-        try {
-          var rpcRes = await db.rpc('execute_create_transaction', rpcParams);
+      var savedRequestIds = new Set();
+      var statusEl = document.getElementById('slipSaveStatus');
+      if (statusEl) statusEl.hidden = false;
+      try {
+        for (var i = 0; i < toSave.length; i++) {
           if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
-          if (rpcRes.error) {
-            failCount++;
-            console.error('Failed saving slip draft:', d, rpcRes.error);
-          } else {
+          var d = toSave[i];
+          if (statusEl) statusEl.textContent = 'กำลังบันทึก ' + (i + 1) + ' / ' + toSave.length + ' รายการ';
+          var detailsText = (d.caption ? d.caption + ' • ' : '') + (d.receiver ? 'โอนให้ ' + d.receiver : 'สแกนสลิป') + (d.refNumber ? ' (Ref: ' + d.refNumber + ')' : '');
+          var rpcParams = {
+            p_date: d.date,
+            p_type: 'รายจ่าย',
+            p_category: d.category || 'ค่าใช้จ่ายทั่วไป',
+            p_amount: d.amount,
+            p_details: detailsText,
+            p_related_job: null,
+            p_wallet_id: d.walletId,
+            p_card_id: null,
+            p_job_id: null,
+            p_request_id: d.requestId
+          };
+
+          try {
+            var rpcRes = await db.rpc('execute_create_transaction', rpcParams);
+            if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+            if (rpcRes.error) throw rpcRes.error;
+            if (!rpcRes.data || rpcRes.data.success !== true) throw new Error('SAVE_NOT_CONFIRMED');
             successCount++;
+            savedRequestIds.add(d.requestId);
+            slipDrafts = slipDrafts.filter(function(item) { return !savedRequestIds.has(item.requestId); });
+          } catch (err) {
+            if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+            failCount++;
+            var failed = slipDrafts.find(function(item) { return item.requestId === d.requestId; });
+            if (failed) failed.saveError = String(err.message || '').includes('IDEMPOTENCY_CONFLICT')
+              ? 'ข้อมูลต่างจากคำขอที่เคยบันทึก กรุณาตรวจรายการเงินก่อนแก้ไขใบนี้'
+              : 'ยังยืนยันการบันทึกไม่ได้ ข้อมูลยังอยู่ครบ กดบันทึกเพื่อลองใหม่ได้โดยไม่สร้างรายการซ้ำ';
           }
-        } catch (err) {
-          failCount++;
-          console.error('Exception saving slip draft:', d, err);
         }
-      }
-
-      var savedRequestIds = new Set(toSave.map(function(d) { return d.requestId; }));
-      slipDrafts = slipDrafts.filter(function(d) { return !savedRequestIds.has(d.requestId); });
-
-      closeSlipScannerModal();
-      await loadAllData();
-
-      if (failCount > 0) {
-        alert('บันทึกสำเร็จ ' + successCount + ' รายการ, ไม่สำเร็จ ' + failCount + ' รายการ');
-      } else {
-        showToast('บันทึกรายจ่ายจากสลิป ' + successCount + ' รายการสำเร็จ 🎉');
+        await loadAllData();
+        if (!isMutationSessionValid(mutationToken, mutationUserId)) return;
+        if (statusEl) statusEl.textContent = 'บันทึกแล้ว ' + successCount + ' รายการ' + (failCount ? ' · รอลองใหม่ ' + failCount + ' รายการ' : '');
+        if (failCount) setSyncStatus('error');
+        if (slipDrafts.length === 0) closeSlipScannerModal();
+        showToast('บันทึกแล้ว ' + successCount + ' รายการ' + (failCount ? ' · อีก ' + failCount + ' รายการยังอยู่ให้ลองใหม่' : ''));
+      } finally {
+        if (isMutationSessionValid(mutationToken, mutationUserId)) {
+          isSavingSlips = false;
+          renderSlipDrafts();
+        }
       }
     }
 

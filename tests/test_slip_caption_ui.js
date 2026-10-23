@@ -8,12 +8,12 @@ const elements = {};
 const calls = [];
 const ctx = vm.createContext({
   slipDrafts: [{id:'test', requestId:'req-test', selected:true, amount:5, date:'2026-10-21', walletId:1, category:'อาหาร', bankSource:'SCB / ไทยพาณิชย์', caption:'<b>ค่าอาหาร1000</b>', receiver:'ร้านทดสอบ'}],
-  slipDraftFilter:'all', appData:{categories:[],wallets:[]},
-  document:{getElementById:id=>elements[id] ||= {}},
+  isSavingSlips:false, isScanningSlips:false, slipDraftFilter:'all', appData:{categories:[],wallets:[]},
+  document:{getElementById:id=>elements[id] ||= {setAttribute(){}}},
   escapeHtml:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
   currentSessionGeneration:1, currentUser:{id:'test'},
   confirm:()=>true, alert:()=>{}, setSyncStatus:()=>{}, isMutationSessionValid:()=>true,
-  db:{rpc:async(name,args)=>{calls.push(args);return {data:{}}}},
+  db:{rpc:async(name,args)=>{calls.push(args);return {data:{success:true}}}},
   closeSlipScannerModal:()=>{},loadAllData:async()=>{},showToast:()=>{},console
 });
 vm.runInContext(source,ctx);

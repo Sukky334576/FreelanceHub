@@ -8,6 +8,7 @@ const PUBLIC_FILES = Object.freeze([
   'index.html',
   'guide.html',
   'manifest.json',
+  'css/app-ui.css',
   'favicon.png',
   'apple-touch-icon.png',
   'icon-192.png',
@@ -43,7 +44,7 @@ function validateReference(reference, fromFile) {
 }
 
 function validateDependencies(rootDir) {
-  for (const name of PUBLIC_FILES.filter(file => /\.(?:html|js)$/.test(file))) {
+  for (const name of PUBLIC_FILES.filter(file => /\.(?:html|js|css)$/.test(file))) {
     const source = fs.readFileSync(path.join(rootDir, name), 'utf8');
     // Includes literal script.src assignments and HTML embedded in JavaScript.
     for (const match of source.matchAll(/\b(?:src|href)\s*=\s*(["'])(.*?)\1/g)) {
