@@ -2499,7 +2499,7 @@
     #slipScannerDrawer .sheet-title { font-size: 20px; font-weight: 750; letter-spacing: -.3px; }
     #slipScannerDrawer .slip-subtitle { color: #61727c; font-size: 12px; margin-top: 5px; line-height: 1.6; }
     #slipScannerDrawer .sheet-close-btn { width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid #e2e8eb; background: #f7f9fa; border-radius: 12px; }
-    #slipScannerDrawer .sheet-body { min-height: 0; padding: 20px 24px 24px !important; overscroll-behavior: contain; }
+    #slipScannerDrawer .sheet-body { min-height: 0; min-width: 0; padding: 20px 24px 24px !important; overscroll-behavior: contain; }
     #slipScannerDrawer *, #slipScannerDrawer *::before, #slipScannerDrawer *::after { box-sizing: border-box; }
     #slipScannerDrawer .slip-toolbar { display: grid; gap: 14px; margin-bottom: 18px; }
     #slipScannerDrawer .slip-toolbar-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -2509,7 +2509,7 @@
     #slipScannerDrawer .slip-filters button.active { background: white; color: #0c7483; box-shadow: 0 1px 3px #17364116; font-weight: 700; }
     #slipScannerDrawer .slip-bulk { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     #slipScannerDrawer .slip-bulk label { display: block; font-size: 12px; color: #536872; margin-bottom: 6px; }
-    #slipScannerDrawer .slip-card { padding: 18px; border: 1px solid #dfe6e9; border-radius: 16px; background: #fff; box-shadow: 0 2px 6px #17364105; }
+    #slipScannerDrawer .slip-card { min-width: 0; padding: 20px; border: 1px solid #dfe6e9; border-radius: 16px; background: #fff; box-shadow: 0 2px 6px #17364105; }
     #slipScannerDrawer .slip-card--review { border-color: #e6cf9f; }
     #slipDraftsList { gap: 16px !important; }
     #slipScannerDrawer .slip-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -2520,15 +2520,17 @@
     #slipScannerDrawer input[type=checkbox] { width: 20px; height: 20px; flex: 0 0 20px; accent-color: #137f8b; cursor: pointer; margin: 0; }
     #slipScannerDrawer .slip-remove { width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 10px; background: #fff; color: #788994; cursor: pointer; }
     #slipScannerDrawer .slip-remove:hover { background: #fff1f0; color: #b8433c; }
-    #slipScannerDrawer .slip-review-message { padding: 10px 12px; margin-bottom: 16px; border-radius: 10px; background: #fff8e9; color: #85601c; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
-    #slipScannerDrawer .slip-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
-    #slipScannerDrawer .slip-fields > div { min-width: 0; }
-    #slipScannerDrawer .slip-fields label { display: block; margin-bottom: 6px !important; font-size: 12px !important; font-weight: 600; color: #526874 !important; }
-    #slipScannerDrawer .form-input { display: block; width: 100% !important; min-width: 0; max-width: 100%; height: 46px; min-height: 46px; margin: 0; padding: 10px 12px !important; border: 1px solid #d7e0e4; border-radius: 10px !important; background: #fff; color: #203844; font-size: 16px !important; line-height: 1.4; box-shadow: none; }
+    #slipScannerDrawer .slip-review-message { padding: 12px 14px; margin-bottom: 20px; border-radius: 10px; background: #fff8e9; color: #85601c; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+    #slipScannerDrawer .slip-review-message strong { display: block; margin-bottom: 4px; font-weight: 600; }
+    #slipScannerDrawer .slip-review-message ul { margin: 0; padding-left: 18px; }
+    #slipScannerDrawer .slip-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px 16px; }
+    #slipScannerDrawer .slip-fields > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    #slipScannerDrawer .slip-fields label { display: block; margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; color: #526874; }
+    #slipScannerDrawer .form-input { display: block; width: 100% !important; min-width: 0; max-width: 100%; min-inline-size: 0; height: 48px; min-height: 48px; margin: 0; padding: 10px 12px !important; border: 1px solid #d7e0e4; border-radius: 10px !important; background: #fff; color: #203844; font-size: 16px !important; line-height: 1.4; box-shadow: none; }
     #slipScannerDrawer input[type=date], #slipScannerDrawer input[type=time] { -webkit-appearance: none; appearance: none; text-align: left; }
     #slipScannerDrawer input::-webkit-date-and-time-value { text-align: left; min-height: 1.4em; }
     #slipScannerDrawer input::-webkit-datetime-edit { padding: 0; min-width: 0; }
-    #slipScannerDrawer textarea.form-input { height: 76px; resize: vertical; }
+    #slipScannerDrawer textarea.form-input { height: 96px; min-height: 96px; resize: vertical; }
     #slipScannerDrawer .form-input::placeholder { color: #82929b; font-size: 14px; }
     #slipScannerDrawer .form-input:focus-visible, #slipScannerDrawer button:focus-visible { outline: 3px solid #90cbd2; outline-offset: 2px; border-color: #168795; }
     #slipScannerDrawer .slip-fields input[type=number] { font-weight: 750; font-variant-numeric: tabular-nums; }
@@ -2538,17 +2540,18 @@
     #slipSheetFooter > div:last-child { align-items: center; }
     #slipSheetFooter button { min-height: 46px; border-radius: 10px; font-size: 14px !important; white-space: nowrap; }
     #btnConfirmSaveSlips { box-shadow: none; padding: 12px 18px !important; background: #117f8b !important; }
-    @media (max-width: 540px) {
+    @media (max-width: 600px) {
       #slipScannerDrawer .sheet-header { padding: 16px !important; }
       #slipScannerDrawer .sheet-title { font-size: 18px; }
       #slipScannerDrawer .sheet-body { padding: 16px !important; }
       #slipScannerDrawer .slip-toolbar-heading { align-items: stretch; flex-direction: column; gap: 10px; }
       #slipScannerDrawer .slip-filters button { flex: 1; }
       #slipScannerDrawer .slip-bulk { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-      #slipScannerDrawer .slip-card { padding: 14px; }
+      #slipScannerDrawer .slip-card { padding: 16px; }
       #slipScannerDrawer .slip-filename { max-width: 200px; }
       #slipScannerDrawer .slip-source { font-size: 14px; }
-      #slipScannerDrawer .slip-fields { gap: 12px 10px; }
+      /* A full row gives iOS date/time controls room for localized dates and text scaling. */
+      #slipScannerDrawer .slip-fields { grid-template-columns: minmax(0, 1fr); gap: 16px; }
       #slipSheetFooter { flex-wrap: wrap; gap: 10px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)) !important; }
       #slipSheetFooter > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; }
       #slipSheetFooter > div:last-child { display: grid !important; grid-template-columns: auto minmax(0, 1fr); width: 100%; gap: 10px !important; }
@@ -3726,20 +3729,20 @@
   <!-- =========================================================
        MODAL: สแกนสลิปโอนเงินหลายรูปบนอุปกรณ์ (SLIP SCANNER DRAWER)
        ========================================================= -->
-  <div id="slipScannerDrawer" class="drawer-backdrop" role="dialog" aria-modal="true" onclick="closeSlipScannerModal()">
+  <div id="slipScannerDrawer" class="drawer-backdrop" data-layout-version="slip-review-20261023" role="dialog" aria-modal="true" aria-labelledby="slipScannerTitle" onclick="closeSlipScannerModal()">
     <div class="drawer-sheet" style="max-width: 720px; max-height: 92vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
       <div class="sheet-header" style="border-bottom: 1px solid var(--color-border); padding-bottom: 12px;">
         <div>
           <div class="sheet-title" style="display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-receipt" style="color: var(--color-primary);"></i>
-            <span>ตรวจสลิปก่อนบันทึก</span>
+            <span id="slipScannerTitle">ตรวจสลิปก่อนบันทึก</span>
           </div>
           <div class="slip-subtitle">
             อ่านบนอุปกรณ์ · ไม่อัปโหลดหรือเก็บรูปสลิป
           </div>
         </div>
-        <button class="sheet-close-btn" onclick="closeSlipScannerModal()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="sheet-close-btn" aria-label="ปิดหน้าตรวจสลิป" onclick="closeSlipScannerModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="sheet-body" style="overflow-y: auto; flex: 1; padding: 16px;">
@@ -10971,7 +10974,10 @@
 
       listEl.innerHTML = activeDrafts.map(function(d) {
         var hasReview = d.needs_review;
-        var reasonsText = (d.reviewReasons && d.reviewReasons.length > 0) ? d.reviewReasons.join(' • ') : '';
+        var fieldId = 'slip-' + escapeHtml(d.id) + '-';
+        var reviewItems = (d.reviewReasons || []).map(function(reason) {
+          return '<li>' + escapeHtml(reason) + '</li>';
+        }).join('');
 
         return '<div class="slip-card' + (hasReview ? ' slip-card--review' : '') + '">' +
           '<div class="slip-card-header">' +
@@ -10982,43 +10988,43 @@
             '</label>' +
             '<button type="button" class="slip-remove" onclick="removeSlipDraft(\'' + d.id + '\')" aria-label="ลบรายการสลิป" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i></button>' +
           '</div>' +
-          (hasReview ? '<div class="slip-review-message"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + escapeHtml(reasonsText) + '</div>' : '') +
+          (hasReview ? '<div class="slip-review-message"><strong><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ตรวจสอบก่อนบันทึก</strong>' + (reviewItems ? '<ul>' + reviewItems + '</ul>' : '') + '</div>' : '') +
           '<div class="slip-fields">' +
             '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ยอดเงิน (บาท) *</label>' +
-              '<input type="number" step="any" class="form-input" value="' + (d.amount !== null && d.amount !== undefined ? d.amount : '') + '" placeholder="0.00" style="padding: 5px 8px; font-size: 0.82rem; font-weight: 700; ' + (d.amount === null ? 'border-color: var(--accent-warning);' : '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'amount\', parseFloat(this.value) || null)">' +
+              '<label for="' + fieldId + 'amount">ยอดเงิน (บาท) *</label>' +
+              '<input id="' + fieldId + 'amount" type="number" inputmode="decimal" step="any" class="form-input" value="' + (d.amount !== null && d.amount !== undefined ? d.amount : '') + '" placeholder="0.00" onchange="updateSlipDraft(\'' + d.id + '\', \'amount\', parseFloat(this.value) || null)">' +
             '</div>' +
             '<div>' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">วันที่ *</label>' +
-              '<input type="date" class="form-input" value="' + (d.date || '') + '" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'date\', this.value)">' +
+              '<label for="' + fieldId + 'date">วันที่ *</label>' +
+              '<input id="' + fieldId + 'date" type="date" class="form-input" value="' + (d.date || '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'date\', this.value)">' +
             '</div>' +
             '<div>' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">เวลา</label>' +
-              '<input type="time" class="form-input" value="' + (d.time || '12:00') + '" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'time\', this.value)">' +
+              '<label for="' + fieldId + 'time">เวลา</label>' +
+              '<input id="' + fieldId + 'time" type="time" class="form-input" value="' + (d.time || '12:00') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'time\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label for="' + fieldId + 'receiver">โอนให้ / ผู้รับ</label>' +
+              '<input id="' + fieldId + 'receiver" type="text" class="form-input" value="' + escapeHtml(d.receiver || '') + '" placeholder="ชื่อผู้รับเงิน" onchange="updateSlipDraft(\'' + d.id + '\', \'receiver\', this.value)">' +
+            '</div>' +
+            '<div>' +
+              '<label for="' + fieldId + 'source">ธนาคาร / แอปต้นทาง</label>' +
+              '<input id="' + fieldId + 'source" type="text" class="form-input" aria-label="ธนาคาร / แอปต้นทาง" value="' + escapeHtml(d.bankSource || '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'bankSource\', this.value)">' +
             '</div>' +
             '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">โอนให้ / ผู้รับ</label>' +
-              '<input type="text" class="form-input" value="' + escapeHtml(d.receiver || '') + '" placeholder="ชื่อผู้รับเงิน" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'receiver\', this.value)">' +
+              '<label for="' + fieldId + 'caption">แคปชั่น / บันทึกช่วยจำ</label>' +
+              '<textarea id="' + fieldId + 'caption" class="form-input" aria-label="แคปชั่น / บันทึกช่วยจำ" placeholder="ตรวจข้อความเพิ่มเติมบนสลิป" onchange="updateSlipDraft(\'' + d.id + '\', \'caption\', this.value)">' + escapeHtml(d.caption || '') + '</textarea>' +
             '</div>' +
-            '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ธนาคาร / แอปต้นทาง (ตรวจแก้ได้)</label>' +
-              '<input type="text" class="form-input" aria-label="ธนาคาร / แอปต้นทาง" value="' + escapeHtml(d.bankSource || '') + '" onchange="updateSlipDraft(\'' + d.id + '\', \'bankSource\', this.value)">' +
-            '</div>' +
-            '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">แคปชั่น / บันทึกช่วยจำ</label>' +
-              '<textarea class="form-input" aria-label="แคปชั่น / บันทึกช่วยจำ" placeholder="ตรวจข้อความเพิ่มเติมบนสลิป" onchange="updateSlipDraft(\'' + d.id + '\', \'caption\', this.value)">' + escapeHtml(d.caption || '') + '</textarea>' +
-            '</div>' +
-            '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ตัดจากกระเป๋า *</label>' +
-              '<select class="form-input" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'walletId\', parseInt(this.value, 10))">' +
+            '<div>' +
+              '<label for="' + fieldId + 'wallet">ตัดจากกระเป๋า *</label>' +
+              '<select id="' + fieldId + 'wallet" class="form-input" onchange="updateSlipDraft(\'' + d.id + '\', \'walletId\', parseInt(this.value, 10))">' +
                 wallets.map(function(w) {
                   return '<option value="' + w.id + '" ' + (d.walletId === w.id ? 'selected' : '') + '>' + escapeHtml(w.name) + '</option>';
                 }).join('') +
               '</select>' +
             '</div>' +
-            '<div class="slip-field-wide">' +
-              '<label style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px;">หมวดหมู่ *</label>' +
-              '<select class="form-input" style="padding: 5px 8px; font-size: 0.82rem;" onchange="updateSlipDraft(\'' + d.id + '\', \'category\', this.value)">' +
+            '<div>' +
+              '<label for="' + fieldId + 'category">หมวดหมู่ *</label>' +
+              '<select id="' + fieldId + 'category" class="form-input" onchange="updateSlipDraft(\'' + d.id + '\', \'category\', this.value)">' +
                 expCats.map(function(c) {
                   return '<option value="' + escapeHtml(c.name) + '" ' + (d.category === c.name ? 'selected' : '') + '>' + escapeHtml(c.name) + '</option>';
                 }).join('') +
