@@ -312,3 +312,36 @@ input::-webkit-date-and-time-value { text-align: left; min-height: 1.4em; }
   #syncStatusBadge { font-size: 10px; padding: 4px; white-space: nowrap; }
   .theme-options button { font-size: 13px; gap: 6px; }
 }
+
+/* Signup and approval use the same visual language in both themes. */
+[hidden] { display: none !important; }
+.login-gate-overlay { overflow-y: auto; padding: max(72px, env(safe-area-inset-top)) 20px 32px; }
+.login-gate-card { margin: auto; flex-shrink: 0; }
+.trial-signup-invite { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; color: var(--text-secondary); font-size: 13px; }
+.trial-title { font-size: 19px; margin-bottom: 8px; }
+.trial-intro { color: var(--text-secondary); font-size: 13px; margin: 6px 0 18px; }
+.trial-meta { color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.trial-email { font-size: 14px; overflow-wrap: anywhere; color: var(--text-secondary); }
+.trial-back { background: none; border: 0; color: var(--color-primary); cursor: pointer; width: 100%; padding: 14px 8px; min-height: 44px; }
+.trial-notice { padding: 12px; border-radius: 10px; background: var(--color-primary-soft); color: var(--text-primary); font-size: 13px; margin: 14px 0; }
+.trial-error { color: var(--color-danger); background: var(--color-danger-soft); padding: 12px; border-radius: 10px; font-size: 13px; }
+.trial-access-status { text-align: center; }
+.trial-status-icon { font-size: 28px; color: var(--color-primary); margin-bottom: 18px; }
+.trial-admin-panel { margin-bottom: 20px; }
+.trial-admin-heading, .trial-request-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.trial-admin-heading h3 { font-size: 18px; }
+.trial-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.trial-requests-list { display: grid; gap: 12px; margin-top: 16px; }
+.trial-request { border: 1px solid var(--color-border); border-radius: 12px; padding: 16px; min-width: 0; }
+.trial-request strong { overflow-wrap: anywhere; }
+.trial-status { font-size: 12px; padding: 4px 9px; border-radius: 8px; background: var(--color-primary-soft); color: var(--color-primary-dark); }
+.trial-actions, .trial-pagination { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.trial-pagination { justify-content: flex-end; }
+.trial-empty { color: var(--text-secondary); padding: 16px 0; }
+@media(max-width:480px) { .trial-filters { grid-template-columns: minmax(0,1fr); gap: 0; } }
+
+#gateSignupForm .form-group { margin-bottom: 16px; }
+.account-email-settings { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px; }
+.account-email-settings summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 700; }
+.account-email-settings form { max-width: 480px; }
+.account-email-settings .form-input { margin-bottom: 12px; width: 100%; min-width: 0; box-sizing: border-box; }

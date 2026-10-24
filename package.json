@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/test_theme.js && node tests/test_slip_parser.js && node tests/test_slip_caption_ui.js && node tests/test_slip_save_recovery.js && node tests/test_reconciliation.js && node tests/verify_financial_fixes.js && node tests/test_barrier_predicate.js && npm run test:build",
+    "test": "node tests/test_theme.js && node tests/test_trial_access.js && node tests/test_trial_access_ui.js && node tests/test_slip_parser.js && node tests/test_slip_caption_ui.js && node tests/test_slip_save_recovery.js && node tests/test_reconciliation.js && node tests/verify_financial_fixes.js && node tests/test_barrier_predicate.js && npm run test:build",
     "test:reconciliation": "node tests/test_reconciliation.js",
     "test:predicate": "node tests/test_barrier_predicate.js",
     "test:concurrency": "node tests/test_concurrency_multiconn.js",

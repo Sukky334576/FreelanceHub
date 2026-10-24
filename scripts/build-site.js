@@ -17,6 +17,7 @@ const PUBLIC_FILES = Object.freeze([
   'js/financial-core.js',
   'js/slip-parser.js',
   'js/theme.js',
+  'js/access-control.js',
 ]);
 
 function checkedSource(rootDir, relativePath) {

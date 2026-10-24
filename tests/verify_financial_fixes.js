@@ -186,10 +186,17 @@ function createVmHarness(dbOverride = {}) {
   };
 
   sandbox.window.supabase = {
-    createClient: () => Object.assign(defaultDb, dbOverride)
+    createClient: () => {
+      const client=Object.assign(defaultDb, dbOverride), originalRpc=client.rpc;
+      client.rpc=async (name,args)=>name==='get_my_app_access'
+        ? {data:{user_id:context.currentUser?.id,status:'approved',allowed:true,is_admin:false}}
+        : originalRpc(name,args);
+      return client;
+    }
   };
 
   const context = vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/access-control.js'), 'utf8'), context);
   const exported = vm.runInContext(mainScript + '\n;({currentSessionGeneration, clearAppDataAndScreens, handleSaveTx, deleteTx, handleReconSubmit, quickPayBill, toggleBillPaid, handleSaveBill, handleRecordDebtPayment, handleInternalTransfer, cancelTransferByTx, loadWallets, handleSignOut, appData, getAppData: () => appData, setSyncStatus, closeAllDrawers: () => {}, initAuth, updateAuthUI: () => {}, checkOnboardingStatus, handleFinishOnboarding, openOnboardingWizard, closeOnboardingWizard, goToOnboardingStep, saveAppDataSnapshot, loadAppDataSnapshot, loadAllData, getCurrentBangkokPeriod, isChecklistItemChecked, getBangkokMonthDisplayName, setChecklistFilter, renderChecklist, toggleChecklistItem, openAddChecklistItemModal, openEditChecklistItemModal, handleSaveChecklistItem, deleteChecklistItem, openSlipScannerModal, closeSlipScannerModal, cancelSlipProcessing, handleSlipFilesSelected, setSlipDraftFilter, renderSlipDrafts, updateSlipDraft, removeSlipDraft, applyBulkWalletToSlips, applyBulkCategoryToSlips, confirmAndSaveSlipDrafts});', context);
 
   return { sandbox, exported, formValues, context };
@@ -606,7 +613,7 @@ await test('FR02', 'Session Generation Token: stale async responses from previou
     'loadCardsFromLocal must use getUserStorageKey');
 
   // 4. Verify onAuthStateChange handles SIGNED_OUT
-  assert(indexHtml.includes("} else if (event === 'SIGNED_OUT') {\n            clearAppDataAndScreens();"),
+  assert(/if \(event === 'SIGNED_OUT'\) \{[\s\S]*?clearAppDataAndScreens\(\);/.test(indexHtml),
     'onAuthStateChange must call clearAppDataAndScreens on SIGNED_OUT');
 });
 
@@ -2047,7 +2054,8 @@ await test('PR01', 'Instant PWA Startup: local snapshot loads <50ms, queries par
   exported.appData.wallets = [];
   exported.appData.transactions = [];
 
-  // Restore snapshot instantly
+  // A restored session must pass the server approval gate before its snapshot is shown.
+  context.appAccessState={user_id:'user_natthawit',status:'approved',allowed:true,is_admin:false};
   const loaded = exported.loadAppDataSnapshot();
   assert.strictEqual(loaded, true, 'loadAppDataSnapshot must return true on valid snapshot');
   assert.strictEqual(exported.appData.wallets.length, 2, 'Wallets must be restored from snapshot');

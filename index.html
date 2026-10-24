@@ -29,6 +29,7 @@
   <script src="js/financial-core.js"></script>
   <!-- On-Device Slip Parser Engine -->
   <script src="js/slip-parser.js"></script>
+  <script src="js/access-control.js"></script>
 
   <style>
 
@@ -2568,7 +2569,7 @@
   <!-- =======================================================
        LOGIN GATE: FREELANCEHUB AUTHENTICATION SCREEN
        ======================================================= -->
-  <div id="loginGateOverlay" class="login-gate-overlay" style="display: none;">
+  <div id="loginGateOverlay" class="login-gate-overlay">
     <button type="button" class="theme-toggle login-theme-toggle" data-theme-toggle aria-label="เปลี่ยนเป็นโหมดมืด" title="เปลี่ยนเป็นโหมดมืด"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
     <div class="login-gate-card">
       <div class="login-gate-brand">
@@ -2608,6 +2609,31 @@
           <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
         </button>
       </form>
+
+      <div id="gateSignupInvite" class="trial-signup-invite">
+        <span>ยังไม่มีบัญชี?</span>
+        <button type="button" class="btn-secondary" onclick="showGateMode('signup')">สมัครขอทดลองใช้</button>
+      </div>
+      <p id="gateSignupResult" class="trial-notice" role="status" hidden></p>
+      <form id="gateSignupForm" onsubmit="handleTrialSignup(event)" hidden>
+        <h2 class="trial-title">สมัครขอทดลองใช้</h2>
+        <p class="trial-intro">สร้างบัญชีแล้วรอแอดมินอนุมัติก่อนเข้าใช้งาน</p>
+        <div class="form-group"><label class="form-label" for="signupName">ชื่อที่ใช้ติดต่อ</label><input id="signupName" class="form-input" required maxlength="100" autocomplete="name"></div>
+        <div class="form-group"><label class="form-label" for="signupEmail">อีเมล</label><input id="signupEmail" type="email" class="form-input" required autocomplete="email"></div>
+        <div class="form-group"><label class="form-label" for="signupPassword">รหัสผ่าน</label><input id="signupPassword" type="password" class="form-input" required minlength="8" autocomplete="new-password" aria-describedby="signupPasswordHelp"><small id="signupPasswordHelp" class="trial-meta">อย่างน้อย 8 ตัวอักษร</small></div>
+        <div class="form-group"><label class="form-label" for="signupConfirmPassword">ยืนยันรหัสผ่าน</label><input id="signupConfirmPassword" type="password" class="form-input" required minlength="8" autocomplete="new-password"></div>
+        <p id="signupError" class="trial-error" role="alert" hidden></p>
+        <button type="submit" id="signupSubmit" class="login-submit-btn">ส่งคำขอทดลองใช้</button>
+        <button type="button" class="trial-back" onclick="showGateMode('signin')">มีบัญชีแล้ว เข้าสู่ระบบ</button>
+      </form>
+      <section id="gateAccessStatus" class="trial-access-status" hidden aria-live="polite">
+        <i class="fa-regular fa-clock trial-status-icon" aria-hidden="true"></i>
+        <h2 id="gateAccessTitle" class="trial-title">กำลังตรวจสอบสิทธิ์</h2>
+        <p id="gateAccessEmail" class="trial-email"></p>
+        <p id="gateAccessMessage" class="trial-intro"></p>
+        <button type="button" class="login-submit-btn" onclick="loadApprovedSession()">ตรวจสอบสถานะ</button>
+        <button type="button" class="trial-back" onclick="handleSignOut()">ออกจากระบบ / เปลี่ยนบัญชี</button>
+      </section>
 
       <div class="login-footer-badge">
         <i class="fa-solid fa-shield-halved" style="color: var(--color-primary);"></i>
@@ -3305,6 +3331,17 @@
             <h2 class="page-title">ตั้งค่าระบบ</h2>
           </div>
 
+          <section id="trialAdminPanel" class="card-surface trial-admin-panel" hidden aria-labelledby="trialAdminTitle">
+            <div class="trial-admin-heading"><div><h3 id="trialAdminTitle">คำขอทดลองใช้</h3><p class="trial-intro">จัดการการเข้าใช้งานของผู้สมัคร</p></div><button type="button" class="btn-secondary" onclick="loadTrialRequests(true)">รีเฟรชคำขอ</button></div>
+            <div class="trial-filters">
+              <div class="form-group"><label class="form-label" for="trialStatusFilter">สถานะ</label><select id="trialStatusFilter" class="form-select" onchange="loadTrialRequests(true)"><option value="pending">รออนุมัติ</option><option value="approved">อนุมัติแล้ว</option><option value="rejected">ไม่อนุมัติ</option><option value="suspended">ระงับแล้ว</option><option value="all">ทั้งหมด</option></select></div>
+              <p class="trial-intro">เมื่ออนุมัติแล้ว ใช้งานได้ต่อเนื่องจนกว่าคุณจะระงับ แต่ละบัญชีมีข้อมูลของตัวเอง</p>
+            </div>
+            <p id="trialAdminMessage" class="trial-meta" role="status">กดรีเฟรชคำขอเพื่อดูผู้สมัคร</p>
+            <div id="trialRequestsList" class="trial-requests-list"></div>
+            <div class="trial-pagination"><button type="button" id="trialPrevPage" class="btn-secondary" onclick="trialPage(-1)" disabled>ก่อนหน้า</button><button type="button" id="trialNextPage" class="btn-secondary" onclick="trialPage(1)" disabled>ถัดไป</button></div>
+          </section>
+
           <div class="card-surface appearance-card">
             <fieldset class="theme-picker">
               <legend>รูปแบบหน้าจอ</legend>
@@ -3338,6 +3375,16 @@
                 🚪 ออกจากระบบ
               </button>
             </div>
+            <details id="accountEmailSettings" class="account-email-settings">
+              <summary>เปลี่ยนอีเมลเข้าสู่ระบบ</summary>
+              <p class="trial-intro" id="accountEmailHelp">เปลี่ยนบนบัญชีเดิม ข้อมูลและสิทธิ์ยังอยู่ครบ คุณต้องยืนยันผ่านอีเมลตามที่ระบบส่งให้</p>
+              <form onsubmit="handleAccountEmailChange(event)">
+                <label class="form-label" for="accountNewEmail">อีเมลใหม่</label>
+                <input id="accountNewEmail" class="form-input" type="email" autocomplete="email" required aria-describedby="accountEmailHelp">
+                <button id="accountEmailSubmit" type="submit" class="btn-secondary">ส่งคำขอเปลี่ยนอีเมล</button>
+                <p id="accountEmailMessage" class="trial-notice" role="status" hidden></p>
+              </form>
+            </details>
           </div>
 
           <div class="card-surface">
@@ -4886,7 +4933,7 @@
     }
 
     function loadAppDataSnapshot() {
-      if (!currentUser || !currentUser.id) return false;
+      if (!hasAppAccess()) return false;
       try {
         var key = getUserStorageKey('freelancehub_snapshot_v1');
         var raw = localStorage.getItem(key);
@@ -5095,6 +5142,8 @@
     var _activeLoadGeneration = -1;
 
     async function loadAllData() {
+      var accessGeneration = currentSessionGeneration;
+      if (!await refreshAppAccess() || !hasAppAccess() || accessGeneration !== currentSessionGeneration) return;
       if (_activeLoadPromise && _activeLoadGeneration === currentSessionGeneration) {
         return _activeLoadPromise;
       }
@@ -5179,6 +5228,7 @@
     // ROUTING & NAVIGATION
     // =========================================================
     function switchTab(tabId, updateHash) {
+      if (tabId === 'settings' && isAccessAdmin()) loadTrialRequests(true);
       if (updateHash === undefined) updateHash = true;
       var previousTab = currentTab;
       currentTab = tabId;
@@ -8240,6 +8290,7 @@
 
     function openAuthModal(mode) {
       if (mode) authMode = mode;
+      if (authMode === 'signup') { showGateMode('signup'); return; }
       var titleEl = document.getElementById('authModalTitle');
       var subEl = document.getElementById('authModalSubtitle');
       var submitBtn = document.getElementById('authSubmitBtn');
@@ -8319,7 +8370,9 @@
       try {
         await db.auth.signOut();
         currentUser = null;
+        appAccessState = null;
         clearAppDataAndScreens();
+        updateAuthUI();
         showToast('ออกจากระบบเรียบร้อยแล้ว 👋');
       } catch (err) {
         console.error('Sign out error:', err);
@@ -8340,7 +8393,7 @@
 
       var loginGate = document.getElementById('loginGateOverlay');
       if (loginGate) {
-        loginGate.style.display = currentUser ? 'none' : 'flex';
+        loginGate.style.display = hasAppAccess() ? 'none' : 'flex';
       }
 
       if (currentUser) {
@@ -8394,6 +8447,7 @@
         if (btnSignOut) btnSignOut.style.display = 'none';
         if (btnChangePwd) btnChangePwd.style.display = 'none';
       }
+      renderAccessGate();
     }
 
     function openChangePasswordModal() {
@@ -8716,10 +8770,10 @@
       try {
         var res = await db.auth.signInWithPassword({ email: email, password: password });
         if (res.error) throw res.error;
+        if (!currentUser || currentUser.id !== res.data.user.id) currentSessionGeneration++;
         currentUser = res.data.user;
         updateAuthUI();
-        showToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ FreelanceHub 👋');
-        await loadAllData();
+        await loadApprovedSession();
       } catch (err) {
         console.error('Gate login error:', err);
         if (errEl) {
@@ -8739,47 +8793,31 @@
     async function initAuth() {
       try {
         var sessionRes = await db.auth.getSession();
-        if (currentSessionGeneration === 0) {
-          currentSessionGeneration = 1;
-        }
-        if (sessionRes.data && sessionRes.data.session) {
-          currentUser = sessionRes.data.session.user;
-        } else {
-          currentUser = null;
-        }
+        if (currentSessionGeneration === 0) currentSessionGeneration = 1;
+        currentUser = sessionRes.data && sessionRes.data.session ? sessionRes.data.session.user : null;
+        appAccessState = null;
         updateAuthUI();
-        if (currentUser) {
-          loadAppDataSnapshot();
-          if (typeof renderCategoryOptions === 'function') renderCategoryOptions();
-          if (typeof populateJobDropdowns === 'function') populateJobDropdowns();
-          if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
-          renderAll();
-          loadAllData();
-        }
-
         db.auth.onAuthStateChange(function(event, session) {
-          var newUserId = (session && session.user) ? session.user.id : null;
+          var newUserId = session && session.user ? session.user.id : null;
           var prevUserId = currentUser ? currentUser.id : null;
-
           if (prevUserId !== newUserId) {
-            currentSessionGeneration++;
-            resetSlipSession();
-          }
-          currentUser = session ? session.user : null;
-          updateAuthUI();
-          if (event === 'SIGNED_IN') {
-            loadAppDataSnapshot();
-            if (typeof renderCategoryOptions === 'function') renderCategoryOptions();
-            if (typeof populateJobDropdowns === 'function') populateJobDropdowns();
-            if (typeof populateAllWalletSelects === 'function') populateAllWalletSelects();
-            renderAll();
-            loadAllData();
-          } else if (event === 'SIGNED_OUT') {
+            appAccessState = null;
             clearAppDataAndScreens();
           }
+          currentUser = session ? session.user : null;
+          if (event === 'SIGNED_OUT') {
+            appAccessState = null;
+            clearAppDataAndScreens();
+          }
+          updateAuthUI();
+          // Do not await another Supabase request inside its auth lock callback.
+          if (currentUser && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+            setTimeout(function() { loadApprovedSession(); }, 0);
+          }
         });
+        if (currentUser) await loadApprovedSession();
       } catch (err) {
-        console.warn('Auth init notice:', err);
+        appAccessState = null; appAccessError = true;
         updateAuthUI();
       }
     }

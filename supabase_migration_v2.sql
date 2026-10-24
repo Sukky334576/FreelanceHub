@@ -14,6 +14,13 @@
 -- ------------------------------------------------------------------------------
 -- 1. BASELINE CORE & SUBSYSTEM TABLES
 -- ------------------------------------------------------------------------------
+-- This historical baseline can overwrite later RPC signatures/hotfixes.
+-- Once access approval is installed, use versioned migrations instead.
+DO $$ BEGIN
+  IF to_regclass('private.app_access') IS NOT NULL THEN
+    RAISE EXCEPTION 'Baseline reset is disabled after trial signup. Use versioned migrations.';
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.categories (
   id BIGSERIAL PRIMARY KEY,
@@ -551,6 +558,7 @@ BEGIN
     SELECT policyname, tablename 
     FROM pg_policies 
     WHERE schemaname = 'public' 
+      AND policyname <> 'trial_access_required'
       AND tablename IN ('transactions', 'wallets', 'debts', 'debt_payments', 'cards', 'transfers', 'bills', 'jobs', 'todos', 'equipment', 'categories')
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
@@ -617,6 +625,10 @@ DECLARE
   v_new_balance NUMERIC;
   v_owner UUID;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -671,6 +683,10 @@ DECLARE
   v_first_id BIGINT;
   v_second_id BIGINT;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -789,6 +805,10 @@ DECLARE
   v_first_id BIGINT;
   v_second_id BIGINT;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -864,6 +884,10 @@ DECLARE
   v_diff NUMERIC;
   v_tx_id BIGINT;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -945,6 +969,10 @@ DECLARE
   v_wallet RECORD;
   v_tx_id BIGINT;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1024,6 +1052,10 @@ DECLARE
   v_bill RECORD;
   v_tx RECORD;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1090,6 +1122,10 @@ DECLARE
   v_interest_tx_id BIGINT := NULL;
   v_payment_id BIGINT;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1245,6 +1281,10 @@ DECLARE
   v_resolved_job RECORD;
   v_req_id TEXT := NULL;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   -- 1. Session authorization
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
@@ -1437,6 +1477,10 @@ DECLARE
   v_job_title TEXT := NULL;
   v_resolved_job RECORD;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1639,6 +1683,10 @@ DECLARE
   v_revert_delta NUMERIC := 0;
   v_new_balance NUMERIC := NULL;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF auth.role() = 'anon' OR auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1795,6 +1843,10 @@ DECLARE
   v_existing_wallet_count INT;
   v_input_payload JSONB;
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Unauthorized: authenticated session required';
   END IF;
@@ -1979,6 +2031,10 @@ DECLARE
   v_item RECORD;
   v_current_period VARCHAR(7);
 BEGIN
+  -- Preserve approval enforcement when the baseline/upgrade is rerun.
+  IF to_regprocedure('private.require_app_access()') IS NOT NULL THEN
+    PERFORM private.require_app_access();
+  END IF;
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'UNAUTHORIZED');
