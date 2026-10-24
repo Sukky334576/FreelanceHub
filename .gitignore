@@ -6,3 +6,4 @@
 *.zip
 node_modules/
 dist/
+supabase/.temp/
