@@ -16,15 +16,17 @@ the current login intact.
 
 The frontend was published on 2026-10-24. The production database/owner activation and
 the legacy-helper hardening below were applied earlier that day after explicit owner approval.
-Custom SMTP has been saved and the owner has selected self-registration from the
-website as the tester workflow instead of an administrator-sent invitation. Publish
-the prepared frontend for that signup test, keep email confirmation and approval
-required, and do not report email delivery as verified until a tester receives and
-confirms the message. The frontend fails closed when the access RPC is unavailable.
+Custom SMTP has been repaired and the owner has selected self-registration from the
+website as the tester workflow instead of an administrator-sent invitation. On
+2026-10-24 the owner reported that the tester received the confirmation email after
+retrying signup. Receipt is confirmed by that report; following the confirmation link
+and the remaining approval/onboarding flow are still unverified. Keep email
+confirmation and approval required. The frontend fails closed when the access RPC is
+unavailable.
 
 1. Confirm the owner's **FreelanceHub login email**, not an infrastructure account.
 2. Configure email delivery before public signup. The project keeps email confirmation
-   enabled. Custom SMTP is now saved; delivery still needs verification. Supabase's built-in mail service
+   enabled. Custom SMTP delivery was confirmed by the owner's report below. Supabase's built-in mail service
    only sends to organization team addresses. Configure a sender/SMTP provider and
    check Auth → URL Configuration for the production site and its allowed redirect.
    Never put SMTP credentials in source code, browser JavaScript or chat.
@@ -49,7 +51,7 @@ confirms the message. The frontend fails closed when the access RPC is unavailab
    through `npm run deploy` and verify the existing production hostname.
 7. With a separate tester's consent, verify signup → email confirmation → pending
    page → owner approval → empty onboarding → suspend → blocked access → reapprove.
-   A real external email delivery/signup test has not yet been performed.
+   The real tester has received the signup email; the remaining live steps still need verification.
 
 ## Tester and admin workflow
 
@@ -63,8 +65,9 @@ confirms the message. The frontend fails closed when the access RPC is unavailab
    then completes their own onboarding. No other user's financial records are copied.
 5. Approval has no expiry. The owner can suspend or restore access from the same panel.
 
-No test invitation or synthetic production account was created. The first real
-self-registration is still needed to verify mail delivery and the complete live flow.
+The agent created no test invitation or synthetic production account. A real tester
+used self-registration and the owner reported receipt of the confirmation email.
+The complete live confirmation-to-approval flow has not yet been verified.
 
 ## Access boundaries
 
@@ -131,8 +134,9 @@ Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth
   directly in Supabase. After reloading the dashboard, custom SMTP remained enabled
   with `smtp.gmail.com:465`, the selected school account, sender name `FreelanceHub`,
   and a stored hidden password. No SMTP secret has been placed in source.
-  Saved configuration alone does not prove delivery. Real email delivery, the owner
-  login-email change and external signup-to-approval verification are still pending.
+  Saved configuration alone does not prove delivery. Subsequent SMTP repair and the
+  owner's delivery confirmation are recorded below. The owner login-email change and
+  complete external signup-to-approval verification remain pending.
 - Published the frontend from commit `dfa13fc` through `npm run deploy`; the full test
   run passed 117 checks/scenarios and all 13 live public assets matched the upload.
   Deployment: `https://9ba0ec0a.natthawit-studio.pages.dev`, production hostname
@@ -140,21 +144,33 @@ Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth
   button, editable signup form and email-confirmation/approval instructions. No signup
   was submitted and no email was sent during that UI check.
 
-## First signup attempt — SMTP repair pending
+## First signup attempt — SMTP failure and repair
 
 On 2026-10-24, a tester reported `Error sending confirmation email` from the public
 signup form. Supabase Auth logs at 13:07–13:08 Asia/Bangkok showed five failed
 `POST /signup` requests: Gmail returned `534 5.7.9 Application-specific password
 required` (`InvalidSecondFactor`). The saved SMTP credential was not accepted as an
 application password. This is a sender authentication failure; it is not evidence of
-a typo in the tester's address or password, and email delivery is not verified.
+a typo in the tester's address or password. Delivery was not verified at that point.
 
 The signup UI now reports delivery failures in Thai, retains the form for retry,
 clears stale success notices and does not display raw backend diagnostics. Regression
 coverage includes the exact failure message, rate limits and validation errors.
 
-The owner must replace the stored SMTP password with a valid Google App Password
-for the configured sender. Enter and save that secret directly in Supabase, never in
-chat or source control. Keep email confirmation, approval requirements and RLS enabled.
-After replacement, have the tester retry signup and verify receipt before considering
-the delivery issue resolved.
+The owner generated a replacement Google App Password for the configured sender and
+entered and saved it directly in Supabase. No secret was stored in source control.
+The dashboard retained the SMTP settings after reload, and Auth logs recorded
+`Reloading api with new configuration` at 13:17:58 Asia/Bangkok on 2026-10-24.
+
+After the tester retried signup, the owner reported **receipt of the confirmation
+email** on 2026-10-24. This resolves the observed email-delivery failure for that retry.
+Receipt is user-reported, not an automated inbox assertion. It does not yet verify
+that the tester followed the confirmation link, reached the pending page, received
+owner approval or completed empty onboarding. No approval was performed by the agent.
+Email confirmation, approval requirements and RLS remain enabled.
+
+The signup error-message fix was published from commit `cdcebeb` at
+`https://590a1c70.natthawit-studio.pages.dev` and the production hostname. Its deployment
+completed with 119 passing checks, including 11 access-UI tests, and all 13 live public
+assets matched the upload. This delivery-status documentation update changes no
+application code or database configuration and does not require another deployment.
