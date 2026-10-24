@@ -2762,8 +2762,8 @@
             <h2 class="page-title">ตารางงาน</h2>
             <!-- View Mode Switch: รายการ / เดือน -->
             <div class="segmented-control" style="width: 170px;">
-              <button class="segmented-btn active" id="btnCalModeTimeline" onclick="setCalViewMode('timeline')">รายการ</button>
-              <button class="segmented-btn" id="btnCalModeMonth" onclick="setCalViewMode('month')">เดือน</button>
+              <button class="segmented-btn" id="btnCalModeTimeline" onclick="setCalViewMode('timeline')">รายการ</button>
+              <button class="segmented-btn active" id="btnCalModeMonth" onclick="setCalViewMode('month')">เดือน</button>
             </div>
           </div>
 
@@ -2780,12 +2780,12 @@
           </div>
 
           <!-- 7-Day Horizontal Strip (Matching Screen 02) -->
-          <div id="weekStripWrapper" class="week-strip-container">
+          <div id="weekStripWrapper" class="week-strip-container" style="display: none;">
             <div class="week-strip" id="weekStripDays"></div>
           </div>
 
           <!-- Timeline Header & Alerts (Visible only in Timeline mode) -->
-          <div id="timelineHeaderWrapper">
+          <div id="timelineHeaderWrapper" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 10px 0;">
               <h3 id="calSelectedDayTitle" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">
                 พฤหัสบดี 10 ก.ย. 2569
@@ -2810,12 +2810,12 @@
           </div>
 
           <!-- Hourly Timeline Container -->
-          <div id="timelineContainer" class="timeline-container">
+          <div id="timelineContainer" class="timeline-container" style="display: none;">
             <div id="timelineList"></div>
           </div>
 
-          <!-- Month Calendar Grid (Hidden by default, shown when mode = 'month') -->
-          <div id="monthGridWrapper" style="display: none;">
+          <!-- Month Calendar Grid (default schedule view) -->
+          <div id="monthGridWrapper">
             <div class="card-surface" style="padding: 12px;">
               <div id="calendarMonthGridDays" class="cal-month-days-header">
                 <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
@@ -4970,7 +4970,7 @@
     var txSelectedMonth = now.getMonth(); // 0-11
 
     var calSelectedDate = new Date();
-    var calViewMode = 'timeline'; // 'timeline' or 'month'
+    var calViewMode = 'month'; // 'timeline' or 'month'
 
     var currentTodoFilter = 'today';
     var currentBillFilter = 'all';
@@ -5160,6 +5160,7 @@
     // =========================================================
     function switchTab(tabId, updateHash) {
       if (updateHash === undefined) updateHash = true;
+      var previousTab = currentTab;
       currentTab = tabId;
 
       // Update Views
@@ -5206,6 +5207,10 @@
 
       if (updateHash) {
         window.location.hash = '#' + tabId;
+      }
+
+      if (tabId === 'calendar' && previousTab !== 'calendar') {
+        setCalViewMode('month');
       }
 
       if (tabId === 'dashboard') {
