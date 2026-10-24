@@ -7022,6 +7022,7 @@
     async function handleReconSubmit(e) {
       e.preventDefault();
       var btn = document.getElementById('btnSubmitRecon');
+      if (btn && btn.disabled) return;
       if (btn) btn.disabled = true;
 
       // RR04: Capture session generation token and user ID
@@ -7043,8 +7044,13 @@
           return;
         }
 
-        var sysBal = parseFloat(document.getElementById('reconSystemBalance')?.dataset.value) || 0;
-        var actual = parseFloat(document.getElementById('reconActualInput').value) || 0;
+        var sysBal = Number(document.getElementById('reconSystemBalance')?.dataset.value);
+        var actualText = document.getElementById('reconActualInput').value.trim();
+        var actual = Number(actualText);
+        if (actualText === '' || !Number.isFinite(actual) || !Number.isFinite(sysBal)) {
+          alert('กรุณากรอกยอดเงินจริงเป็นตัวเลข หากยอดเป็นศูนย์ให้กรอก 0');
+          return;
+        }
         var date = document.getElementById('reconDateInput').value || getTodayDateStr();
         var reason = document.getElementById('reconReasonInput').value.trim() || 'กระทบยอดประจำงวด';
 
@@ -7087,6 +7093,8 @@
           var errMsg = rpcRecon.error.message || String(rpcRecon.error);
           if (errMsg.includes('STALE_BALANCE')) {
             alert('ยอดเงินในระบบมีการเปลี่ยนแปลงระหว่างการตรวจสอบ กรุณาตรวจสอบยอดใหม่อีกครั้ง');
+          } else if (rpcRecon.error.code === '42703' && errMsg.includes('updated_at')) {
+            alert('ฐานข้อมูลยังขาดข้อมูลโครงสร้างที่ใช้กระทบยอด จึงยังบันทึกไม่ได้ กรุณาให้ผู้ดูแลอัปเดตฐานข้อมูล ข้อมูลที่กรอกยังอยู่ในแบบฟอร์ม');
           } else {
             alert('เกิดข้อผิดพลาดในการกระทบยอด: ' + errMsg);
           }
@@ -7095,10 +7103,25 @@
         }
 
         var resData = rpcRecon.data;
-        if (resData) {
-          targetWallet.balance = resData.new_balance;
-          if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
+        // Older upgrade RPCs return a failed result instead of throwing an error.
+        if (resData && resData.status === 'STALE_BALANCE') {
+          alert('ยอดเงินในระบบมีการเปลี่ยนแปลงระหว่างการตรวจสอบ กรุณาตรวจสอบยอดใหม่อีกครั้ง');
+          await loadAllData();
+          return;
         }
+        var confirmedBalance = resData && resData.new_balance;
+        if (!resData || resData.success === false ||
+            !['OK', 'ADJUSTED', 'NO_OP'].includes(resData.status) ||
+            String(resData.wallet_id) !== String(targetWallet.id) ||
+            confirmedBalance === null || confirmedBalance === '' ||
+            !Number.isFinite(Number(confirmedBalance)) ||
+            Math.abs(Number(confirmedBalance) - actual) > 0.005) {
+          alert('ยังยืนยันผลการกระทบยอดไม่ได้ กรุณารีเฟรชตรวจสอบยอดก่อนลองใหม่ ข้อมูลที่กรอกยังอยู่ในแบบฟอร์ม');
+          await loadAllData();
+          return;
+        }
+        targetWallet.balance = Number(confirmedBalance);
+        if (typeof saveWalletsToLocal === 'function') saveWalletsToLocal();
 
         // Reload data so the backend-generated audit log row is pulled cleanly without duplicate
         await loadAllData();
@@ -7121,7 +7144,7 @@
         console.error(err);
         alert('เกิดข้อผิดพลาดในการปรับยอดเงิน: ' + (err.message || err));
       } finally {
-        if (btn) btn.disabled = false;
+        if (btn && isMutationSessionValid(mutationToken, mutationUserId)) btn.disabled = false;
       }
     }
 

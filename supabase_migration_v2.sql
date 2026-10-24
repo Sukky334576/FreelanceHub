@@ -243,6 +243,10 @@ BEGIN
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS request_id TEXT;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS time TIME DEFAULT CURRENT_TIME;
   ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS slip_url TEXT;
+  -- CREATE TABLE IF NOT EXISTS does not repair an existing legacy table.
+  -- Do not invent modification timestamps for historical rows.
+  ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+  ALTER TABLE public.transactions ALTER COLUMN updated_at SET DEFAULT NOW();
 
   -- Categories styling
   ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#168EA1';
