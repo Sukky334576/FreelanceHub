@@ -14,8 +14,10 @@ the current login intact.
 
 ## Deployment order
 
-The implementation is prepared locally. Do not publish the frontend before completing
-the database and owner setup below: it fails closed when the access RPC is unavailable.
+The frontend is prepared locally. The production database/owner activation and the
+legacy-helper hardening below were applied on 2026-10-24 after explicit owner approval.
+Do not publish public signup until SMTP delivery is verified. The frontend fails closed
+when the access RPC is unavailable.
 
 1. Confirm the owner's **FreelanceHub login email**, not an infrastructure account.
 2. Resolve email delivery before public signup. The inspected project has email
@@ -33,10 +35,13 @@ the database and owner setup below: it fails closed when the access RPC is unava
    review the matching verified user, and execute once as the database owner. It
    refuses a missing/unverified/ambiguous user or an already configured different admin.
    No client path assigns admin privileges; signup metadata cannot request them.
+   Apply `supabase/migrations/20261024040756_harden_legacy_auth_helpers.sql` afterwards.
+   It revokes API execution on the retired signup helper and pins the legacy wallet
+   resolver's search path without changing either function's body or financial data.
 5. Verify the owner can call `get_my_app_access` with `allowed=true,is_admin=true`.
    Review Security/Performance Advisors and the table/function grants. Supabase MCP
-   access in this workstation currently does not include this project; the dashboard
-   is available, but the production advisor check is still pending.
+   access in this workstation currently does not include this project; use the
+   dashboard for these checks. See the production verification record below.
 6. Run `npm test` and `npm run build`. Commit/push the reviewed changes, then deploy
    through `npm run deploy` and verify the existing production hostname.
 7. With a separate tester's consent, verify signup → email confirmation → pending
@@ -81,3 +86,31 @@ iPhone testing or successful production email delivery. No real financial record
 created by the tests.
 
 Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
+
+## Production verification — 2026-10-24
+
+- Migration and owner bootstrap committed together in one database transaction. The
+  bootstrap also checked the previously verified owner's exact UUID before granting
+  admin. The existing account, financial data ownership and login email are retained.
+- Read-only catalog verification passed for the approved admin with no expiry, all 13
+  restrictive data policies, all 13 financial RPC guards, the new pending-signup trigger,
+  removal of the legacy claim trigger, private-table RLS and anonymous RPC denial.
+- A read-only transaction using the owner's authenticated role returned
+  `allowed=true`, `is_admin=true`, `status=approved`, `unlimited_access=true`.
+- The helper follow-up was separately verified: neither API role can execute the
+  retired helper, and the wallet resolver has an empty fixed search path.
+- Auth Site URL was corrected from `http://localhost:3000` to
+  `https://natthawit-studio.pages.dev/` so email confirmation returns to the app.
+- Security Advisor: 0 errors, 14 warnings after hardening (down from 17). The remaining
+  warnings are the 13 intentionally callable, owner/approval-checked financial
+  SECURITY DEFINER RPCs and disabled leaked-password protection. No new approval
+  function is SECURITY DEFINER in the exposed schema. Performance Advisor: 0 errors,
+  13 pre-existing owner-policy initialization warnings; the new approval policies use
+  a scalar SELECT to avoid per-row evaluation.
+- Full `npm test` after hardening exited 0: 117 passing scenarios/checks, including
+  16 backend-access and 9 access-UI tests. This is not a native multi-connection rerun.
+- School Google account authenticated successfully, but App Passwords were unavailable
+  while 2-Step Verification was off. Owner setup of 2-Step Verification is pending.
+  Gmail SMTP fields are prepared, not saved; no SMTP secret has been placed in source.
+  Real email delivery, the owner login-email change, frontend deployment and external
+  signup-to-approval verification are still pending.

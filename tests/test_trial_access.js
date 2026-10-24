@@ -6,6 +6,7 @@ const {PGlite}=require('@electric-sql/pglite');
 const root=path.resolve(__dirname,'..');
 const migration=fs.readFileSync(path.join(root,'supabase/migrations/20261024034124_trial_access_approval.sql'),'utf8');
 const bootstrap=fs.readFileSync(path.join(root,'supabase/admin/bootstrap_trial_owner.sql'),'utf8');
+const helperHardening=fs.readFileSync(path.join(root,'supabase/migrations/20261024040756_harden_legacy_auth_helpers.sql'),'utf8');
 const admin='11111111-1111-1111-1111-111111111111', other='22222222-2222-2222-2222-222222222222', applicant='33333333-3333-3333-3333-333333333333';
 let count=0;
 async function test(name,fn){await fn();console.log('PASS: '+name);count++;}
@@ -29,6 +30,17 @@ async function test(name,fn){await fn();console.log('PASS: '+name);count++;}
   await test('migration preserves existing access and financial balances',async()=>{
     await pg.exec(migration);assert.equal((await pg.query("SELECT count(*)::int n FROM private.app_access WHERE status='approved'")).rows[0].n,2);
     assert.equal(Number((await pg.query("SELECT balance FROM wallets WHERE user_id=$1",[admin])).rows[0].balance),1234);
+  });
+  await test('retired signup helper cannot be called by API roles; wallet resolver keeps owner isolation with a fixed search path',async()=>{
+    // Reproduce the deployed legacy helper config, then exercise the actual upgrade.
+    await pg.exec('ALTER FUNCTION public.resolve_transaction_wallet_id(text,uuid) RESET search_path');
+    await pg.exec(helperHardening);await pg.exec(helperHardening);
+    for(const role of ['anon','authenticated'])assert.equal((await pg.query("SELECT has_function_privilege($1,'public.handle_claim_legacy_data()','EXECUTE') allowed",[role])).rows[0].allowed,false);
+    assert.deepEqual((await pg.query("SELECT proconfig FROM pg_proc WHERE oid='public.resolve_transaction_wallet_id(text,uuid)'::regprocedure")).rows[0].proconfig,['search_path=""']);
+    const walletId=Number((await pg.query("SELECT id FROM wallets WHERE name='Owner' AND user_id=$1",[admin])).rows[0].id);
+    await as(admin);assert.equal(Number(await rpc('resolve_transaction_wallet_id',['[Owner]',admin])),walletId);
+    await as(other);assert.equal(await rpc('resolve_transaction_wallet_id',['[Owner]',admin]),null);
+    await owner();
   });
   await test('owner bootstrap requires an explicit verified account, is idempotent and does not choose the first signup',async()=>{
     await assert.rejects(pg.exec(bootstrap),/Confirm the app owner email/);

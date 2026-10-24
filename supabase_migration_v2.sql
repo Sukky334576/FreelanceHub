@@ -424,6 +424,7 @@ CREATE OR REPLACE FUNCTION public.resolve_transaction_wallet_id(
 RETURNS BIGINT
 LANGUAGE plpgsql
 STABLE
+SET search_path = ''
 AS $$
 DECLARE
   v_account_name TEXT := NULL;
