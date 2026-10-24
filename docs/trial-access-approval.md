@@ -14,8 +14,8 @@ the current login intact.
 
 ## Deployment order
 
-The frontend is prepared locally. The production database/owner activation and the
-legacy-helper hardening below were applied on 2026-10-24 after explicit owner approval.
+The frontend was published on 2026-10-24. The production database/owner activation and
+the legacy-helper hardening below were applied earlier that day after explicit owner approval.
 Custom SMTP has been saved and the owner has selected self-registration from the
 website as the tester workflow instead of an administrator-sent invitation. Publish
 the prepared frontend for that signup test, keep email confirmation and approval
@@ -132,5 +132,10 @@ Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth
   with `smtp.gmail.com:465`, the selected school account, sender name `FreelanceHub`,
   and a stored hidden password. No SMTP secret has been placed in source.
   Saved configuration alone does not prove delivery. Real email delivery, the owner
-  login-email change, frontend deployment and external signup-to-approval verification
-  are still pending.
+  login-email change and external signup-to-approval verification are still pending.
+- Published the frontend from commit `dfa13fc` through `npm run deploy`; the full test
+  run passed 117 checks/scenarios and all 13 live public assets matched the upload.
+  Deployment: `https://9ba0ec0a.natthawit-studio.pages.dev`, production hostname
+  `https://natthawit-studio.pages.dev/`. Browser verification confirmed the signup
+  button, editable signup form and email-confirmation/approval instructions. No signup
+  was submitted and no email was sent during that UI check.
