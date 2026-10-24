@@ -16,6 +16,7 @@ const PUBLIC_FILES = Object.freeze([
   'icon-1024.png',
   'js/financial-core.js',
   'js/slip-parser.js',
+  'js/theme.js',
 ]);
 
 function checkedSource(rootDir, relativePath) {
