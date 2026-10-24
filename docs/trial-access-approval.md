@@ -16,12 +16,15 @@ the current login intact.
 
 The frontend is prepared locally. The production database/owner activation and the
 legacy-helper hardening below were applied on 2026-10-24 after explicit owner approval.
-Do not publish public signup until SMTP delivery is verified. The frontend fails closed
-when the access RPC is unavailable.
+Custom SMTP has been saved and the owner has selected self-registration from the
+website as the tester workflow instead of an administrator-sent invitation. Publish
+the prepared frontend for that signup test, keep email confirmation and approval
+required, and do not report email delivery as verified until a tester receives and
+confirms the message. The frontend fails closed when the access RPC is unavailable.
 
 1. Confirm the owner's **FreelanceHub login email**, not an infrastructure account.
-2. Resolve email delivery before public signup. The inspected project has email
-   confirmation enabled and custom SMTP disabled. Supabase's built-in mail service
+2. Configure email delivery before public signup. The project keeps email confirmation
+   enabled. Custom SMTP is now saved; delivery still needs verification. Supabase's built-in mail service
    only sends to organization team addresses. Configure a sender/SMTP provider and
    check Auth → URL Configuration for the production site and its allowed redirect.
    Never put SMTP credentials in source code, browser JavaScript or chat.
@@ -47,6 +50,21 @@ when the access RPC is unavailable.
 7. With a separate tester's consent, verify signup → email confirmation → pending
    page → owner approval → empty onboarding → suspend → blocked access → reapprove.
    A real external email delivery/signup test has not yet been performed.
+
+## Tester and admin workflow
+
+1. The tester opens the production website and chooses **สมัครขอทดลองใช้**, then
+   enters their own name, email and password. The admin does not create their password.
+2. The tester confirms the email and signs in. Until approved, the app shows a
+   pending page and cannot load financial records.
+3. The owner opens **ตั้งค่า → คำขอทดลองใช้**, checks the applicant's email and
+   email-confirmation badge, and chooses **อนุมัติ**.
+4. The tester chooses **ตรวจสอบสถานะ** on the waiting page (or signs in again),
+   then completes their own onboarding. No other user's financial records are copied.
+5. Approval has no expiry. The owner can suspend or restore access from the same panel.
+
+No test invitation or synthetic production account was created. The first real
+self-registration is still needed to verify mail delivery and the complete live flow.
 
 ## Access boundaries
 
@@ -109,8 +127,10 @@ Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth
   a scalar SELECT to avoid per-row evaluation.
 - Full `npm test` after hardening exited 0: 117 passing scenarios/checks, including
   16 backend-access and 9 access-UI tests. This is not a native multi-connection rerun.
-- School Google account authenticated successfully, but App Passwords were unavailable
-  while 2-Step Verification was off. Owner setup of 2-Step Verification is pending.
-  Gmail SMTP fields are prepared, not saved; no SMTP secret has been placed in source.
-  Real email delivery, the owner login-email change, frontend deployment and external
-  signup-to-approval verification are still pending.
+- The owner enabled Google 2-Step Verification, created an App Password and saved it
+  directly in Supabase. After reloading the dashboard, custom SMTP remained enabled
+  with `smtp.gmail.com:465`, the selected school account, sender name `FreelanceHub`,
+  and a stored hidden password. No SMTP secret has been placed in source.
+  Saved configuration alone does not prove delivery. Real email delivery, the owner
+  login-email change, frontend deployment and external signup-to-approval verification
+  are still pending.
