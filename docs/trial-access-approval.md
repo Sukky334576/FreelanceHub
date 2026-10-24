@@ -139,3 +139,22 @@ Official reference: [Supabase custom SMTP](https://supabase.com/docs/guides/auth
   `https://natthawit-studio.pages.dev/`. Browser verification confirmed the signup
   button, editable signup form and email-confirmation/approval instructions. No signup
   was submitted and no email was sent during that UI check.
+
+## First signup attempt — SMTP repair pending
+
+On 2026-10-24, a tester reported `Error sending confirmation email` from the public
+signup form. Supabase Auth logs at 13:07–13:08 Asia/Bangkok showed five failed
+`POST /signup` requests: Gmail returned `534 5.7.9 Application-specific password
+required` (`InvalidSecondFactor`). The saved SMTP credential was not accepted as an
+application password. This is a sender authentication failure; it is not evidence of
+a typo in the tester's address or password, and email delivery is not verified.
+
+The signup UI now reports delivery failures in Thai, retains the form for retry,
+clears stale success notices and does not display raw backend diagnostics. Regression
+coverage includes the exact failure message, rate limits and validation errors.
+
+The owner must replace the stored SMTP password with a valid Google App Password
+for the configured sender. Enter and save that secret directly in Supabase, never in
+chat or source control. Keep email confirmation, approval requirements and RLS enabled.
+After replacement, have the tester retry signup and verify receipt before considering
+the delivery issue resolved.

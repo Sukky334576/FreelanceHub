@@ -48,6 +48,29 @@ let n=0;async function test(name,fn){await fn();console.log('PASS: '+name);n++;}
   assert(h.element('trialRequestsList').innerHTML.includes('&lt;img'));assert(!h.element('trialRequestsList').innerHTML.includes('<img'));
   h.c.currentUser=null;h.c.renderAccessGate();assert.equal(h.element('trialRequestsList').innerHTML,'');
  });
+ await test('confirmation email failure stays on signup with actionable Thai guidance and no false success',async()=>{
+  const h=harness();h.c.currentUser=null;h.c.gateMode='signup';
+  h.element('signupName').value='Applicant';h.element('signupEmail').value='new@example.test';
+  h.element('signupPassword').value='example-password';h.element('signupConfirmPassword').value='example-password';
+  h.element('gateSignupResult').hidden=false;
+  h.c.db.auth.signUp=async()=>({error:{code:'unexpected_failure',status:500,message:'Error sending confirmation email'}});
+  await h.c.handleTrialSignup({preventDefault(){}});
+  assert.equal(h.c.gateMode,'signup');assert.equal(h.c.currentUser,null);assert.equal(h.loaded,0);
+  assert.equal(h.element('signupError').hidden,false);assert(h.element('signupError').textContent.includes('ระบบยังส่งอีเมลยืนยันไม่ได้'));
+  assert.equal(h.element('gateSignupResult').hidden,true);assert.equal(h.element('signupSubmit').disabled,false);
+  assert.equal(h.element('signupEmail').value,'new@example.test');assert.equal(h.element('signupPassword').value,'example-password');
+ });
+ await test('signup errors distinguish rate limits and validation without exposing raw backend diagnostics',async()=>{
+  const h=harness();
+  assert(h.c.trialSignupErrorMessage({code:'over_email_send_rate_limit'}).includes('รอสักครู่'));
+  assert(h.c.trialSignupErrorMessage({status:429,message:'Request rejected'}).includes('รอสักครู่'));
+  assert(h.c.trialSignupErrorMessage({code:'email_address_invalid'}).includes('รูปแบบอีเมล'));
+  assert(h.c.trialSignupErrorMessage({code:'weak_password'}).includes('รหัสผ่าน'));
+  assert(h.c.trialSignupErrorMessage({message:'Failed to fetch'}).includes('อินเทอร์เน็ต'));
+  const unknown='private backend diagnostic';
+  assert(!h.c.trialSignupErrorMessage({message:unknown}).includes(unknown));
+  assert(h.c.trialSignupErrorMessage({message:'Failed to generate confirmation email'}).includes('ส่งคำขอไม่สำเร็จ'));
+ });
  await test('approval uses the displayed version and grants no-expiry access',async()=>{
   const row={user_id:'b',email:'b@example.test',status:'pending',updated_at:'2026-10-24T09:00:00Z'};
   const h=harness(async name=>name==='review_trial_request'?{data:{user_id:'b',status:'approved'}}:{data:{items:[],total:0}});

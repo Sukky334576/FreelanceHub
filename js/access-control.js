@@ -95,6 +95,28 @@ async function loadApprovedSession() {
   await loadAllData();
   if (typeof currentTab !== 'undefined' && currentTab === 'settings' && isAccessAdmin()) loadTrialRequests(true);
 }
+function trialSignupErrorMessage(error) {
+  var code=error && error.code || '', message=error && error.message || '';
+  if ((error && error.status===429) || ['over_email_send_rate_limit','over_request_rate_limit'].includes(code) || /rate.?limit|too many requests/i.test(message)) {
+    return 'มีคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่';
+  }
+  if (/error sending (confirmation|recovery|magic link) (email|mail)|smtp|application.specific password/i.test(message)) {
+    return 'ระบบยังส่งอีเมลยืนยันไม่ได้ กรุณาแจ้งแอดมินให้ตรวจระบบส่งอีเมล แล้วลองสมัครอีกครั้งหลังแก้ไข';
+  }
+  if (['signup_disabled','email_provider_disabled'].includes(code) || /signups? (are |is )?(not allowed|disabled)|email.*(disabled|not allowed|not authorized)/i.test(message)) {
+    return 'ระบบยังไม่พร้อมรับสมัครด้วยอีเมล กรุณาติดต่อแอดมิน';
+  }
+  if (code==='email_address_invalid' || /invalid email|email address.*invalid/i.test(message)) {
+    return 'กรุณาตรวจสอบรูปแบบอีเมลแล้วลองอีกครั้ง';
+  }
+  if (code==='weak_password' || /password.*(weak|short|at least)/i.test(message)) {
+    return 'รหัสผ่านยังไม่ผ่านข้อกำหนด กรุณาใช้รหัสผ่านที่ยาวและคาดเดายากขึ้น';
+  }
+  if (/failed to fetch|network|load failed/i.test(message)) {
+    return 'เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง';
+  }
+  return 'ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง หากยังพบปัญหาให้ติดต่อแอดมิน';
+}
 async function handleTrialSignup(event) {
   event.preventDefault();
   var button=document.getElementById('signupSubmit'), error=document.getElementById('signupError');
@@ -104,6 +126,7 @@ async function handleTrialSignup(event) {
   var password=document.getElementById('signupPassword').value;
   var confirmPassword=document.getElementById('signupConfirmPassword').value;
   error.hidden=true;
+  document.getElementById('gateSignupResult').hidden=true;
   if (!name || !email || password.length<8 || password!==confirmPassword) {
     error.textContent=password!==confirmPassword ? 'รหัสผ่านทั้งสองช่องไม่ตรงกัน' : 'กรอกชื่อ อีเมล และรหัสผ่านอย่างน้อย 8 ตัวอักษรให้ครบ'; error.hidden=false;return;
   }
@@ -122,7 +145,7 @@ async function handleTrialSignup(event) {
       currentUser=result.data.user; await loadApprovedSession();
     }
   } catch(e) {
-    error.textContent=/rate|too many/i.test(e.message||'') ? 'มีคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่' : /email.*(disabled|not allowed|not authorized)|smtp/i.test(e.message||'') ? 'ระบบส่งอีเมลยังไม่พร้อม กรุณาติดต่อแอดมิน' : e.message || 'ส่งคำขอไม่สำเร็จ กรุณาลองใหม่';error.hidden=false;
+    error.textContent=trialSignupErrorMessage(e);error.hidden=false;
   } finally {button.disabled=false;button.textContent='ส่งคำขอทดลองใช้';}
 }
 async function handleAccountEmailChange(event) {
