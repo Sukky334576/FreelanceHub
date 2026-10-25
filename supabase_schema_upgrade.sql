@@ -604,7 +604,7 @@ BEGIN
   RETURNING balance INTO v_to_bal;
 
   INSERT INTO public.transfers (
-    user_id, from_wallet_id, to_wallet_id, amount, fee, date, notes, created_at
+    user_id, from_wallet_id, to_wallet_id, amount, fee, transfer_date, notes, created_at
   ) VALUES (
     auth.uid(), p_from_id, p_to_id, p_amount, p_fee, p_date, p_note, NOW()
   )
