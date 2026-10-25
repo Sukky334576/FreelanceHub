@@ -8,6 +8,14 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const repair = read('supabase/migrations/20261025022848_repair_transfer_date_column.sql');
 const oldRpc = read('tests/fixtures/transfer-rpc-before-date-repair.sql');
+const typeRepair = read('supabase/migrations/20261025023954_align_transaction_type_constraint.sql');
+const liveSchema = JSON.parse(read('tests/fixtures/transfer-live-schema-before-type-repair.json'));
+const typeDefinition = pg => pg.query(`SELECT pg_get_constraintdef(oid) definition, convalidated
+  FROM pg_constraint WHERE conrelid='public.transactions'::regclass AND conname='transactions_type_check'`)
+  .then(result => result.rows[0]);
+const contract = sql => sql.slice(sql.indexOf('-- BEGIN TRANSACTION TYPE CONTRACT'),
+  sql.indexOf('-- END TRANSACTION TYPE CONTRACT') + '-- END TRANSACTION TYPE CONTRACT'.length);
+
 const signature = 'public.execute_wallet_transfer(bigint,bigint,numeric,numeric,date,text)';
 const userA = '11111111-1111-1111-1111-111111111111';
 const userB = '22222222-2222-2222-2222-222222222222';
@@ -112,6 +120,50 @@ async function verifyTransfer(pg, from, to, fee = 0) {
       assert.deepEqual(await metadata(pg),after);
       assert.deepEqual(await state(pg),before);
     });
+    await test('exact production CHECK constraints reproduce 23514 after date repair with atomic rollback', async () => {
+      // Model the live checks, including constraints absent from the old tests.
+      for (const c of liveSchema.constraints.filter(c => c.type === 'c')) {
+        await pg.exec(`ALTER TABLE public.${c.table} DROP CONSTRAINT IF EXISTS ${c.name};
+          ALTER TABLE public.${c.table} ADD CONSTRAINT ${c.name} ${c.definition};`);
+      }
+      for (const c of liveSchema.columns.filter(c => c.nullable === 'NO')) {
+        await pg.exec(`ALTER TABLE public.${c.table} ALTER COLUMN ${c.column} SET NOT NULL`);
+      }
+      assert.equal(liveSchema.triggers,null); // Verified: no live user triggers in this path.
+      const [from,to] = await pair(pg), before = await state(pg);
+      await as(pg,userA);
+      await assert.rejects(transfer(pg,from,to), error => error.code === '23514' &&
+        error.message.includes('transactions_type_check'));
+      assert.deepEqual(await state(pg),before);
+    });
+    await test('type repair preserves existing entries, RPC, RLS and privileges; repeated repair is a no-op', async () => {
+      await pg.query(`INSERT INTO transactions(user_id,type,category,amount,date)
+        VALUES ($1,'รายรับ','fixture',10,'2026-10-01'),($1,'รายจ่าย','fixture',5,'2026-10-02')`,[userA]);
+      const before = await state(pg), rpc = await metadata(pg);
+      const securityQuery = `SELECT relname,relrowsecurity,relforcerowsecurity,relacl
+        FROM pg_class WHERE oid IN ('public.transactions'::regclass,'public.wallets'::regclass,'public.transfers'::regclass) ORDER BY relname`;
+      const security = (await pg.query(securityQuery)).rows;
+      await pg.exec(typeRepair);
+      assert.deepEqual(await state(pg),before);
+      assert.deepEqual(await metadata(pg),rpc);
+      assert.deepEqual((await pg.query(securityQuery)).rows,security);
+      const definition = await typeDefinition(pg);
+      assert.equal(definition.convalidated,true);
+      assert.match(definition.definition,/โอนเงิน/); assert.match(definition.definition,/ปรับยอดเงิน/);
+      await pg.exec(typeRepair);
+      assert.deepEqual(await typeDefinition(pg),definition);
+      assert.deepEqual(await state(pg),before);
+    });
+    await test('validated type allow-list accepts reconciliation and rejects unknown types', async () => {
+      const before = await state(pg);
+      await pg.exec('BEGIN');
+      await pg.query(`INSERT INTO transactions(user_id,type,category,amount,date)
+        VALUES ($1,'ปรับยอดเงิน','ปรับยอดเงิน',20,'2026-10-01')`,[userA]);
+      await pg.exec('ROLLBACK');
+      await assert.rejects(pg.query(`INSERT INTO transactions(user_id,type,category,amount,date)
+        VALUES ($1,'invalid-type','fixture',20,'2026-10-01')`,[userA]), error => error.code === '23514');
+      assert.deepEqual(await state(pg),before);
+    });
     await test('bank-to-cash transfer of 400 saves the chosen date and two neutral ledger legs', async () => {
       const [from,to] = await pair(pg);
       await verifyTransfer(pg,from,to);
@@ -166,6 +218,30 @@ async function verifyTransfer(pg, from, to, fee = 0) {
 
   const fresh = await database(false);
   try {
+    await test('fresh install, full upgrade and targeted repair share the exact same type contract', async () => {
+      assert.equal(contract(typeRepair),contract(read('supabase_migration_v2.sql')));
+      assert.equal(contract(typeRepair),contract(read('supabase_schema_upgrade.sql')));
+      assert.equal((await typeDefinition(fresh)).convalidated,true);
+      await fresh.exec(typeRepair);
+    });
+    await test('unknown CHECK definitions are preserved and invalid existing data aborts validation', async () => {
+      await fresh.exec(`ALTER TABLE transactions DROP CONSTRAINT transactions_type_check;
+        ALTER TABLE transactions ADD CONSTRAINT transactions_type_check CHECK(type <> 'blocked')`);
+      const before = await typeDefinition(fresh);
+      await assert.rejects(fresh.exec(typeRepair),/Unexpected transactions_type_check/);
+      await fresh.exec('ROLLBACK');
+      assert.deepEqual(await typeDefinition(fresh),before);
+      await fresh.exec('ALTER TABLE transactions DROP CONSTRAINT transactions_type_check');
+      await fresh.query(`INSERT INTO transactions(user_id,type,category,amount) VALUES ($1,'legacy-unknown','fixture',1)`,[userA]);
+      const beforeRows = await state(fresh);
+      await assert.rejects(fresh.exec(typeRepair),error=>error.code === '23514');
+      await fresh.exec('ROLLBACK');
+      assert.deepEqual(await state(fresh),beforeRows);
+      assert.equal(await typeDefinition(fresh),undefined);
+      // Test-only cleanup; no production financial records are touched.
+      await fresh.exec("DELETE FROM transactions WHERE type='legacy-unknown'");
+      await fresh.exec(typeRepair);
+    });
     await test('fresh-install RPC works on the same transfer_date schema and repair is a no-op', async () => {
       const meta = await metadata(fresh);
       await fresh.exec(repair);
@@ -180,5 +256,5 @@ async function verifyTransfer(pg, from, to, fee = 0) {
       assert.equal((await fresh.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='public' AND table_name='transfers' AND column_name='date'")).rows[0].n,0);
     });
   } finally { await fresh.close(); }
-  console.log(`Transfer date regression: ${passed}/${passed} passed`);
+  console.log(`Transfer schema regression: ${passed}/${passed} passed`);
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });

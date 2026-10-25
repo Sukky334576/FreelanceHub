@@ -1,0 +1,378 @@
+{
+  "columns": [
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "id",
+      "default": "nextval('transactions_id_seq'::regclass)",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "transactions",
+      "column": "date",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "type",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "category",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "transactions",
+      "column": "amount",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "details",
+      "default": "''::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "related_job",
+      "default": "''::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "receipt_url",
+      "default": "''::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "transactions",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "transactions",
+      "column": "user_id",
+      "default": "auth.uid()",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "wallet_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "job_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "debt_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "card_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "transfer_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transactions",
+      "column": "bill_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "request_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "time without time zone",
+      "table": "transactions",
+      "column": "time",
+      "default": "CURRENT_TIME",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "transactions",
+      "column": "slip_url",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "transactions",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transfers",
+      "column": "id",
+      "default": "nextval('transfers_id_seq'::regclass)",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "transfers",
+      "column": "user_id",
+      "default": "auth.uid()",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "transfers",
+      "column": "from_wallet_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "bigint",
+      "table": "transfers",
+      "column": "to_wallet_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "transfers",
+      "column": "amount",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "transfers",
+      "column": "fee",
+      "default": "0.00",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "transfers",
+      "column": "transfer_date",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "transfers",
+      "column": "note",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "transfers",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "transfers",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "bigint",
+      "table": "wallets",
+      "column": "id",
+      "default": "nextval('wallets_id_seq'::regclass)",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "wallets",
+      "column": "user_id",
+      "default": "auth.uid()",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "wallets",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "wallets",
+      "column": "type",
+      "default": "'bank'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "wallets",
+      "column": "color",
+      "default": "'#168EA1'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "wallets",
+      "column": "icon",
+      "default": "'fa-building-columns'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "wallets",
+      "column": "balance",
+      "default": "0.00",
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "wallets",
+      "column": "opening_balance",
+      "default": "0.00",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "wallets",
+      "column": "opening_date",
+      "default": "CURRENT_DATE",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "wallets",
+      "column": "is_archived",
+      "default": "false",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "wallets",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "wallets",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "wallets",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "fk_transactions_transfer",
+      "type": "f",
+      "table": "transactions",
+      "validated": true,
+      "definition": "FOREIGN KEY (transfer_id) REFERENCES transfers(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "transactions_pkey",
+      "type": "p",
+      "table": "transactions",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "transactions_type_check",
+      "type": "c",
+      "table": "transactions",
+      "validated": true,
+      "definition": "CHECK ((type = ANY (ARRAY['รายรับ'::text, 'รายจ่าย'::text])))"
+    },
+    {
+      "name": "transactions_user_id_fkey",
+      "type": "f",
+      "table": "transactions",
+      "validated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id)"
+    },
+    {
+      "name": "transfers_amount_check",
+      "type": "c",
+      "table": "transfers",
+      "validated": true,
+      "definition": "CHECK ((amount > (0)::numeric))"
+    },
+    {
+      "name": "transfers_fee_check",
+      "type": "c",
+      "table": "transfers",
+      "validated": true,
+      "definition": "CHECK ((fee >= (0)::numeric))"
+    },
+    {
+      "name": "transfers_pkey",
+      "type": "p",
+      "table": "transfers",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "transfers_user_id_fkey",
+      "type": "f",
+      "table": "transfers",
+      "validated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id)"
+    },
+    {
+      "name": "wallets_pkey",
+      "type": "p",
+      "table": "wallets",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "wallets_user_id_fkey",
+      "type": "f",
+      "table": "wallets",
+      "validated": true,
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id)"
+    }
+  ],
+  "triggers": null
+}
